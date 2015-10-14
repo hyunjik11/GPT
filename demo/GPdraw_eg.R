@@ -1,8 +1,8 @@
 library(mvtnorm)
 require(MASS)
 # devtools::install_github("cran/rstiefel")
-library(rstiefel)
-source('~/Dropbox/OxWaSP/GP/GPtensor/GPdraws.R')
+#library(rstiefel)
+#source('~/Dropbox/OxWaSP/GP/GPtensor/GPdraws.R')
 
 
 

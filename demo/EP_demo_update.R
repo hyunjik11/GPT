@@ -1,6 +1,6 @@
 library(xlsx)
-# dyn.load("/homes/xlu/Dropbox/GP/GPT/src/U_phi.so")
-data = read.xlsx("/homes/xlu/Dropbox/GP/GPT/CCPP/Folds5x2_pp.xlsx",sheetIndex=1,header=T)
+# dyn.load("src/U_phi.so")
+data = read.xlsx("CCPP/Folds5x2_pp.xlsx",sheetIndex=1,header=T)
 
 input = as.matrix(data[,1:4]); output = data[,5]
 input = apply(input,2,function(x) {(x-mean(x))/sd(x)})

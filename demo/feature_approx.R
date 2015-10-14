@@ -1,5 +1,5 @@
 
-data = read.csv("/homes/xlu/Dropbox/GP/GPT/CASP.csv",header=T)
+data = read.csv("CASP.csv",header=T)
 N_train = 100 #round(nrow(data)/2); N_test = nrow(data) - N_train
 input = as.matrix(data[,2:10]); output = data[,1]
 input = apply(input,2,function(x) {(x-mean(x))/sd(x)})
