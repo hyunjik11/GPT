@@ -1,24 +1,28 @@
-\name{tensor_inf}
+\name{GPT_inf}
 \Rdversion{1.0}
 \alias{gpOut}
-\title{Evaluate the output of an Gaussian process model.}
+\title{Gibbs sampling inference for tucker GP.}
 \description{
-  evaluates the output of a given Gaussian process model.
+  learning W and U of the tucker GP.
 }
 \usage{
-gpOut(model, x)
+GPT_inf = function(X,y,sigma,n,r,sigmaRBF,q,generator,num_iterations,burnin)
 }
 \arguments{
-  \item{model}{the model for which the output is being evaluated.}
-  \item{x}{the input position for which the output is required.}
+  \item{X}{training inputs.}
+  \item{y}{training outputs.}
+  \item{sigma} {Gaussian noise.}
+  \item{n} {number of features in each dimension.}
+  \item{r} {dimension of lower rank approximation.}
+  \item{sigmaRBF} {Gaussian RBF kernel length scale.}
+  \item{q} {number of non-zero entries in w.}
+  \item{generator} {seed for generating random features.}
+  \item{num_iterations} {number of Gibbs iterations.}
+  \item{burnin} {number of burn in period.}
 }
 \value{
-  \item{y}{the output of the GP model. The function checks if there is a noise model associated with the GP, if there is, it is used, otherwise the mean of gpPosteriorMeanVar is returned.}
+  \item{W_array}{Path of W.}
+  \item{V_array} {Path of U's.}
+  \item{I} {Index matrix of non-zero entries in W.}
 }
-\seealso{
-\code{\link{gpCreate}, \link{gpPosteriorMeanVar}}.
-}
-\examples{
-## missing
-}
-\keyword{model}
+
