@@ -15,7 +15,6 @@ f_train = f[1:nrow(X_train)]
 library(xlsx)
 # dyn.load("/homes/xlu/Dropbox/GP/GPT/src/U_phi.so")
 data = read.xlsx("/homes/xlu/Dropbox/GP/GPT/CCPP/Folds5x2_pp.xlsx",sheetIndex=1,header=T)
-# data = read.xlsx("C:/Users/Xiaoyu Lu/Dropbox/GP/GPT/CCPP/Folds5x2_pp.xlsx",sheetIndex=1,header=T)
 
 input = as.matrix(data[,1:4]); output = data[,5]
 input = apply(input,2,function(x) {(x-mean(x))/sd(x)})
@@ -25,8 +24,6 @@ output = (output - y_mean)/y_std
 X_train = input[1:5000,1:4]
 X_test = input[5001:nrow(data),1:4]
 y_train = output[1:5000];y_test = output[5001:length(output)]
-# y_train_original = data[1:5000,5]
-# y_test_original = data[5001:length(output),5]
 
 sigma=0.2299;sigmaRBF=1.4332;generator=2;num_iterations=10;burnin=8
 q=2^4

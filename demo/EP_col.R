@@ -1,6 +1,19 @@
+library(xlsx)
+data = read.xlsx("/homes/xlu/Dropbox/GP/GPT/CCPP/Folds5x2_pp.xlsx",sheetIndex=1,header=T)
+
+input = as.matrix(data[,1:4]); output = data[,5]
+input = apply(input,2,function(x) {(x-mean(x))/sd(x)})
+y_mean = mean(data[1:5000,5]); y_std = sd(data[1:5000,5])
+output = (output - y_mean)/y_std
+
+X_train = input[1:5000,1:4]
+X_test = input[5001:nrow(data),1:4]
+y_train = output[1:5000];y_test = output[5001:length(output)]
 
 RMSE_train_r_col = c();RMSE_test_r_col = c();timer_r_col=c()
 r_vec = c(5,10,20,30,50);n=50;q=100
+
+
 for (i in 1:length(r_vec)) {
   r = r_vec[i]
   
@@ -26,16 +39,6 @@ for (i in 1:length(r_vec)) {
   timer_r_col[i] = (proc.time() - time0)[[1]]
 }
 
-
-# save(RMSE_train_r_col,file="RMSE_train_r_EPcol")
-# save(RMSE_test_r_col,file="RMSE_test_r_EPcol")
-# save(timer_r_col,file="timer_r_EPcol")
-# 
-# 
-# load("RMSE_train_r_file")   #### learn matrices
-# load("RMSE_test_r_file")
-# load("timer_r_file")
-# 
 
 par(mfrow=c(1,3))
 plot(r_vec,RMSE_train_r_col,type="l",col=3,main="RMSE on training set vs r, n=50, q=100",xlab="r",
@@ -98,13 +101,6 @@ for (i in 1:length(n_vec)) {
   timer_n_col[i] = (proc.time() - time0)[[1]]
 }
 
-save(RMSE_train_n_col,file="RMSE_train_n_EPcol")
-save(RMSE_test_n_col,file="RMSE_test_n_EPcol")
-save(timer_n_col,file="timer_n_EPcol")
-# load("RMSE_train_n_file")
-# load("RMSE_test_n_file")
-# load("timer_n_file")
-
 
 par(mfrow=c(1,3))
 plot(n_vec,RMSE_train_n_col,type="l",col=3,main="RMSE on training set vs n, r=20, q=100",xlab="n",
@@ -166,10 +162,6 @@ for (i in 1:length(q_vec)) {
   
   timer_q_col[i] = (proc.time() - time0)[[1]]
 }
-
-save(RMSE_train_q_col,file="RMSE_train_q_EPcol")
-save(RMSE_test_q_col,file="RMSE_test_q_EPcol")
-save(timer_q_col,file="timer_q_EPcol")
 
 
 par(mfrow=c(1,3))

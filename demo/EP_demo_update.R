@@ -1,7 +1,6 @@
 library(xlsx)
 # dyn.load("/homes/xlu/Dropbox/GP/GPT/src/U_phi.so")
 data = read.xlsx("/homes/xlu/Dropbox/GP/GPT/CCPP/Folds5x2_pp.xlsx",sheetIndex=1,header=T)
-# data = read.xlsx("C:/Users/Xiaoyu Lu/Dropbox/GP/GPT/CCPP/Folds5x2_pp.xlsx",sheetIndex=1,header=T)
 
 input = as.matrix(data[,1:4]); output = data[,5]
 input = apply(input,2,function(x) {(x-mean(x))/sd(x)})
@@ -11,8 +10,6 @@ output = (output - y_mean)/y_std
 X_train = input[1:5000,1:4]
 X_test = input[5001:nrow(data),1:4]
 y_train = output[1:5000];y_test = output[5001:length(output)]
-# y_train_original = data[1:5000,5]
-# y_test_original = data[5001:length(output),5]
 
 
 sigma=0.2299;n=10;r=10;sigmaRBF=1.4332;q=100;generator=200;num_iterations=10;burnin=8
@@ -128,9 +125,6 @@ abline(h=1215.832,col=2); text(100,1230,"timer exact = 1215.832")
 
 
 
-save(RMSE_train_n,file="RMSE_train_n_file")
-save(RMSE_test_n,file="RMSE_test_n_file")
-save(timer_n,file="timer_n_file")
 #####################################################################################################
 #investigate relationship with q
 X=X_train;y=y_train;sigma=0.2299;sigmaRBF=1.4332;q=100;generator=5;r=30;n=50
@@ -172,9 +166,6 @@ for (i in 1:4) {
   timer_q[i] = (proc.time() - time0)[[1]]
 }
 
-save(RMSE_train_q,file="RMSE_train_qfile")
-save(RMSE_test_q,file="RMSE_test_qfile")
-save(timer_q,file="timer_qfile")
 
 par(mfrow=c(1,3))
 plot(q_vec,RMSE_train_q,type="l",main="RMSE on training set vs q, r=30, n=100",xlab="q",
