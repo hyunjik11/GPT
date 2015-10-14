@@ -1,4 +1,5 @@
 exportPattern("^[[:alpha:]]+")
+useDynLib(GPT, .registration=TRUE)
 import(mvtnorm)
 import(MASS)
 import(Matrix)

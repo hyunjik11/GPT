@@ -5,7 +5,7 @@ Title: Gaussian Processes Tool-Kit
 Author: Xiaoyu Lu <xiaoyu.lu@new.ox.ac.uk>
 Maintainer: Xiaoyu Lu <xiaoyu.lu@new.ox.ac.uk>
 Imports:
-Depends: R (>= 2.8.0), Matrix, mvtnorm, MASS, magic, psych, plyr, plot3D
+Depends: R (>= 2.8.0), Matrix, mvtnorm, MASS, magic, psych, plyr, plot3D, rTensor
 Suggests: spam
 Description: Tensor Gaussian Process model
 License: none
