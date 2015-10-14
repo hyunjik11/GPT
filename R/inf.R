@@ -258,12 +258,5 @@ inf_VI = function(X,y,sigma,n,r,sigmaRBF,Q,generator,num_iterations,burnin){
 }
 
 
-RMSE = c()
-plot(y,type="l",ylim=range(y_fit,y,na.rm=T))
-for (i in 1:num_iterations) {
-  lines(y_fit[,i],col=i+1)
-  RMSE[i] = round(sqrt(sum((y_fit[,i]-y)^2)/length(y)),3)
-}
-
 
 
