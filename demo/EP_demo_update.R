@@ -12,7 +12,7 @@ X_test = input[5001:nrow(data),1:4]
 y_train = output[1:5000];y_test = output[5001:length(output)]
 
 
-sigma=0.2299;n=10;r=10;sigmaRBF=1.4332;q=100;generator=200;num_iterations=10;burnin=8
+sigma=0.2299;n=10;r=10;sigmaRBF=1.4332;q=100;num_iterations=10;burnin=8
 X=X_train;y=y_train;sigma=0.2299;n=20;q=100;generator=5;num_iterations=50;r=10;burnin=5
 
 RMSE_train_r = c();RMSE_test_r = c();timer_r=c()
