@@ -1,9 +1,9 @@
 using Distributions
 using GaussianProcess
-using TGP
+using GPT_SGLD
 f=SECov(1.4,1)
 gp=GP(0,f,4)
-N=10000;
+N=1000;
 x1=rand(Uniform(0,50),N);
 x2=rand(Uniform(30,100),N);
 x3=rand(Uniform(1000,1020),N);

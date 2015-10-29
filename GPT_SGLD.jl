@@ -18,6 +18,25 @@ function geod(U,mom,t)
     return [U mom]*E[:,1:r]*exp(-t*A)
 end
 
+function datawhitening(X) 
+    for i = 1:size(x,2)   
+        x[:,i] = (x[:,i] - mean(x[:,i]))/std(x[:,i])   
+    end
+    return(x)
+end
+
+function feature(X,n,sigmaRBF)
+    N,D=size(X)
+    phi=Array(Float64,D,n,N)
+    for i=1:N
+    	Z=randn(D,n)/sigmaRBF
+	b=rand(D,n)
+	x=repmat(X[i,:],n,1)
+	phi[:,:,i]=sqrt(2/n)*cos(x'.*Z+b*2*pi)
+    end
+    return phi
+end
+
 function GPT_SGLDERM(phi,y,sigma,sigma_w,r,Q,m,epsw,epsU,maxepoch)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # sigma is the s.d. of the observed values
