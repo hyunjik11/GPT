@@ -2,42 +2,83 @@
 module GPT_SGLD
 
 using Distributions
+using PyPlot
 
-export proj,geod,GPT_SGLDERM
+export proj,geod,datawhitening,feature,pred,RMSE,GPT_SGLDERM
     
 # define proj for Stiefel manifold
-function proj(U,V)
+function proj(U::Array,V::Array)
     return V-U*(U'*V+V'*U)/2
 end
 
 # define geod for Stiefel manifold
-function geod(U,mom,t)
+function geod(U::Array,mom::Array,t::Real)
+    r=size(U,2)
     A=U'*mom
     temp=[A -mom'*mom;eye(r) A]
-    E=exp(t*temp)
-    return [U mom]*E[:,1:r]*exp(-t*A)
+    E=expm(t*temp)
+    return [U mom]*E[:,1:r]*expm(-t*A)
 end
 
-function datawhitening(X) 
-    for i = 1:size(x,2)   
-        x[:,i] = (x[:,i] - mean(x[:,i]))/std(x[:,i])   
+# centre and normalise data X so that each col has sd=1
+function datawhitening(X::Array) 
+    for i = 1:size(X,2)   
+        X[:,i] = (X[:,i] - mean(X[:,i]))/std(X[:,i])   
     end
-    return(x)
+    return X
 end
 
-function feature(X,n,sigmaRBF)
+#extract features from tensor decomp of each row of X
+function feature(X::Array,n::Integer,sigmaRBF::Real,seed::Integer)
+    srand(seed)
     N,D=size(X)
     phi=Array(Float64,D,n,N)
     for i=1:N
-    	Z=randn(D,n)/sigmaRBF
-	b=rand(D,n)
-	x=repmat(X[i,:],n,1)
-	phi[:,:,i]=sqrt(2/n)*cos(x'.*Z+b*2*pi)
+        Z=randn(D,n)/sigmaRBF
+    b=rand(D,n)
+    x=repmat(X[i,:],n,1)
+    phi[:,:,i]=sqrt(2/n)*cos(x'.*Z+b*2*pi)
     end
     return phi
 end
 
-function GPT_SGLDERM(phi,y,sigma,sigma_w,r,Q,m,epsw,epsU,maxepoch)
+#compute predictions from w,U,I
+function pred(w::Array,U::Array,I::Array,phitest::Array)
+    D,n,test_size=size(phitest)
+    Q=length(w)
+    r=size(U,2)
+    temp=Array(Float64,D,r,test_size)
+    # compute V st V[q,i]=prod_{k=1 to D}(temp[k,I[q,k],i])
+    V=Array(Float64,Q,test_size)
+    # compute fhat where fhat[i]=V[:,i]'w
+    fhat=Array(Float64,test_size)
+    for i=1:test_size
+        for k=1:D
+            temp[k,:,i]=phitest[k,:,i]*U[:,:,k] 
+        end
+        for q=1:Q
+            V[q,i]=prod(diag(temp[:,vec(I[q,:]),i]))
+        end
+        fhat[i]=dot(V[:,i],w)
+    end
+    return fhat
+end
+
+#plot RMSE over iterations
+function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array)
+    Ntest=length(ytest);
+    T=size(w_store,2);
+    vecRMSE=Array(Float64,T);
+    for i=1:T
+        fhat=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
+    	vecRMSE[i]=norm(ytest-fhat)/sqrt(Ntest);
+    end
+    plot(vecRMSE)
+    return minimum(vecRMSE)
+end
+    
+
+function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,maxepoch::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # sigma is the s.d. of the observed values
     # sigma_w is the s.d. for the Guassian prior on w
@@ -45,7 +86,7 @@ function GPT_SGLDERM(phi,y,sigma,sigma_w,r,Q,m,epsw,epsU,maxepoch)
     # maxepoch is the number of sweeps through whole dataset
     
     D,n,N=size(phi)
-    numbatches=ceil(N/m)
+    numbatches=int(ceil(N/m))
     
     # initialise w,U^(k)
     w_store=Array(Float64,Q,numbatches*maxepoch)
@@ -54,11 +95,16 @@ function GPT_SGLDERM(phi,y,sigma,sigma_w,r,Q,m,epsw,epsU,maxepoch)
     U=Array(Float64,n,r,D)
     for k=1:D
         Z=randn(r,n)
-        U[:,:,k]=transpose(Z/sqrtm(Z*Z')) #sample uniformly from V_{n,r}
+        U[:,:,k]=transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from V_{n,r}
     end
     
     # fix the random non-zero locations of w
-    I=rand(DiscreteUniform(1, r),Q,D) 
+    l=sample(0:(r^D-1),Q,replace=false)
+    I=Array(Int32,Q,D)
+    for q in 1:Q
+        I[q,:]=digits(l[q],r,D)+1
+    end
+    # this way the locations are drawn uniformly from the lattice [r^D] without replacement
     # so I_qd=index of dth dim of qth non-zero
     
     for epoch=1:maxepoch
@@ -85,7 +131,7 @@ function GPT_SGLDERM(phi,y,sigma,sigma_w,r,Q,m,epsw,epsU,maxepoch)
                 for q=1:Q
                     V[q,i]=prod(diag(temp[:,vec(I[q,:]),i]))
                 end
-                fhat[i]=transpose(V[:,i])*w
+                fhat[i]=dot(V[:,i],w)
             end
 
             # now can compute gradw, the stochastic gradient of log post wrt w
@@ -100,9 +146,11 @@ function GPT_SGLDERM(phi,y,sigma,sigma_w,r,Q,m,epsw,epsU,maxepoch)
             # now compute a_l^(k)(x_i) for l=1,...,r k=1,..,D and store in A
             A=zeros(r,D,batch_size)
             for i=1:batch_size
-                for l in unique(I[:,k])
-                    index=findin(I[:,k],l) #I_l
-                    A[l,:,i]=transpose(reshape(U_phi[index,i,:],length(index),D))*w[index] 
+                for k=1:D
+                    for l in unique(I[:,k])
+                        index=findin(I[:,k],l) #I_l
+                        A[l,:,i]=transpose(reshape(U_phi[index,i,:],length(index),D))*w[index] 
+                    end
                 end
             end
 
@@ -126,7 +174,7 @@ function GPT_SGLDERM(phi,y,sigma,sigma_w,r,Q,m,epsw,epsU,maxepoch)
             # SGLDERM step on U
             for k=1:D
                 mom=proj(U[:,:,k],sqrt(epsU)*gradU[:,:,k]/2+randn(n,r))
-                U[:,:,k]+=geod(U[:,:,k],mom,sqrt(epsU))
+                U[:,:,k]=geod(U[:,:,k],mom,sqrt(epsU))
                 U_store[:,:,k,numbatches*(epoch-1)+batch]=U[:,:,k]
             end
         end

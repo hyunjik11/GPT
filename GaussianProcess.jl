@@ -65,7 +65,7 @@ function GPrand(gp::GP,x_values)
     n=size(x_values,1);
     m=Mean(gp,x_values);
     K=Cov(gp,x_values);
-    R=chol(K); #R'*R=cov
+    R=chol(K+1e-6*eye(n)); #R'*R=cov. Add small diag matrix to ensure K is non-singular
     z=randn(n);
     return R'*z+m
 end
