@@ -74,7 +74,7 @@ function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array
     	vecRMSE[i]=norm(ytest-fhat)/sqrt(Ntest);
     end
     plot(vecRMSE)
-    return minimum(vecRMSE)
+    return minimum(vecRMSE),indmin(vecRMSE)
 end
     
 
@@ -89,8 +89,8 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q:
     numbatches=int(ceil(N/m))
     
     # initialise w,U^(k)
-    w_store=Array(Float64,Q,numbatches*maxepoch)
-    U_store=Array(Float64,n,r,D,numbatches*maxepoch)
+    w_store=Array(Float64,Q,maxepoch)
+    U_store=Array(Float64,n,r,D,maxepoch)
     w=sigma_w*randn(Q)
     U=Array(Float64,n,r,D)
     for k=1:D
@@ -170,14 +170,14 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q:
 
             # SGLD step on w
             w[:]+=epsw*gradw/2 +sqrt(2*epsw)*randn(Q)
-            w_store[:,numbatches*(epoch-1)+batch]=w
             # SGLDERM step on U
             for k=1:D
                 mom=proj(U[:,:,k],sqrt(epsU)*gradU[:,:,k]/2+randn(n,r))
                 U[:,:,k]=geod(U[:,:,k],mom,sqrt(epsU))
-                U_store[:,:,k,numbatches*(epoch-1)+batch]=U[:,:,k]
             end
         end
+	w_store[:,epoch]=w
+	U_store[:,:,:,epoch]=U
     end
     return w_store,U_store,I
 end
