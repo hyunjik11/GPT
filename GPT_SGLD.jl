@@ -3,6 +3,7 @@ module GPT_SGLD
 
 using Distributions
 using PyPlot
+using Debug
 
 export proj,geod,datawhitening,feature,pred,RMSE,GPT_SGLDERM
     
@@ -13,11 +14,17 @@ end
 
 # define geod for Stiefel manifold
 function geod(U::Array,mom::Array,t::Real)
-    r=size(U,2)
+    n,r=size(U)
     A=U'*mom
     temp=[A -mom'*mom;eye(r) A]
-    E=expm(t*temp)
-    return [U mom]*E[:,1:r]*expm(-t*A)
+    E=expm(t*temp) #can become NaN when temp too large
+    tmp=[U mom]*E[:,1:r]*expm(-t*A)
+    #ensure that tmp has cols of norm 1
+    normconst=Array(Float64,1,r);
+    for l=1:r
+    	normconst[1,l]=norm(tmp[:,l])
+    end
+    return tmp./repmat(normconst,n,1)
 end
 
 # centre and normalise data X so that each col has sd=1
@@ -73,12 +80,12 @@ function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array
         fhat=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
     	vecRMSE[i]=norm(ytest-fhat)/sqrt(Ntest);
     end
-    plot(vecRMSE)
+    #plot(vecRMSE)
     return minimum(vecRMSE),indmin(vecRMSE)
 end
     
 
-function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,maxepoch::Integer)
+@debug function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,maxepoch::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # sigma is the s.d. of the observed values
     # sigma_w is the s.d. for the Guassian prior on w
@@ -133,16 +140,18 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q:
                 end
                 fhat[i]=dot(V[:,i],w)
             end
+	    println("epoch=",epoch," batch=",batch," meanfhat=",mean(fhat))	
 
             # now can compute gradw, the stochastic gradient of log post wrt w
             gradw=((N/batch_size)*V*(y_batch-fhat)-w)/(2*sigma_w^2)
+	    println("epoch=",epoch," batch=",batch," meangradw=",mean(gradw))
 
             # compute U_phi[q,i,k]=expression in big brackets in (11)
             U_phi=Array(Float64,Q,batch_size,D)
             for k=1:D
                 U_phi[:,:,k]=V./reshape(temp[k,I[:,k],:],Q,batch_size)
+		println("epoch=",epoch," batch=",batch," k=",k," meanU_phi=",mean(U_phi[:,:,k]))
             end
-
             # now compute a_l^(k)(x_i) for l=1,...,r k=1,..,D and store in A
             A=zeros(r,D,batch_size)
             for i=1:batch_size
@@ -153,7 +162,6 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q:
                     end
                 end
             end
-
             # compute Psi as in (12)
             Psi=Array(Float64,n*r,batch_size,D)
             for i=1:batch_size
@@ -161,19 +169,23 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q:
                     Psi[:,i,k]=kron(A[:,k,i],vec(phi_batch[k,:,i]))
                 end
             end
-
             # can now compute gradU where gradU[:,:,k]=stochastic gradient of log post wrt U^(k)
             gradU=Array(Float64,n,r,D)
             for k=1:D
                 gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y[batch]-fhat)/(2*sigma^2),n,r)
+		println("epoch=",epoch," batch=",batch," k=",k," meangradU=",mean(gradU[:,:,k]))
             end
 
             # SGLD step on w
             w[:]+=epsw*gradw/2 +sqrt(2*epsw)*randn(Q)
+	    println("epoch=",epoch," batch=",batch,"meanw=",mean(w))
             # SGLDERM step on U
             for k=1:D
                 mom=proj(U[:,:,k],sqrt(epsU)*gradU[:,:,k]/2+randn(n,r))
-                U[:,:,k]=geod(U[:,:,k],mom,sqrt(epsU))
+		println("epoch=",epoch," batch=",batch," k=",k," meanmom=",mean(mom))
+                temp=geod(U[:,:,k],mom,sqrt(epsU))
+		println("epoch=",epoch," batch=",batch," k=",k," meanUk=",mean([norm(temp[:,l]) for l=1:r]))
+		U[:,:,k]=temp;
             end
         end
 	w_store[:,epoch]=w
