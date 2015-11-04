@@ -8,15 +8,15 @@ using Debug
 export proj,geod,datawhitening,feature,pred,RMSE,GPT_SGLDERM
     
 # define proj for Stiefel manifold
-function proj(U::Array,V::Array,a::Real)
-    return a*V-U*(U'*V+V'*U)/2
+function proj(U::Array,V::Array)
+    return V-U*(U'*V+V'*U)/2
 end
 
 # define geod for Stiefel manifold
-function geod(U::Array,mom::Array,t::Real,a::Real)
+function geod(U::Array,mom::Array,t::Real)
     n,r=size(U)
-    A=U'*mom/a
-    temp=[A -mom'*mom/a;eye(r) A]
+    A=U'*mom
+    temp=[A -mom'*mom;eye(r) A]
     E=expm(t*temp) #can become NaN when temp too large
     tmp=[U mom]*E[:,1:r]*expm(-t*A)
     #ensure that tmp has cols of norm a
@@ -24,7 +24,7 @@ function geod(U::Array,mom::Array,t::Real,a::Real)
     for l=1:r
     	normconst[1,l]=norm(tmp[:,l])
     end
-    return sqrt(a)*tmp./repmat(normconst,n,1)
+    return tmp./repmat(normconst,n,1)
 end
 
 # centre and normalise data X so that each col has sd=1
@@ -85,7 +85,7 @@ function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array
 end
     
 
-@debug function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q::Integer,m::Integer,a::Real,epsw::Real,epsU::Real,maxepoch::Integer)
+@debug function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,maxepoch::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # sigma is the s.d. of the observed values
     # sigma_w is the s.d. for the Guassian prior on w
@@ -104,7 +104,7 @@ end
     U=Array(Float64,n,r,D)
     for k=1:D
         Z=randn(r,n)
-        U[:,:,k]=sqrt(a)*transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from a*V_{n,r}
+        U[:,:,k]=transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from a*V_{n,r}
     end
     
     # fix the random non-zero locations of w
