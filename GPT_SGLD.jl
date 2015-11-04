@@ -8,23 +8,23 @@ using Debug
 export proj,geod,datawhitening,feature,pred,RMSE,GPT_SGLDERM
     
 # define proj for Stiefel manifold
-function proj(U::Array,V::Array)
-    return V-U*(U'*V+V'*U)/2
+function proj(U::Array,V::Array,a::Real)
+    return a*V-U*(U'*V+V'*U)/2
 end
 
 # define geod for Stiefel manifold
-function geod(U::Array,mom::Array,t::Real)
+function geod(U::Array,mom::Array,t::Real,a::Real)
     n,r=size(U)
-    A=U'*mom
-    temp=[A -mom'*mom;eye(r) A]
+    A=U'*mom/a
+    temp=[A -mom'*mom/a;eye(r) A]
     E=expm(t*temp) #can become NaN when temp too large
     tmp=[U mom]*E[:,1:r]*expm(-t*A)
-    #ensure that tmp has cols of norm 1
+    #ensure that tmp has cols of norm a
     normconst=Array(Float64,1,r);
     for l=1:r
     	normconst[1,l]=norm(tmp[:,l])
     end
-    return tmp./repmat(normconst,n,1)
+    return sqrt(a)*tmp./repmat(normconst,n,1)
 end
 
 # centre and normalise data X so that each col has sd=1
@@ -42,9 +42,9 @@ function feature(X::Array,n::Integer,sigmaRBF::Real,seed::Integer)
     phi=Array(Float64,D,n,N)
     for i=1:N
         Z=randn(D,n)/sigmaRBF
-    b=rand(D,n)
-    x=repmat(X[i,:],n,1)
-    phi[:,:,i]=sqrt(2/n)*cos(x'.*Z+b*2*pi)
+        b=rand(D,n)
+        x=repmat(X[i,:],n,1)
+        phi[:,:,i]=sqrt(2/n)*cos(x'.*Z+b*2*pi)
     end
     return phi
 end
@@ -85,10 +85,11 @@ function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array
 end
     
 
-@debug function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,maxepoch::Integer)
+@debug function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q::Integer,m::Integer,a::Real,epsw::Real,epsU::Real,maxepoch::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # sigma is the s.d. of the observed values
     # sigma_w is the s.d. for the Guassian prior on w
+    # a is the scale for the Stiefel manifold
     # epsw,epsU are the epsilons for w and U resp.
     # maxepoch is the number of sweeps through whole dataset
     
@@ -99,10 +100,11 @@ end
     w_store=Array(Float64,Q,maxepoch)
     U_store=Array(Float64,n,r,D,maxepoch)
     w=sigma_w*randn(Q)
+    #println("w= ",w)
     U=Array(Float64,n,r,D)
     for k=1:D
         Z=randn(r,n)
-        U[:,:,k]=transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from V_{n,r}
+        U[:,:,k]=sqrt(a)*transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from a*V_{n,r}
     end
     
     # fix the random non-zero locations of w
@@ -140,17 +142,19 @@ end
                 end
                 fhat[i]=dot(V[:,i],w)
             end
-	    println("epoch=",epoch," batch=",batch," meanfhat=",mean(fhat))	
-
+	    println("epoch=",epoch," batch=",batch," stdV=",std(V))	
+	    #println(V)
+	    println("fhat= ",fhat)
+	    println("epoch=",epoch," batch=",batch," meanw=",mean(w), " stdw=", std(w))
             # now can compute gradw, the stochastic gradient of log post wrt w
-            gradw=((N/batch_size)*V*(y_batch-fhat)-w)/(2*sigma_w^2)
-	    println("epoch=",epoch," batch=",batch," meangradw=",mean(gradw))
+            gradw=((N/batch_size)*V*(y_batch-fhat)-w)/(sigma_w^2)
+	    println("epoch=",epoch," batch=",batch," gradw=",gradw)
 
             # compute U_phi[q,i,k]=expression in big brackets in (11)
             U_phi=Array(Float64,Q,batch_size,D)
             for k=1:D
                 U_phi[:,:,k]=V./reshape(temp[k,I[:,k],:],Q,batch_size)
-		println("epoch=",epoch," batch=",batch," k=",k," meanU_phi=",mean(U_phi[:,:,k]))
+		println("epoch=",epoch," batch=",batch," k=",k," stdU_phi=",std(U_phi[:,:,k]))
             end
             # now compute a_l^(k)(x_i) for l=1,...,r k=1,..,D and store in A
             A=zeros(r,D,batch_size)
@@ -169,23 +173,25 @@ end
                     Psi[:,i,k]=kron(A[:,k,i],vec(phi_batch[k,:,i]))
                 end
             end
+	    for k=1:D
+		println("epoch=",epoch," batch=",batch," k=",k," stdPsi=",std(Psi[:,:,k]));
+	    end
             # can now compute gradU where gradU[:,:,k]=stochastic gradient of log post wrt U^(k)
             gradU=Array(Float64,n,r,D)
             for k=1:D
-                gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y[batch]-fhat)/(2*sigma^2),n,r)
-		println("epoch=",epoch," batch=",batch," k=",k," meangradU=",mean(gradU[:,:,k]))
+                gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y[batch]-fhat)/(sigma^2),n,r)
+		println("epoch=",epoch," batch=",batch," k=",k," stdgradU=",std(gradU[:,:,k]))
             end
 
             # SGLD step on w
             w[:]+=epsw*gradw/2 +sqrt(2*epsw)*randn(Q)
-	    println("epoch=",epoch," batch=",batch,"meanw=",mean(w))
+	    #println("epoch=",epoch," batch=",batch,"stdw=",std(w))
             # SGLDERM step on U
             for k=1:D
-                mom=proj(U[:,:,k],sqrt(epsU)*gradU[:,:,k]/2+randn(n,r))
-		println("epoch=",epoch," batch=",batch," k=",k," meanmom=",mean(mom))
-                temp=geod(U[:,:,k],mom,sqrt(epsU))
-		println("epoch=",epoch," batch=",batch," k=",k," meanUk=",mean([norm(temp[:,l]) for l=1:r]))
-		U[:,:,k]=temp;
+		println("epoch=",epoch," batch=",batch," k=",k," stdUk=",std(U[:,:,k]))
+                mom=proj(U[:,:,k],sqrt(epsU)*gradU[:,:,k]/2+randn(n,r),a)
+		println("epoch=",epoch," batch=",batch," k=",k," stdmom=",std(mom))
+                U[:,:,k]=geod(U[:,:,k],mom,sqrt(epsU),a)
             end
         end
 	w_store[:,epoch]=w
