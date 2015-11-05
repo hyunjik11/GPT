@@ -28,7 +28,7 @@ end
 
 function fhatdraw(X,n,sigmaRBF,r,Q)
     N,D=size(X)
-    phi=feature(X,n,sigmaRBF,17)
+    phi=feature(X,n,sigmaRBF,rand(1:2^10))
     sigma_w=sqrt(n^D/Q)
     w=sigma_w*randn(Q)
     U=Array(Float64,n,r,D)
