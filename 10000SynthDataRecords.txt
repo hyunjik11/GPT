@@ -1,4 +1,17 @@
 10000SynthData Records:
-RMSE=1.112  seed=17;sigma=0.2;sigmaRBF=1.4;n=100;r=10;Q=100;m=100;epsw=1;epsU=1e-7;maxepoch=5;
-RMSE=1.07387;seed=17;sigma=0.2;sigmaRBF=1.4;n=100;r=10;Q=100;m=100;epsw=0.001 epsU=1.0e-7;maxepoch=10; (avg of last two fhats)
+Mean prediction gives RMSE 1.0798
+Using GP gives RMSE 0.2046 in 4434 seconds
+RMSE=1.0738;seed=17;sigma=0.2;sigmaRBF=1.4;n=100;r=10;Q=100;m=100;epsw=0.001;epsU=1.0e-7;maxepoch=10;begin_ind=2;
+RMSE=0.9048;seed=17;sigma=0.2;sigmaRBF=1.4;n=100;r=10;Q=100;m=100;epsw=10.0;epsU=1.0e-8;burnin=5;maxepoch=5;begin_ind=2;
+RMSE=0.9046;seed=17;sigma=0.2;sigmaRBF=1.4;n=100;r=10;Q=100;m=100;epsw=10.0;epsU=1.0e-8;
+RMSE=0.7533;seed=17;sigma=0.2;sigmaRBF=1.4;n=100;r=10;Q=100;m=100;epsw=10;epsU=2.0e-9;burnin=0;maxepoch=5;begin_ind=125;
+RMSE=0.7167;seed=17;sigma=0.2;sigmaRBF=1.4;n=100;r=10;Q=100;m=100;epsw=18;epsU=2.0e-9;burnin=0;maxepoch=5;begin_ind=193 
+RMSE=0.6175;seed=17;sigma=0.2;sigmaRBF=1.4;n=100;r=10;Q=100;m=100;epsw=10;epsU=1.0e-10;burnin=0;maxepoch=5;begin_ind=3 
+RMSE=0.6088;seed=17;sigma=0.2;sigmaRBF=1.4;n=100;r=10;Q=100;m=100;epsw=10;epsU=1.0e-13;burnin=0;maxepoch=5;begin_ind=3 
+RMSE=0.5331;seed=17;sigma=0.2;sigmaRBF=1.4;n=100;r=10;Q=100;m=100;epsw=10;epsU=1.0e-13;burnin=0;maxepoch=10;begin_ind=8;
+RMSE=0.4480;seed=17;sigma=0.2;sigmaRBF=1.4;n=100;r=10;Q=100;m=100;epsw=35;epsU=1.0e-13;burnin=5;maxepoch=5;begin_ind=35;
+RMSE=0.4205;seed=17;sigma=0.2;sigmaRBF=1.4;n=100;r=10;Q=100;m=100;epsw=35;epsU=1.0e-13;burnin=15;maxepoch=5;begin_ind=18;
+RMSE=0.3788;seed=17;sigma=0.2;sigmaRBF=1.4;n=100;r=10;Q=100;m=100;epsw=35;epsU=1.0e-14;burnin=100;maxepoch=10;begin_ind=6; 
+
+
 
