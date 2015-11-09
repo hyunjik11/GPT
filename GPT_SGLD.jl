@@ -4,7 +4,7 @@ module GPT_SGLD
 using Distributions
 using PyPlot
 
-export proj,geod,datawhitening,feature,pred,RMSE,GPT_SGLDERM
+export proj,geod,datawhitening,feature,pred,RMSE,GPT_SGLDERM,SDexp
     
 # define proj for Stiefel manifold
 function proj(U::Array,V::Array)
@@ -85,7 +85,7 @@ function pred(w::Array,U::Array,I::Array,phitest::Array)
     return fhat
 end
 
-#plot RMSE over iterations
+#work out minimum RMSE by averaging over predictions, starting from last prediction
 function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array)
     Ntest=length(ytest);
     T=size(w_store,2);
@@ -96,6 +96,17 @@ function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array
 	vecRMSE[i]=norm(ytest-meanfhat/i)/sqrt(Ntest);
     end
     return minimum(vecRMSE),indmin(vecRMSE)
+end
+
+#write minRMSE to "StdOut.txt"
+function SDexp(phitrain,phitest,ytrain,ytest,ytrainStd,seed,sigma,sigmaRBF,n,r,Q,m,epsw,epsU,burnin,maxepoch)
+	D=size(phitrain,2);sigmaw=sqrt(n^D/Q); 
+	outfile=open("StdOutSiris.txt","a")
+	w_store,U_store,I=GPT_SGLDERM(phitrain,ytrain,sigma,sigmaw,r,Q,m,epsw,epsU,burnin,maxepoch);
+	minRMSE,minind=RMSE(w_store,U_store,I,phitest,ytest);
+	println(outfile,"RMSE=",ytrainStd*minRMSE,";seed=",seed,";sigma=",sigma,";sigmaRBF=",sigmaRBF,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=", epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch,";begin_ind=",minind);
+	close(outfile)
+	return w_store,U_store,I
 end
     
 
