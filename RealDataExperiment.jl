@@ -1,7 +1,7 @@
 using GPT_SGLD
 using Distributions
 using DataFrames
-using GaussianProcess
+#using GaussianProcess
 
 if 1==0
 tic()
@@ -13,7 +13,7 @@ toc()
 println("RMSE for GP=",ytrainStd*norm(ytest-gp_pred)/sqrt(N-Ntrain))
 end
 
-@everywhere data=readtable("Folds5x2_pp.csv", header = true);
+@everywhere data=DataFrames.readtable("Folds5x2_pp.csv", header = true);
 @everywhere data = convert(Array,data);
 @everywhere N=size(data,1);
 @everywhere D=4;
@@ -30,24 +30,24 @@ end
 	end
 @everywhere ytrainMean=mean(ytrain);
 @everywhere ytrainStd=std(ytrain);
-@everywhere Xtrain = datawhitening(Xtrain);
-@everywhere ytrain=datawhitening(ytrain);
+@everywhere Xtrain = GPT_SGLD.datawhitening(Xtrain);
+@everywhere ytrain=GPT_SGLD.datawhitening(ytrain);
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
 @everywhere burnin=17;
 @everywhere maxepoch=3;
-@everywhere t=((50,50),(50,100),(50,150),(50,200),(100,50),(100,100),(100,150),(100,200),(200,50),(200,100),(200,150),(200,200),(400,50),(400,100),(400,150),(400,200))
+@everywhere t=((50,50),(50,100),(50,150),(50,200),(100,50),(100,100),(100,150),(100,200),(200,50),(200,100),(200,150),(200,200),(400,50),(400,100),(400,150),(400,200));
     @parallel for  i=1:length(t)
         m,n=t[i]
-	phitrain=feature(Xtrain,n,sigmaRBF,seed);
-	phitest=feature(Xtest,n,sigmaRBF,seed);
+	phitrain=GPT_SGLD.feature(Xtrain,n,sigmaRBF,seed);
+	phitest=GPT_SGLD.feature(Xtest,n,sigmaRBF,seed);
         for r=10:10:30
             for Q=50:50:200
                 for i=10:10:100
                     for j=14:16
 	                epsw=i;epsU=10.0^(-j);
 	                tic()
-	                SDexp(phitrain,phitest,ytrain,ytest,ytrainStd,seed,sigma,sigmaRBF,n,r,Q,m,epsw,epsU,burnin,maxepoch);
+	                GPT_SGLD.SDexp(phitrain,phitest,ytrain,ytest,ytrainStd,seed,sigma,sigmaRBF,n,r,Q,m,epsw,epsU,burnin,maxepoch);
 	                toc()
                     end
                 end
