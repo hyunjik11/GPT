@@ -13,7 +13,6 @@ toc()
 println("RMSE for GP=",ytrainStd*norm(ytest-gp_pred)/sqrt(N-Ntrain))
 end
 
-if 1==1
 @everywhere data=readtable("Folds5x2_pp.csv", header = true);
 @everywhere data = convert(Array,data);
 @everywhere N=size(data,1);
@@ -55,8 +54,6 @@ if 1==1
             end
         end
     end
-
-end
 
 
 
