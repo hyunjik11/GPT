@@ -28,25 +28,25 @@ if 1==1
 	Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 	ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
 
-burnin=17;maxepoch=3;
-for m in [50,100,200,400]
-for n=50:50:200
+    burnin=17;maxepoch=3;
+t=((50,50),(50,100),(50,150),(50,200),(100,50),(100,100),(100,150),(100,200),(200,50),(200,100),(200,150),(200,200),(400,50),(400,100),(400,150),(400,200), )
+    @parallel for  i=length(t)
+        m,n=t[i]
 	phitrain=feature(Xtrain,n,sigmaRBF,seed);
 	phitest=feature(Xtest,n,sigmaRBF,seed);
-for r=10:10:30
-for Q=50:50:200
-for i=10:10:100
-for j=12:16
-	epsw=i;epsU=10.0^(-j);
-	tic()
-	SDexp(phitrain,phitest,ytrain,ytest,ytrainStd,seed,sigma,sigmaRBF,n,r,Q,m,epsw,epsU,burnin,maxepoch);
-	toc()
-end
-end
-end
-end
-end
-end
+        for r=10:10:30
+            for Q=50:50:200
+                for i=10:10:100
+                    for j=14:16
+	                epsw=i;epsU=10.0^(-j);
+	                tic()
+	                SDexp(phitrain,phitest,ytrain,ytest,ytrainStd,seed,sigma,sigmaRBF,n,r,Q,m,epsw,epsU,burnin,maxepoch);
+	                toc()
+                    end
+                end
+            end
+        end
+    end
 
 end
 
