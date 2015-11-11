@@ -16,14 +16,18 @@ function geod(U::Array,mom::Array,t::Real)
     n,r=size(U)
     A=U'*mom
     temp=[A -mom'*mom;eye(r) A]
-    E=expm(t*temp) #can become NaN when temp too large
-    tmp=[U mom]*E[:,1:r]*expm(-t*A)
-    #ensure that tmp has cols of unit norm
-    normconst=Array(Float64,1,r);
-    for l=1:r
-    	normconst[1,l]=norm(tmp[:,l])
+    E=expm(t*temp) #can become NaN when temp too large. Return 0 in this case
+    if sum(isnan(E))>0
+        return zeros(n,r)
+    else
+        tmp=[U mom]*E[:,1:r]*expm(-t*A)
+        #ensure that tmp has cols of unit norm
+        normconst=Array(Float64,1,r);
+        for l=1:r
+    	    normconst[1,l]=norm(tmp[:,l])
+        end
+        return tmp./repmat(normconst,n,1)
     end
-    return tmp./repmat(normconst,n,1)
 end
 
 # centre and normalise data X so that each col has sd=1
@@ -99,11 +103,11 @@ function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array
 end
 
 #write minRMSE to "StdOut.txt"
-function SDexp(phitrain,phitest,ytrain,ytest,ytrainStd,seed,sigma,sigmaRBF,n,r,Q,m,epsw,epsU,burnin,maxepoch)
+function SDexp(phitrain,phitest,ytrain,ytest,ytrainStd,seed,sigma,sigmaRBF,n,r,Q,m,epsw,epsU,burnin,maxepoch,filename)
 	D=size(phitrain,2);sigmaw=sqrt(n^D/Q); 
-	outfile=open("StdOutSiris.txt","a")
 	w_store,U_store,I=GPT_SGLDERM(phitrain,ytrain,sigma,sigmaw,r,Q,m,epsw,epsU,burnin,maxepoch);
-	minRMSE,minind=RMSE(w_store,U_store,I,phitest,ytest);
+        minRMSE,minind=RMSE(w_store,U_store,I,phitest,ytest);
+	outfile=open(filename,"a")
 	println(outfile,"RMSE=",ytrainStd*minRMSE,";seed=",seed,";sigma=",sigma,";sigmaRBF=",sigmaRBF,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=", epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch,";begin_ind=",minind);
 	close(outfile)
 	return w_store,U_store,I
@@ -231,7 +235,11 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q:
 		#println("epoch=",epoch," batch=",batch," k=",k," stdUk=",std(U[:,:,k]))
                 mom=proj(U[:,:,k],sqrt(epsU)*gradU[:,:,k]/2+randn(n,r))
 		#println("epoch=",epoch," batch=",batch," k=",k," stdmom=",std(mom))
-                U[:,:,k]=geod(U[:,:,k],mom,sqrt(epsU))
+                G=geod(U[:,:,k],mom,sqrt(epsU));
+                if G==zeros(n,r) #if NaN appears while evaluating G
+                    return zeros(Q,maxepoch*numbatches),zeros(n,r,D,maxepoch*numbatches),I
+                else U[:,:,k]=G;
+                end
             end
 	    if epoch>burnin
 	        w_store[:,((epoch-burnin)-1)*numbatches+batch]=w

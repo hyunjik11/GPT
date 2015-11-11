@@ -1,6 +1,6 @@
-using GPT_SGLD
-using Distributions
-using DataFrames
+@everywhere using GPT_SGLD
+@everywhere using Distributions
+@everywhere using DataFrames
 #using GaussianProcess
 
 if 1==0
@@ -24,8 +24,8 @@ end
 @everywhere Xtrain = data[1:Ntrain,1:D];
 @everywhere ytrain = data[1:Ntrain,D+1];
 @everywhere XtrainMean=mean(Xtrain,1); 
-@everywhere XtrainStd=Array(Float64,1,D);
-	for i=1:D
+@everywhere XtrainStd=zeros(1,D);
+@everywhere	for i=1:D
 	    XtrainStd[1,i]=std(Xtrain[:,i]);
 	end
 @everywhere ytrainMean=mean(ytrain);
@@ -34,6 +34,8 @@ end
 @everywhere ytrain=GPT_SGLD.datawhitening(ytrain);
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
+
+if 1==0
 @everywhere burnin=17;
 @everywhere maxepoch=3;
 @everywhere t=((50,50),(50,100),(50,150),(50,200),(100,50),(100,100),(100,150),(100,200),(200,50),(200,100),(200,150),(200,200),(400,50),(400,100),(400,150),(400,200));
@@ -47,14 +49,14 @@ end
                     for j=14:16
 	                epsw=i;epsU=10.0^(-j);
 	                tic()
-	                GPT_SGLD.SDexp(phitrain,phitest,ytrain,ytest,ytrainStd,seed,sigma,sigmaRBF,n,r,Q,m,epsw,epsU,burnin,maxepoch);
+	                GPT_SGLD.SDexp(phitrain,phitest,ytrain,ytest,ytrainStd,seed,sigma,sigmaRBF,n,r,Q,m,epsw,epsU,burnin,maxepoch,"StdOutSiris.txt");
 	                toc()
                     end
                 end
             end
         end
     end
-
+end
 
 
 
