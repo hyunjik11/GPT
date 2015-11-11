@@ -1,4 +1,3 @@
-#implementation with batches
 module GPT_SGLD
 
 using Distributions
@@ -39,11 +38,11 @@ function datawhitening(X::Array)
 end
 
 #extract features from tensor decomp of each row of X
-function feature(X::Array,n::Integer,sigmaRBF::Real,seed::Integer)    
+function feature(X::Array,n::Integer,length_scale::Real,seed::Integer)    
     N,D=size(X)
     phi=Array(Float64,n,D,N)
     srand(seed)
-    Z=randn(n,D)/sigmaRBF
+    Z=randn(n,D)/length_scale
     b=randn(n,D)
     for i=1:N
 	for k=1:D
@@ -96,19 +95,18 @@ function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array
     vecRMSE=Array(Float64,T);
     meanfhat=zeros(Ntest);
     for i=1:T
-        meanfhat+=pred(w_store[:,T+1-i],U_store[:,:,:,T+1-i],I,phitest);
-	vecRMSE[i]=norm(ytest-meanfhat/i)/sqrt(Ntest);
+        meanfhat+=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
     end
-    return minimum(vecRMSE),indmin(vecRMSE)
+    return norm(ytest-meanfhat)/sqrt(Ntest);
 end
 
-#write minRMSE to "StdOut.txt"
-function SDexp(phitrain,phitest,ytrain,ytest,ytrainStd,seed,sigma,sigmaRBF,n,r,Q,m,epsw,epsU,burnin,maxepoch,filename)
+#write RMSE to filename
+function SDexp(phitrain,phitest,ytrain,ytest,ytrainStd,seed,sigma,length_scale,n,r,Q,m,epsw,epsU,burnin,maxepoch,filename)
 	D=size(phitrain,2);sigmaw=sqrt(n^D/Q); 
 	w_store,U_store,I=GPT_SGLDERM(phitrain,ytrain,sigma,sigmaw,r,Q,m,epsw,epsU,burnin,maxepoch);
-        minRMSE,minind=RMSE(w_store,U_store,I,phitest,ytest);
-	outfile=open(filename,"a")
-	println(outfile,"RMSE=",ytrainStd*minRMSE,";seed=",seed,";sigma=",sigma,";sigmaRBF=",sigmaRBF,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=", epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch,";begin_ind=",minind);
+        predRMSE=RMSE(w_store,U_store,I,phitest,ytest);
+	outfile=open(filename,"a") #append to file
+	println(outfile,"RMSE=",ytrainStd*predRMSE,";seed=",seed,";sigma=",sigma,";length_scale=",length_scale,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=", epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
 	close(outfile)
 	return w_store,U_store,I
 end
@@ -180,13 +178,11 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q:
 	    for i=1:batch_size
 		fhat[i]=dot(V[:,i],w)
 	    end
-	    #println("epoch=",epoch," batch=",batch," stdV=",std(V))	
-	    #println(V)
 	    #println("epoch=",epoch," batch=",batch," meanfhat= ",mean(fhat)," stdfhat=", std(fhat))
 	    #println("epoch=",epoch," batch=",batch," meanw=",mean(w), " stdw=", std(w))
+
             # now can compute gradw, the stochastic gradient of log post wrt w
             gradw=(N/batch_size)*V*(y_batch-fhat)/(sigma^2)-w/(sigma_w^2)
-	    #println("epoch=",epoch," batch=",batch," meangradw=",mean(gradw)," stdgradw=", std(gradw))
 
             # compute U_phi[q,i,k]=expression in big brackets in (11)
             U_phi=Array(Float64,Q,batch_size,D)
@@ -196,7 +192,6 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q:
 			U_phi[q,i,k]=V[q,i]/temp[k,I[q,k],i]
 		    end
 		end
-		#println("epoch=",epoch," batch=",batch," k=",k," stdU_phi=",std(U_phi[:,:,k]))
             end
             # now compute a_l^(k)(x_i) for l=1,...,r k=1,..,D and store in A
             A=zeros(r,D,batch_size)
@@ -208,9 +203,6 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q:
                     end
                 end
             end
-	    #for k=1:D
-		#println("epoch=",epoch," batch=",batch," k=",k," stdA=",std(A[:,k,:]));
-	    #end
             # compute Psi as in (12)
             Psi=Array(Float64,n*r,batch_size,D)
             for i=1:batch_size
@@ -218,23 +210,17 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,sigma_w::Real,r::Integer,Q:
                     Psi[:,i,k]=kron(A[:,k,i],phi_batch[:,k,i])
                 end
             end
-	    #for k=1:D
-		#println("epoch=",epoch," batch=",batch," k=",k," stdPsi=",std(Psi[:,:,k]));
-	    #end
             # can now compute gradU where gradU[:,:,k]=stochastic gradient of log post wrt U^(k)
             gradU=Array(Float64,n,r,D)
             for k=1:D
                 gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y[batch]-fhat)/(sigma^2),n,r)
-		#println("epoch=",epoch," batch=",batch," k=",k," stdgradU=",std(gradU[:,:,k]))
             end
 
             # SGLD step on w
             w[:]+=epsw*gradw/2 +sqrt(epsw)*randn(Q)
             # SGLDERM step on U
             for k=1:D
-		#println("epoch=",epoch," batch=",batch," k=",k," stdUk=",std(U[:,:,k]))
                 mom=proj(U[:,:,k],sqrt(epsU)*gradU[:,:,k]/2+randn(n,r))
-		#println("epoch=",epoch," batch=",batch," k=",k," stdmom=",std(mom))
                 G=geod(U[:,:,k],mom,sqrt(epsU));
                 if G==zeros(n,r) #if NaN appears while evaluating G
                     return zeros(Q,maxepoch*numbatches),zeros(n,r,D,maxepoch*numbatches),I

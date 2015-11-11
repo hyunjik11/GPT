@@ -119,3 +119,31 @@ elapsed time: 67.204006942 seconds
 elapsed time: 66.90224507 seconds
  RMSE=27.43834218966633 begin_ind=10 epsw=50 epsU=1.0e-15
 
+
+RMSE=4.459780132550723;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=100;r=10;Q=100;m=50;epsw=50;epsU=1.0e-14;burnin=17;maxepoch=3;begin_ind=5
+RRMSE=4.481531814207452;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=150;m=50;epsw=60;epsU=1.0e-16;burnin=17;maxepoch=3;begin_ind=85
+RMSE=4.418593185217905;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=80;epsU=1.0e-14;burnin=17;maxepoch=3;begin_ind=8
+RMSE=4.377195603866164;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=80;epsU=1.0e-15;burnin=17;maxepoch=3;begin_ind=97
+RRMSE=4.459672287709267;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=90;epsU=1.0e-15;burnin=17;maxepoch=3;begin_ind=20
+RMSE=4.35973861936065;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=90;epsU=1.0e-16;burnin=17;maxepoch=3;begin_ind=152
+RMSE=4.440305736368471;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=30;Q=200;m=100;epsw=80;epsU=1.0e-15;burnin=17;maxepoch=3;begin_ind=49
+
+@everywhere burnin=17;
+@everywhere maxepoch=3;
+@everywhere Q=200;
+@everywhere m=50;
+@everywhere r=20;
+@everywhere n=150;
+#@everywhere t=((80,1e-13),(85,1e-13),(90,1e-13),(95,1e-13),(100,1e-13),(80,1e-14),(85,1e-14),(90,1e-14),(95,1e-14),(100,1e-14),(80,1e-15),(85,1e-15),(90,1e-15),(95,1e-15),(100,1e-15),(80,1e-16),(85,1e-16),(90,1e-16),(95,1e-16),(100,1e-16));
+@everywhere epsU=1e-16;
+@everywhere phitrain=GPT_SGLD.feature(Xtrain,n,sigmaRBF,seed);
+@everywhere phitest=GPT_SGLD.feature(Xtest,n,sigmaRBF,seed);
+    @parallel for  epsw=82:88
+
+		tic()
+		GPT_SGLD.SDexp(phitrain,phitest,ytrain,ytest,ytrainStd,seed,sigma,sigmaRBF,n,r,Q,m,epsw,epsU,burnin,maxepoch,"ScrapExpTest.txt");
+	        toc()
+    end
+	
+
+
