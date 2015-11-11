@@ -97,6 +97,7 @@ function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array
     for i=1:T
         meanfhat+=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
     end
+    meanfhat=meanfhat/T;
     return norm(ytest-meanfhat)/sqrt(Ntest);
 end
 
