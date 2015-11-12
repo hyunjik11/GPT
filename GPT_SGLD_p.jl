@@ -1,6 +1,7 @@
-module GPT_SGLD
+module GPT_SGLD_p
 
 using Distributions
+using Iterators
 
 export proj,geod,datawhitening,feature,samplenz,pred,RMSE,GPT_SGLDERM,SDexp
     
@@ -53,7 +54,6 @@ function feature(X::Array,n::Integer,length_scale::Real,seed::Integer)
     return sqrt(2/n)*phi
 end
 
-
 # sample the Q random non-zero locations of w
 function samplenz(r::Integer,D::Integer,Q::Integer,seed::Integer)
     srand(seed)
@@ -67,38 +67,57 @@ function samplenz(r::Integer,D::Integer,Q::Integer,seed::Integer)
     return I
 end
 
-#compute predictions from w,U,I
-function pred(w::Array,U::Array,I::Array,phitest::Array)
-    n,D,test_size=size(phitest)
-    Q=length(w)
+#compute <phi^(k)(x_i),U^(k)_{.l}> for all k,l,batch
+function phidotU(U::Array,phi::Array)
+    n,D,data_size=size(phi)
     r=size(U,2)
-
-    # compute <phi^(k)(x_i),U^(k)_{.l}> for all k,l,batch and store in temp
-    temp=Array(Float64,D,r,test_size)
-    for i=1:test_size
+    temp=Array(Float64,D,r,data_size)
+    for i=1:data_size
         for l=1:r
             for k=1:D
-		temp[k,l,i]=dot(phitest[:,k,i],U[:,l,k])
+		temp[k,l,i]=dot(phi[:,k,i],U[:,l,k])
 	    end
         end
     end
+    return temp
+end
 
-    # compute V st V[q,i]=prod_{k=1 to D}(temp[k,I[q,k],i])
-    V=ones(Q,test_size)
-    for i=1:test_size
+#compute V st V[q,i]=prod_{k=1 to D}(temp[k,I[q,k],i])
+function computeV(temp,I)
+    Q,D=size(I);
+    data_size=size(temp,3)
+    V=ones(Q,data_size)
+    for i=1:data_size
         for q=1:Q
 	    for k=1:D
 		V[q,i]*=temp[k,I[q,k],i];
 	    end
         end
     end
+    return V
+end
 
-    # compute fhat where fhat[i]=V[:,i]'w
-    fhat=Array(Float64,test_size)
-    for i=1:test_size
+#compute predictions fhat from V,w
+function computefhat(V,w)
+    data_size=size(V,2)
+    fhat=Array(Float64,data_size)
+    for i=1:data_size
 	fhat[i]=dot(V[:,i],w)
     end
     return fhat
+end
+
+#compute predictions from w,U,I
+function pred(w::Array,U::Array,I::Array,phitest::Array)
+
+    # compute <phi^(k)(x_i),U^(k)_{.l}> for all k,l,test and store in temp
+    temp=phidotU(U,phitest)
+
+    # compute V st V[q,i]=prod_{k=1 to D}(temp[k,I[q,k],i])
+    V=computeV(temp,I)
+
+    # compute fhat where fhat[i]=V[:,i]'w
+    return computefhat(V,w)
 end
 
 #work out minimum RMSE by averaging over predictions, starting from last prediction
@@ -160,33 +179,15 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Inte
             idx=(m*(batch-1)+1):min(m*batch,N)
             phi_batch=phi[:,:,idx]; y_batch=y[idx];
             batch_size=length(idx) #this is m except for last batch
+
             # compute <phi^(k)(x_i),U^(k)_{.l}> for all k,l,batch and store in temp
-            temp=Array(Float64,D,r,batch_size)
-            for i=1:batch_size
-                for l=1:r
-                    for k=1:D
-			temp[k,l,i]=dot(phi_batch[:,k,i],U[:,l,k])
-	            end
-                end
-	    end
+            temp=phidotU(U,phi_batch)
 
 	    # compute V st V[q,i]=prod_{k=1 to D}(temp[k,I[q,k],i])
-            V=ones(Q,batch_size)
-	    for i=1:batch_size
-                for q=1:Q
-		    for k=1:D
-			V[q,i]*=temp[k,I[q,k],i];
-		    end
-                end
-            end
+            V=computeV(temp,I)
 	    
             # compute fhat where fhat[i]=V[:,i]'w
-            fhat=Array(Float64,batch_size)
-	    for i=1:batch_size
-		fhat[i]=dot(V[:,i],w)
-	    end
-	    #println("epoch=",epoch," batch=",batch," meanfhat= ",mean(fhat)," stdfhat=", std(fhat))
-	    #println("epoch=",epoch," batch=",batch," meanw=",mean(w), " stdw=", std(w))
+            fhat=computefhat(V,w)
 
             # now can compute gradw, the stochastic gradient of log post wrt w
             gradw=(N/batch_size)*V*(y_batch-fhat)/(sigma^2)-w/(sigma_w^2)

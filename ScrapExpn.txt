@@ -77,3 +77,5 @@ RMSE=8.949571594882569;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=400;r=20;Q=200;m=5
 RMSE=9.58984040471794;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=500;r=20;Q=200;m=50;epsw=90;epsU=1.0e-15;burnin=17;maxepoch=3;begin_ind=1
 RMSE=9.313165691443974;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=400;r=20;Q=200;m=50;epsw=80;epsU=1.0e-15;burnin=17;maxepoch=3;begin_ind=1
 RMSE=9.063589133689526;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=400;r=20;Q=200;m=50;epsw=90;epsU=1.0e-16;burnin=17;maxepoch=3;begin_ind=1
+RMSE=8.950147235564362;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=400;r=20;Q=200;m=50;epsw=95;epsU=1.0e-13;burnin=17;maxepoch=3;begin_ind=1
+RMSE=9.31326102467717;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=400;r=20;Q=200;m=50;epsw=80;epsU=1.0e-16;burnin=17;maxepoch=3;begin_ind=1
