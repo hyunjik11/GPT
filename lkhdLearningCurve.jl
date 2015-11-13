@@ -1,7 +1,7 @@
 @everywhere using GPT_SGLD
 @everywhere using Distributions
 @everywhere using DataFrames
-@everywhere using Iterators
+#@everywhere using Iterators
 @everywhere using PyPlot
 
 @everywhere data=DataFrames.readtable("Folds5x2_pp.csv", header = true);
@@ -26,14 +26,38 @@
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
 @everywhere burnin=5;
-@everywhere maxepoch=95;
-@everywhere Q=100;
-@everywhere m=100;
-@everywhere r=10;
-@everywhere n=100;
+@everywhere maxepoch=100;
+@everywhere Q=200;
+@everywhere m=50;
+@everywhere r=20;
+@everywhere n=150;
 @everywhere phitrain=GPT_SGLD.feature(Xtrain,n,length_scale,seed);
 @everywhere phitest=GPT_SGLD.feature(Xtest,n,length_scale,seed);
 @everywhere I=samplenz(r,D,Q,seed);
+@everywhere epsw=100; 
+@everywhere epsU=1e-16;
+w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
+T=size(w_store,2);
+trainloglkhd=SharedArray(Float64,T);
+testloglkhd=SharedArray(Float64,T);
+@sync @parallel for i=1:T
+	fhat=pred(w_store[:,i],U_store[:,:,:,i],I,phitrain);
+	trainloglkhd[i]=-(norm(ytrain-fhat))^2/(2*sigma^2);
+end
+figure()
+plot(trainloglkhd)
+titlename=string("LearningCurve. epsw=",epsw,",epsU=",epsU)
+title(titlename)
+xlabel("num_epochs-5(burnin)")
+ylabel("loglikelihood")
+@sync @parallel for i=1:T
+	fhat=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
+	testloglkhd[i]=-(norm(ytest-fhat))^2/(2*sigma^2);
+end
+plot(testloglkhd)
+savefig("/homes/hkim/GPT/Plots/fineLearningCurve")
+
+if 1==0
 @everywhere t=Iterators.product(6:12,80:20:120)
 @everywhere myt=Array(Any,21);
 @everywhere it=1;
@@ -69,4 +93,5 @@ end
 	plot(testloglkhd)
 	filename=string("/homes/hkim/GPT/Plots/LearningCurveU",idx)
 	savefig(filename)
+end
 end
