@@ -1,1 +1,0 @@
-RMSE=5.973640012911264;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=50;r=10;Q=50;m=50;epsw=10;epsU=1.0e-12;burnin=17;maxepoch=3;begin_ind=9

@@ -1,17 +1,16 @@
 module GPT_SGLD_p
 
 using Distributions
-using Iterators
 
 export proj,geod,datawhitening,feature,samplenz,pred,RMSE,GPT_SGLDERM,SDexp
     
 # define proj for Stiefel manifold
-function proj(U::Array,V::Array)
+@everywhere function proj(U::Array,V::Array)
     return V-U*(U'*V+V'*U)/2
 end
 
 # define geod for Stiefel manifold
-function geod(U::Array,mom::Array,t::Real)
+@everywhere function geod(U::Array,mom::Array,t::Real)
     n,r=size(U)
     A=U'*mom
     temp=[A -mom'*mom;eye(r) A]
@@ -30,7 +29,7 @@ function geod(U::Array,mom::Array,t::Real)
 end
 
 # centre and normalise data X so that each col has sd=1
-function datawhitening(X::Array) 
+@everywhere function datawhitening(X::Array) 
     for i = 1:size(X,2)   
         X[:,i] = (X[:,i] - mean(X[:,i]))/std(X[:,i])   
     end
@@ -38,7 +37,7 @@ function datawhitening(X::Array)
 end
 
 #extract features from tensor decomp of each row of X
-function feature(X::Array,n::Integer,length_scale::Real,seed::Integer)    
+@everywhere function feature(X::Array,n::Integer,length_scale::Real,seed::Integer)    
     N,D=size(X)
     phi=Array(Float64,n,D,N)
     srand(seed)
@@ -55,7 +54,7 @@ function feature(X::Array,n::Integer,length_scale::Real,seed::Integer)
 end
 
 # sample the Q random non-zero locations of w
-function samplenz(r::Integer,D::Integer,Q::Integer,seed::Integer)
+@everywhere function samplenz(r::Integer,D::Integer,Q::Integer,seed::Integer)
     srand(seed)
     L=sample(0:(r^D-1),Q,replace=false)
     I=Array(Int32,Q,D)
@@ -68,47 +67,48 @@ function samplenz(r::Integer,D::Integer,Q::Integer,seed::Integer)
 end
 
 #compute <phi^(k)(x_i),U^(k)_{.l}> for all k,l,batch
-function phidotU(U::Array,phi::Array)
+@everywhere function phidotU(U::Array,phi::Array)
     n,D,data_size=size(phi)
     r=size(U,2)
-    temp=Array(Float64,D,r,data_size)
-    for i=1:data_size
+    temp=SharedArray(Float64,D,r,data_size)
+    @sync @parallel for i=1:data_size
         for l=1:r
             for k=1:D
 		temp[k,l,i]=dot(phi[:,k,i],U[:,l,k])
 	    end
         end
     end
-    return temp
+    return sdata(temp)
 end
 
 #compute V st V[q,i]=prod_{k=1 to D}(temp[k,I[q,k],i])
-function computeV(temp,I)
+@everywhere function computeV(temp::Array,I::Array)
     Q,D=size(I);
     data_size=size(temp,3)
-    V=ones(Q,data_size)
-    for i=1:data_size
+    V=SharedArray(Float64,Q,data_size)
+    V=V+1
+    @sync @parallel for i=1:data_size
         for q=1:Q
 	    for k=1:D
 		V[q,i]*=temp[k,I[q,k],i];
 	    end
         end
     end
-    return V
+    return sdata(V)
 end
 
 #compute predictions fhat from V,w
-function computefhat(V,w)
+@everywhere function computefhat(V::Array,w::Array)
     data_size=size(V,2)
-    fhat=Array(Float64,data_size)
-    for i=1:data_size
+    fhat=SharedArray(Float64,data_size)
+    @sync @parallel for i=1:data_size
 	fhat[i]=dot(V[:,i],w)
     end
-    return fhat
+    return sdata(fhat)
 end
 
 #compute predictions from w,U,I
-function pred(w::Array,U::Array,I::Array,phitest::Array)
+@everywhere function pred(w::Array,U::Array,I::Array,phitest::Array)
 
     # compute <phi^(k)(x_i),U^(k)_{.l}> for all k,l,test and store in temp
     temp=phidotU(U,phitest)
@@ -121,31 +121,29 @@ function pred(w::Array,U::Array,I::Array,phitest::Array)
 end
 
 #work out minimum RMSE by averaging over predictions, starting from last prediction
-function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array)
+@everywhere function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array)
     Ntest=length(ytest);
     T=size(w_store,2);
-    vecRMSE=Array(Float64,T);
-    meanfhat=zeros(Ntest);
-    for i=1:T
-        meanfhat+=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
+    meanfhat= @parallel (+) for i=1:T
+        pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
     end
     meanfhat=meanfhat/T;
     return norm(ytest-meanfhat)/sqrt(Ntest);
 end
 
 #write RMSE to filename
-function SDexp(phitrain::Array,phitest::Array,ytrain::Array,ytest::Array,ytrainStd::Real,seed::Integer,sigma::Real,I::Array, length_scale::Real,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,burnin::Integer,maxepoch::Integer,filename::ASCIIString)
+@everywhere function SDexp(phitrain::Array,phitest::Array,ytrain::Array,ytest::Array,ytrainStd::Real,seed::Integer,sigma::Real,I::Array, length_scale::Real,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,burnin::Integer,maxepoch::Integer,filename::ASCIIString)
 	n=size(phitrain,1);D=size(phitrain,2);
-	w_store,U_store,I=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
+	w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
         predRMSE=RMSE(w_store,U_store,I,phitest,ytest);
 	outfile=open(filename,"a") #append to file
 	println(outfile,"RMSE=",ytrainStd*predRMSE,";seed=",seed,";sigma=",sigma, 		";length_scale=",length_scale,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=",epsw, 		";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
 	close(outfile)
-	return w_store,U_store,I
+	return w_store,U_store
 end
     
 
-function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,burnin::Integer,maxepoch::Integer)
+@everywhere function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,burnin::Integer,maxepoch::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # sigma is the s.d. of the observed values
     # sigma_w is the s.d. for the Guassian prior on w
@@ -193,27 +191,27 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Inte
             gradw=(N/batch_size)*V*(y_batch-fhat)/(sigma^2)-w/(sigma_w^2)
 
             # compute U_phi[q,i,k]=expression in big brackets in (11)
-            U_phi=Array(Float64,Q,batch_size,D)
-            for k=1:D
-		for i=1:batch_size
+            U_phi=SharedArray(Float64,Q,D,batch_size)
+            @sync @parallel for i=1:batch_size
+		for k=1:D
 		    for q=1:Q
-			U_phi[q,i,k]=V[q,i]/temp[k,I[q,k],i]
+			U_phi[q,k,i]=V[q,i]/temp[k,I[q,k],i]
 		    end
 		end
             end
             # now compute a_l^(k)(x_i) for l=1,...,r k=1,..,D and store in A
-            A=zeros(r,D,batch_size)
-            for i=1:batch_size
+            A=SharedArray(Float64,r,D,batch_size)
+            @sync @parallel for i=1:batch_size
                 for k=1:D
                     for l in unique(I[:,k])
                         index=findin(I[:,k],l) #I_l
-                        A[l,k,i]=dot(U_phi[index,i,k],w[index]) 
+                        A[l,k,i]=dot(U_phi[index,k,i],w[index]) 
                     end
                 end
             end
             # compute Psi as in (12)
-            Psi=Array(Float64,n*r,batch_size,D)
-            for i=1:batch_size
+            Psi=SharedArray(Float64,n*r,batch_size,D)
+            @sync @parallel for i=1:batch_size
                 for k=1:D
                     Psi[:,i,k]=kron(A[:,k,i],phi_batch[:,k,i])
                 end

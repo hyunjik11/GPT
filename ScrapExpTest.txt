@@ -1,9 +1,0 @@
-RMSE=4.78255578382087;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=85;epsU=1.0e-16;burnin=7;maxepoch=3;begin_ind=22
-RMSE=4.573789105226679;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=88;epsU=1.0e-16;burnin=17;maxepoch=3;begin_ind=197
-RMSE=4.582548914547957;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=85;epsU=1.0e-16;burnin=17;maxepoch=3;begin_ind=197
-RMSE=4.585561906591006;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=84;epsU=1.0e-16;burnin=17;maxepoch=3;begin_ind=197
-RMSE=4.591735988491019;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=82;epsU=1.0e-16;burnin=17;maxepoch=3;begin_ind=197
-RMSE=4.576663858229288;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=87;epsU=1.0e-16;burnin=17;maxepoch=3;begin_ind=197
-RMSE=4.579583356081194;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=86;epsU=1.0e-16;burnin=17;maxepoch=3;begin_ind=197
-RMSE=4.588623765542634;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=83;epsU=1.0e-16;burnin=17;maxepoch=3;begin_ind=197
-RMSE=4.29584685048076;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=85;epsU=1.0e-16;burnin=10;maxepoch=10;begin_ind=38
