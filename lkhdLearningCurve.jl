@@ -1,7 +1,7 @@
 @everywhere using GPT_SGLD
 @everywhere using Distributions
 @everywhere using DataFrames
-#@everywhere using Iterators
+@everywhere using Iterators
 @everywhere using PyPlot
 
 @everywhere data=DataFrames.readtable("Folds5x2_pp.csv", header = true);
@@ -27,13 +27,15 @@
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
 @everywhere burnin=5;
 @everywhere maxepoch=100;
-@everywhere Q=200;
+@everywhere Q=6^4;
 @everywhere m=50;
-@everywhere r=20;
+@everywhere r=6;
 @everywhere n=150;
 @everywhere phitrain=GPT_SGLD.feature(Xtrain,n,length_scale,seed);
 @everywhere phitest=GPT_SGLD.feature(Xtest,n,length_scale,seed);
 @everywhere I=samplenz(r,D,Q,seed);
+
+if 1==0
 @everywhere epsw=100; 
 @everywhere epsU=1e-16;
 w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
@@ -47,19 +49,24 @@ end
 figure()
 plot(trainloglkhd)
 titlename=string("LearningCurve. epsw=",epsw,",epsU=",epsU)
+#titlename="LearningCurve. epsw=100, epsU=1e-16"
 title(titlename)
-xlabel("num_epochs-5(burnin)")
+xlabel("num_iterations-burnin (100 per epoch)")
 ylabel("loglikelihood")
 @sync @parallel for i=1:T
 	fhat=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
 	testloglkhd[i]=-(norm(ytest-fhat))^2/(2*sigma^2);
 end
+c=h5open("fineLearningCurve.h5","w") do file
+	write(file,"trainloglkhd",trainloglkhd);
+	write(file,"testloglkhd",testloglkhd);
+end
 plot(testloglkhd)
 savefig("/homes/hkim/GPT/Plots/fineLearningCurve")
+end
 
-if 1==0
-@everywhere t=Iterators.product(6:12,80:20:120)
-@everywhere myt=Array(Any,21);
+@everywhere t=Iterators.product(14:16,20:20:120)
+@everywhere myt=Array(Any,18);
 @everywhere it=1;
 @everywhere for prod in t
 	myt[it]=prod;
@@ -68,7 +75,7 @@ end
 @parallel for Tuple in myt
 	i,j=Tuple;
 	epsU=10.0^(-i); epsw=j;
-	idx=int(7*(j-80)/20+i-5);
+	idx=int(3*(j-20)/20+i-13);
 	tic()
 	w_store,U_store=GPT_SGLD.GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
 	toc()
@@ -91,7 +98,6 @@ end
 		testloglkhd[i]=-(norm(ytest-fhat))^2/(2*sigma^2);
 	end
 	plot(testloglkhd)
-	filename=string("/homes/hkim/GPT/Plots/LearningCurveU",idx)
+	filename=string("/homes/hkim/GPT/Plots/LearningCurveFullW_r",r,"_",idx)
 	savefig(filename)
-end
 end

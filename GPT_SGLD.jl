@@ -119,7 +119,7 @@ function pred(w::Array,U::Array,I::Array,phitest::Array)
     return computefhat(V,w)
 end
 
-#work out minimum RMSE by averaging over predictions, starting from last prediction
+#work out minimum RMSE by averaging over predictions in w_store,U_store, returning both RMSE and meanhat
 function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array)
     Ntest=length(ytest);
     T=size(w_store,2);
@@ -127,7 +127,7 @@ function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array
         pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
     end
     meanfhat=meanfhat/T;
-    return norm(ytest-meanfhat)/sqrt(Ntest);
+    return norm(ytest-meanfhat)/sqrt(Ntest),meanfhat;
 end
 
 #write RMSE to filename
