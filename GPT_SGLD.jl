@@ -36,8 +36,8 @@ function datawhitening(X::Array)
     return X
 end
 
-#extract features from tensor decomp of each row of X
-function feature(X::Array,n::Integer,length_scale::Real,seed::Integer)    
+# extract features from tensor decomp of each row of X
+function feature(X::Array,n::Integer,length_scale::Real,seed::Integer,scale::Real)    
     N,D=size(X)
     phi=Array(Float64,n,D,N)
     srand(seed)
@@ -50,7 +50,27 @@ function feature(X::Array,n::Integer,length_scale::Real,seed::Integer)
 	    end
 	end
     end
-    return sqrt(2/n)*phi
+    return scale*sqrt(2/n)*phi
+end
+
+# alternative Fourier feature embedding
+function feature2(X::Array,n::Integer,length_scale::Real,seed::Integer,scale::Real)    
+    if n%2==0
+	half_n=int(n/2)
+    	N,D=size(X)
+    	phi=Array(Float64,n,D,N)
+    	srand(seed)
+    	Z=randn(n,D)/length_scale
+	    for i=1:N
+		for k=1:D
+		    for j=1:half_n
+			phi[2*j-1,k,i]=sin(X[i,k]*Z[2*j-1,k])
+			phi[2*j,k,i]=cos(X[i,k]*Z[2*j,k])
+		    end
+		end
+	    end
+	return scale*sqrt(2/n)*phi
+    else error("n is not even")
 end
 
 # sample the Q random non-zero locations of w
@@ -145,23 +165,22 @@ end
 function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,burnin::Integer,maxepoch::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # sigma is the s.d. of the observed values
-    # sigma_w is the s.d. for the Guassian prior on w
     # epsw,epsU are the epsilons for w and U resp.
     # maxepoch is the number of sweeps through whole dataset
     
     n,D,N=size(phi)
     numbatches=int(ceil(N/m))
-    sigma_w=sqrt(n^D/Q);
+    sigma_w=1;
     
     # initialise w,U^(k)
     w_store=Array(Float64,Q,maxepoch*numbatches)
     U_store=Array(Float64,n,r,D,maxepoch*numbatches)
     w=sigma_w*randn(Q)
-    #println("w= ",w)
+
     U=Array(Float64,n,r,D)
     for k=1:D
         Z=randn(r,n)
-        U[:,:,k]=transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from a*V_{n,r}
+        U[:,:,k]=transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from V_{n,r}
     end
 
 

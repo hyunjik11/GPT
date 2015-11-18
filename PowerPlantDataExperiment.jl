@@ -41,9 +41,10 @@ end
 @everywhere m=50;
 @everywhere r=20;
 @everywhere n=150;
-@everywhere phitrain=feature(Xtrain,n,length_scale,seed);
-@everywhere phitest=feature(Xtest,n,length_scale,seed);
-@everywhere epsw=100; 
+@everywhere scale=sqrt(n/(Q^(1/D)));
+@everywhere phitrain=feature(Xtrain,n,length_scale,seed,scale);
+@everywhere phitest=feature(Xtest,n,length_scale,seed,scale);
+@everywhere epsw=1; 
 @everywhere epsU=1e-15;
 if 1==0
 @everywhere I=samplenz(r,D,Q,seed);
@@ -67,7 +68,7 @@ end
     end
 end
 
-if 1==1
+if 1==0
 numI=50;
 meanfhat=Array(Float64,N-Ntrain,numI);
 for iseed=1:numI
@@ -77,7 +78,7 @@ for iseed=1:numI
 	println(iseed," iteration out of ",numI," done");
 end
 meanfhatfinal=mean(meanfhat,2);
-println("RMSE=",norm(ytnormest-meanfhatfinal)/sqrt(N-Ntrain))
+println("RMSE=",norm(ytest-meanfhatfinal)/sqrt(N-Ntrain))
 end
 
 

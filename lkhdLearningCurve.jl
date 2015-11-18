@@ -25,46 +25,54 @@
 @everywhere ytrain=GPT_SGLD.datawhitening(ytrain);
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
-@everywhere burnin=5;
-@everywhere maxepoch=100;
-@everywhere Q=6^4;
+@everywhere burnin=90;
+@everywhere maxepoch=10;
+@everywhere Q=200;
 @everywhere m=50;
-@everywhere r=6;
+@everywhere r=20;
 @everywhere n=150;
-@everywhere phitrain=GPT_SGLD.feature(Xtrain,n,length_scale,seed);
-@everywhere phitest=GPT_SGLD.feature(Xtest,n,length_scale,seed);
+@everywhere scale=sqrt(n/(Q^(1/D)));
+@everywhere phitrain=GPT_SGLD.feature(Xtrain,n,length_scale,seed,scale);
+@everywhere phitest=GPT_SGLD.feature(Xtest,n,length_scale,seed,scale);
 @everywhere I=samplenz(r,D,Q,seed);
 
-if 1==0
-@everywhere epsw=100; 
-@everywhere epsU=1e-16;
+if 1==1
+@parallel for i=4.1:0.1:6
+epsw=0.00001*i; 
+epsU=1e-14;
 w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
 T=size(w_store,2);
-trainloglkhd=SharedArray(Float64,T);
-testloglkhd=SharedArray(Float64,T);
-@sync @parallel for i=1:T
+#trainloglkhd=SharedArray(Float64,T);
+trainRMSE=SharedArray(Float64,T);
+#testloglkhd=SharedArray(Float64,T);
+testRMSE=SharedArray(Float64,T);
+for i=1:T
 	fhat=pred(w_store[:,i],U_store[:,:,:,i],I,phitrain);
-	trainloglkhd[i]=-(norm(ytrain-fhat))^2/(2*sigma^2);
+	#trainloglkhd[i]=-(norm(ytrain-fhat))^2/(2*sigma^2);
+	trainRMSE[i]=ytrainStd*norm(ytrain-fhat)/sqrt(N-Ntrain);
 end
-figure()
-plot(trainloglkhd)
-titlename=string("LearningCurve. epsw=",epsw,",epsU=",epsU)
-#titlename="LearningCurve. epsw=100, epsU=1e-16"
-title(titlename)
-xlabel("num_iterations-burnin (100 per epoch)")
-ylabel("loglikelihood")
-@sync @parallel for i=1:T
+#println("max trainloglkhd=",maximum(trainloglkhd))
+println("epsw=",epsw," epsU=",epsU,"min trainRMSE=",minimum(trainRMSE))
+#figure()
+#plot(trainloglkhd)
+#titlename=string("LearningCurve. epsw=",epsw,",epsU=",epsU)
+#title(titlename)
+#xlabel("num_iterations-burnin (100 per epoch)")
+#ylabel("loglikelihood")
+for i=1:T
 	fhat=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
-	testloglkhd[i]=-(norm(ytest-fhat))^2/(2*sigma^2);
+	#testloglkhd[i]=-(norm(ytest-fhat))^2/(2*sigma^2);
+	testRMSE[i]=ytrainStd*norm(ytest-fhat)/sqrt(N-Ntrain);
 end
-c=h5open("fineLearningCurve.h5","w") do file
-	write(file,"trainloglkhd",trainloglkhd);
-	write(file,"testloglkhd",testloglkhd);
+#println("max testloglkhd=",maximum(testloglkhd))
+println("epsw=",epsw," epsU=",epsU,"min testRMSE=",minimum(testRMSE))
+#plot(testloglkhd)
+
+#savefig("/homes/hkim/GPT/Plots/NewLearningCurve")
 end
-plot(testloglkhd)
-savefig("/homes/hkim/GPT/Plots/fineLearningCurve")
 end
 
+if 1==0
 @everywhere t=Iterators.product(14:16,20:20:120)
 @everywhere myt=Array(Any,18);
 @everywhere it=1;
@@ -100,4 +108,5 @@ end
 	plot(testloglkhd)
 	filename=string("/homes/hkim/GPT/Plots/LearningCurveFullW_r",r,"_",idx)
 	savefig(filename)
+end
 end
