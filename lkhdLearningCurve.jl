@@ -81,8 +81,8 @@ savefig("/homes/hkim/GPT/Plots/RMSELearningCurve_SGD")
 end
 
 if 1==1
-@everywhere t=Iterators.product(11:14,1:8)
-@everywhere myt=Array(Any,32);
+@everywhere t=Iterators.product(7:10,7:10)
+@everywhere myt=Array(Any,16);
 @everywhere it=1;
 @everywhere for prod in t
 	myt[it]=prod;
@@ -91,7 +91,7 @@ end
 @parallel for Tuple in myt
 	i,j=Tuple;
 	epsU=10.0^(-i);epsw=j*1e-5;
-	idx=int(4*(j-1)+i-10);
+	idx=int(4*(j-7)+i-6);
 	tic()
 	w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
 	toc()
