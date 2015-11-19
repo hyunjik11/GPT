@@ -1,7 +1,8 @@
 @everywhere using GPT_SGLD
 @everywhere using Distributions
 @everywhere using DataFrames
-@everywhere using Iterators
+@everywhere using PyPlot
+#@everywhere using Iterators
 #using GaussianProcess
 
 if 1==0
@@ -35,19 +36,44 @@ end
 @everywhere ytrain=datawhitening(ytrain);
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
-@everywhere burnin=80;
-@everywhere maxepoch=20;
+@everywhere burnin=5;
+@everywhere maxepoch=10;
 @everywhere Q=200;
-@everywhere m=50;
+@everywhere m=500;
 @everywhere r=20;
 @everywhere n=150;
+@everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,seed,scale);
 @everywhere phitest=feature(Xtest,n,length_scale,seed,scale);
-@everywhere epsw=1; 
-@everywhere epsU=1e-15;
+@everywhere epsw=5.5e-5; 
+@everywhere epsU=1e-12;
+tic();w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);toc()
+
 if 1==0
-@everywhere I=samplenz(r,D,Q,seed);
+@everywhere T=maxepoch*int(floor(Ntrain/m));
+trainRMSE=SharedArray(Float64,T);
+testRMSE=SharedArray(Float64,T);
+trainfhat=SharedArray(Float64,Ntrain,100);
+testfhat=SharedArray(Float64,N-Ntrain,100);
+@sync @parallel for i=1:T
+	fhattrain=pred(w_store[:,i],U_store[:,:,:,i],I,phitrain);
+	trainRMSE[i]=ytrainStd*norm(ytrain-fhattrain)/sqrt(Ntrain);
+	fhattest=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
+	testRMSE[i]=ytrainStd*norm(ytest-fhattest)/sqrt(N-Ntrain);
+	if i>T-100
+		trainfhat[:,i-(T-100)]=fhattrain
+		testfhat[:,i-(T-100)]=fhattest
+	end
+end
+println("epsw=",epsw," epsU=",epsU,"trainRMSE=",ytrainStd*norm(ytrain-mean(trainfhat,2))/sqrt(Ntrain))
+println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfhat,2))/sqrt(N-Ntrain))
+plot(trainRMSE)
+plot(testRMSE)
+#tic();myRMSEidx,temp=RMSE(w_store,U_store,I,phitest,ytest);toc();
+end
+
+if 1==0
 @everywhere t=Iterators.product(15:17,70:5:100)
 @everywhere myt=Array(Any,21);
 @everywhere it=1;
@@ -79,6 +105,21 @@ for iseed=1:numI
 end
 meanfhatfinal=mean(meanfhat,2);
 println("RMSE=",norm(ytest-meanfhatfinal)/sqrt(N-Ntrain))
+end
+
+if 1==0 #storing variables to h5 file
+using HDF5
+c=h5open("SynthData1000.h5","w") do file
+	write(file,"Xtrain",sdata(Xtrain));
+	write(file,"XtrainMean",sdata(XtrainMean));
+end
+end
+
+if 1==0 #reading variables from h5 file
+using HDF5
+file="10000SynthData.h5";
+Xtrain=h5read(file,"Xtrain");
+XtrainMean=h5read(file,"XtrainMean");
 end
 
 

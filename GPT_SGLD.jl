@@ -2,7 +2,7 @@ module GPT_SGLD
 
 using Distributions
 
-export proj,geod,datawhitening,feature,samplenz,pred,RMSE,GPT_SGLDERM,SDexp
+export proj,geod,datawhitening,feature,samplenz,pred,RMSE,GPT_SGLDERM,SDexp,GPT_SGD
     
 # define proj for Stiefel manifold
 function proj(U::Array,V::Array)
@@ -71,6 +71,7 @@ function feature2(X::Array,n::Integer,length_scale::Real,seed::Integer,scale::Re
 	    end
 	return scale*sqrt(2/n)*phi
     else error("n is not even")
+    end
 end
 
 # sample the Q random non-zero locations of w
@@ -239,12 +240,118 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Inte
             for k=1:D
                 gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y[batch]-fhat)/(sigma^2),n,r)
             end
-
+	    
             # SGLD step on w
             w[:]+=epsw*gradw/2 +sqrt(epsw)*randn(Q)
+	    #if batch==1
+	    #	println("mean epsgradw_half=",mean(epsw*gradw/2)," std =",std(epsw*gradw/2))
+	    #	println("meansqrtepsgradU_half=",mean(sqrt(epsU)*gradU/2), " std=",std(sqrt(epsU)*gradU/2))
+	    #end
             # SGLDERM step on U
             for k=1:D
                 mom=proj(U[:,:,k],sqrt(epsU)*gradU[:,:,k]/2+randn(n,r))
+                G=geod(U[:,:,k],mom,sqrt(epsU));
+                if G==zeros(n,r) #if NaN appears while evaluating G
+                    return zeros(Q,maxepoch*numbatches),zeros(n,r,D,maxepoch*numbatches),I
+                else U[:,:,k]=G;
+                end
+            end
+	    if epoch>burnin
+	        w_store[:,((epoch-burnin)-1)*numbatches+batch]=w
+	        U_store[:,:,:,((epoch-burnin)-1)*numbatches+batch]=U
+	    end
+        end
+    end
+    return w_store,U_store
+end
+
+function GPT_SGD(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,burnin::Integer,maxepoch::Integer)
+    # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
+    # sigma is the s.d. of the observed values
+    # epsw,epsU are the epsilons for w and U resp.
+    # maxepoch is the number of sweeps through whole dataset
+    
+    n,D,N=size(phi)
+    numbatches=int(ceil(N/m))
+    sigma_w=1;
+    
+    # initialise w,U^(k)
+    w_store=Array(Float64,Q,maxepoch*numbatches)
+    U_store=Array(Float64,n,r,D,maxepoch*numbatches)
+    w=sigma_w*randn(Q)
+
+    U=Array(Float64,n,r,D)
+    for k=1:D
+        Z=randn(r,n)
+        U[:,:,k]=transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from V_{n,r}
+    end
+
+
+    for epoch=1:(burnin+maxepoch)
+        #randomly permute training data and divide into mini_batches of size m
+        perm=randperm(N)
+        phi=phi[:,:,perm]; y=y[perm];
+        
+        # run SGLD on w and SGLDERM on U
+        for batch=1:numbatches
+            # random samples for the stochastic gradient
+            idx=(m*(batch-1)+1):min(m*batch,N)
+            phi_batch=phi[:,:,idx]; y_batch=y[idx];
+            batch_size=length(idx) #this is m except for last batch
+
+            # compute <phi^(k)(x_i),U^(k)_{.l}> for all k,l,batch and store in temp
+            temp=phidotU(U,phi_batch)
+
+	    # compute V st V[q,i]=prod_{k=1 to D}(temp[k,I[q,k],i])
+            V=computeV(temp,I)
+	    
+            # compute fhat where fhat[i]=V[:,i]'w
+            fhat=computefhat(V,w)
+
+            # now can compute gradw, the stochastic gradient of log post wrt w
+            gradw=(N/batch_size)*V*(y_batch-fhat)/(sigma^2)-w/(sigma_w^2)
+
+            # compute U_phi[q,i,k]=expression in big brackets in (11)
+            U_phi=Array(Float64,Q,batch_size,D)
+            for k=1:D
+		for i=1:batch_size
+		    for q=1:Q
+			U_phi[q,i,k]=V[q,i]/temp[k,I[q,k],i]
+		    end
+		end
+            end
+            # now compute a_l^(k)(x_i) for l=1,...,r k=1,..,D and store in A
+            A=zeros(r,D,batch_size)
+            for i=1:batch_size
+                for k=1:D
+                    for l in unique(I[:,k])
+                        index=findin(I[:,k],l) #I_l
+                        A[l,k,i]=dot(U_phi[index,i,k],w[index]) 
+                    end
+                end
+            end
+            # compute Psi as in (12)
+            Psi=Array(Float64,n*r,batch_size,D)
+            for i=1:batch_size
+                for k=1:D
+                    Psi[:,i,k]=kron(A[:,k,i],phi_batch[:,k,i])
+                end
+            end
+            # can now compute gradU where gradU[:,:,k]=stochastic gradient of log post wrt U^(k)
+            gradU=Array(Float64,n,r,D)
+            for k=1:D
+                gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y[batch]-fhat)/(sigma^2),n,r)
+            end
+	    
+            # SGLD step on w
+            w[:]+=epsw*gradw/2
+	    #if batch==1
+	    #	println("mean epsgradw_half=",mean(epsw*gradw/2)," std =",std(epsw*gradw/2))
+	    #	println("meansqrtepsgradU_half=",mean(sqrt(epsU)*gradU/2), " std=",std(sqrt(epsU)*gradU/2))
+	    #end
+            # SGLDERM step on U
+            for k=1:D
+                mom=proj(U[:,:,k],sqrt(epsU)*gradU[:,:,k]/2)
                 G=geod(U[:,:,k],mom,sqrt(epsU));
                 if G==zeros(n,r) #if NaN appears while evaluating G
                     return zeros(Q,maxepoch*numbatches),zeros(n,r,D,maxepoch*numbatches),I

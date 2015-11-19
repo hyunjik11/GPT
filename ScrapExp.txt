@@ -388,4 +388,30 @@ RMSE=4.253705709525052;seed=17;sigma=0.2299;length_scale=1.4332;n=150;r=20;Q=200
 RMSE=4.258545123572243;seed=17;sigma=0.2299;length_scale=1.4332;n=150;r=20;Q=200;m=50;epsw=80;epsU=1.0e-15;burnin=80;maxepoch=20
 RMSE=4.2411292493378046;seed=17;sigma=0.2299;length_scale=1.4332;n=150;r=20;Q=200;m=50;epsw=100;epsU=1.0e-17;burnin=80;maxepoch=20
 RMSE=4.269571562449498;seed=17;sigma=0.2299;length_scale=1.4332;n=150;r=20;Q=200;m=50;epsw=70;epsU=1.0e-17;burnin=80;maxepoch=20
+--------phi rescaled---------
+n=150,r=20,Q=200,m=50, minimum RMSE up to 100 epochs
+epsw=4.1e-5 epsU=1.0e-14min testRMSE=4.246127080110228
+epsw=4.2e-5 epsU=1.0e-14min testRMSE=4.244478720964927
+epsw=4.3e-5 epsU=1.0e-14min testRMSE=4.242916827290349
+epsw=4.4e-5 epsU=1.0e-14min testRMSE=4.2414436124227
+epsw=4.6e-5 epsU=1.0e-14min testRMSE=4.238219197361815
+epsw=4.5e-5 epsU=1.0e-14min testRMSE=4.240062047285564
+epsw=4.7e-5 epsU=1.0e-14min testRMSE=4.236399429848446
+epsw=4.8e-5 epsU=1.0e-14min testRMSE=4.234635357447239
+epsw=4.9e-5 epsU=1.0e-14min testRMSE=4.232935805371263
+epsw=5.0e-5 epsU=1.0e-14min testRMSE=4.2313097077962505
+epsw=5.1e-5 epsU=1.0e-14min testRMSE=4.2297657464918546
+epsw=5.2e-5 epsU=1.0e-14min testRMSE=4.22831202685360
+epsw=5.3e-5 epsU=1.0e-14min testRMSE=4.226955876713975
+epsw=5.4e-5 epsU=1.0e-14min testRMSE=4.225703888953484
+epsw=5.5e-5 epsU=1.0e-14min testRMSE=4.224562371047888
+epsw=5.6e-5 epsU=1.0e-14min testRMSE=4.223538412895745
+epsw=5.7e-5 epsU=1.0e-14min testRMSE=4.222641837526961
+epsw=5.8e-5 epsU=1.0e-14min testRMSE=4.2218883554222115
+epsw=5.9e-5 epsU=1.0e-14min testRMSE=4.221304297972927
+epsw=6.0e-5 epsU=1.0e-14min testRMSE=4.220933351154684
+
+
+
+
 

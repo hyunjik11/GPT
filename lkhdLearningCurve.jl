@@ -25,10 +25,10 @@
 @everywhere ytrain=GPT_SGLD.datawhitening(ytrain);
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
-@everywhere burnin=90;
+@everywhere burnin=5;
 @everywhere maxepoch=10;
 @everywhere Q=200;
-@everywhere m=50;
+@everywhere m=500;
 @everywhere r=20;
 @everywhere n=150;
 @everywhere scale=sqrt(n/(Q^(1/D)));
@@ -36,45 +36,53 @@
 @everywhere phitest=GPT_SGLD.feature(Xtest,n,length_scale,seed,scale);
 @everywhere I=samplenz(r,D,Q,seed);
 
-if 1==1
-@parallel for i=4.1:0.1:6
-epsw=0.00001*i; 
+if 1==0
+epsw=5.5e-5; 
 epsU=1e-14;
-w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
-T=size(w_store,2);
+w_store,U_store=GPT_SGD(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
+@everywhere T=maxepoch*int(floor(Ntrain/m));
 #trainloglkhd=SharedArray(Float64,T);
 trainRMSE=SharedArray(Float64,T);
+trainfhat=SharedArray(Float64,Ntrain,1000);
 #testloglkhd=SharedArray(Float64,T);
 testRMSE=SharedArray(Float64,T);
-for i=1:T
+testfhat=SharedArray(Float64,N-Ntrain,1000);
+@sync @parallel for i=1:T
 	fhat=pred(w_store[:,i],U_store[:,:,:,i],I,phitrain);
 	#trainloglkhd[i]=-(norm(ytrain-fhat))^2/(2*sigma^2);
-	trainRMSE[i]=ytrainStd*norm(ytrain-fhat)/sqrt(N-Ntrain);
+	trainRMSE[i]=ytrainStd*norm(ytrain-fhat)/sqrt(Ntrain);
+	if i>T-1000
+		trainfhat[:,i-(T-1000)]=fhat
+	end
 end
 #println("max trainloglkhd=",maximum(trainloglkhd))
-println("epsw=",epsw," epsU=",epsU,"min trainRMSE=",minimum(trainRMSE))
-#figure()
-#plot(trainloglkhd)
-#titlename=string("LearningCurve. epsw=",epsw,",epsU=",epsU)
-#title(titlename)
-#xlabel("num_iterations-burnin (100 per epoch)")
-#ylabel("loglikelihood")
-for i=1:T
+println("epsw=",epsw," epsU=",epsU,"trainRMSE=",ytrainStd*norm(ytrain-mean(trainfhat,2))/sqrt(Ntrain))
+figure()
+plot(trainRMSE)
+titlename=string("TrainingLearningCurve. epsw=",epsw,",epsU=",epsU)
+title(titlename)
+xlabel("num_iterations-burnin (100 per epoch)")
+ylabel("RMSE")
+@sync @parallel for i=1:T
 	fhat=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
 	#testloglkhd[i]=-(norm(ytest-fhat))^2/(2*sigma^2);
 	testRMSE[i]=ytrainStd*norm(ytest-fhat)/sqrt(N-Ntrain);
+	if i>T-1000
+		testfhat[:,i-(T-1000)]=fhat
+	end
 end
+println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfhat,2))/sqrt(N-Ntrain))
 #println("max testloglkhd=",maximum(testloglkhd))
-println("epsw=",epsw," epsU=",epsU,"min testRMSE=",minimum(testRMSE))
-#plot(testloglkhd)
+#println("epsw=",epsw," epsU=",epsU,"min testRMSE=",minimum(testRMSE))
+plot(testRMSE)
 
-#savefig("/homes/hkim/GPT/Plots/NewLearningCurve")
-end
+savefig("/homes/hkim/GPT/Plots/RMSELearningCurve_SGD")
+
 end
 
-if 1==0
-@everywhere t=Iterators.product(14:16,20:20:120)
-@everywhere myt=Array(Any,18);
+if 1==1
+@everywhere t=Iterators.product(11:14,1:8)
+@everywhere myt=Array(Any,32);
 @everywhere it=1;
 @everywhere for prod in t
 	myt[it]=prod;
@@ -82,31 +90,34 @@ if 1==0
 end
 @parallel for Tuple in myt
 	i,j=Tuple;
-	epsU=10.0^(-i); epsw=j;
-	idx=int(3*(j-20)/20+i-13);
+	epsU=10.0^(-i);epsw=j*1e-5;
+	idx=int(4*(j-1)+i-10);
 	tic()
-	w_store,U_store=GPT_SGLD.GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
+	w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
 	toc()
 	T=size(w_store,2);
-	low=int(floor(T/100));
-	trainloglkhd=Array(Float64,100);
-	testloglkhd=Array(Float64,100);
-	for i=1:100
-		fhat=pred(w_store[:,low*i],U_store[:,:,:,low*i],I,phitrain);
-		trainloglkhd[i]=-(norm(ytrain-fhat))^2/(2*sigma^2);
+	#trainRMSE=Array(Float64,T);
+	testRMSE=Array(Float64,T);
+	#for i=1:T
+	#	fhat=pred(w_store[:,i],U_store[:,:,:,i],I,phitrain);
+	#	trainRMSE[i]=ytrainStd*norm(ytrain-fhat)/sqrt(Ntrain);
+	#end
+	#figure()
+	#subplot(211)
+	#plot(trainRMSE)
+	#titlename=string("Training RMSELearningCurve m=500. epsw=",epsw,",epsU=",epsU)
+	#title(titlename)
+	#xlabel("num_epochs-5burnin")
+	#ylabel("RMSE")
+	for i=1:T
+		fhat=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
+		testRMSE[i]=ytrainStd*norm(ytest-fhat)/sqrt(N-Ntrain);
 	end
-	figure()
-	plot(trainloglkhd)
-	titlename=string("LearningCurve. epsw=",epsw,",epsU=",epsU)
-	title(titlename)
-	xlabel("num_epochs")
-	ylabel("loglikelihood")
-	for i=1:100
-		fhat=pred(w_store[:,low*i],U_store[:,:,:,low*i],I,phitest);
-		testloglkhd[i]=-(norm(ytest-fhat))^2/(2*sigma^2);
-	end
-	plot(testloglkhd)
-	filename=string("/homes/hkim/GPT/Plots/LearningCurveFullW_r",r,"_",idx)
-	savefig(filename)
+	println("mintestRMSE=",minimum(testRMSE)," epsU=",epsU," epsw=",epsw);
+	#subplot(212)
+	#plot(testRMSE)
+	#title("Test RMSE")
+	#filename=string("/homes/hkim/GPT/Plots/RMSELearningCurve500m",idx)
+	#savefig(filename)
 end
 end
