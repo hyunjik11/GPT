@@ -448,6 +448,160 @@ mintestRMSE=5.115468418539168 epsU=1.0e-14 epsw=6.000000000000001e-5
 mintestRMSE=5.032767948826016 epsU=1.0e-14 epsw=7.0e-5
 mintestRMSE=23.361519599699648 epsU=1.0e-14 epsw=8.0e-5
 
+From worker 27: mintestRMSE=53.37991589641415 epsU=1.0e-11 epsw=0.00019
+From worker 17: mintestRMSE=6.987395592917346 epsU=1.0e-11 epsw=0.00014000000000000001
+From worker 10: mintestRMSE=4.841265398612938 epsU=1.0e-10 epsw=0.00011
+From worker 21: mintestRMSE=36.76858655691176 epsU=1.0e-11 epsw=0.00016
+From worker 12: mintestRMSE=4.8985422942169015 epsU=1.0e-10 epsw=0.00012000000000000002
+From worker 20: mintestRMSE=14.674890229701731 epsU=1.0e-10 epsw=0.00016
+From worker 14: mintestRMSE=5.217760313651474 epsU=1.0e-10 epsw=0.00013000000000000002
+From worker 8:  mintestRMSE=4.872641587089664 epsU=1.0e-10 epsw=0.0001
+From worker 15: mintestRMSE=8.995455708443679 epsU=1.0e-11 epsw=0.00013000000000000002
+From worker 16: mintestRMSE=5.4019060690107095 epsU=1.0e-10 epsw=0.00014000000000000001
+From worker 23: mintestRMSE=23.049881137843613 epsU=1.0e-11 epsw=0.00017
+From worker 28: mintestRMSE=16.24622158362459 epsU=1.0e-10 epsw=0.0002
+From worker 19: mintestRMSE=25.190813968656894 epsU=1.0e-11 epsw=0.00015000000000000001
+From worker 22: mintestRMSE=12.393140168596869 epsU=1.0e-10 epsw=0.00017
+From worker 24: mintestRMSE=7.225439765797459 epsU=1.0e-10 epsw=0.00018
+From worker 18: mintestRMSE=10.820693924106656 epsU=1.0e-10 epsw=0.00015000000000000001
+From worker 29: mintestRMSE=69.20609908726875 epsU=1.0e-11 epsw=0.0002
+From worker 11: mintestRMSE=4.9284373250707025 epsU=1.0e-11 epsw=0.00011
+From worker 13: mintestRMSE=5.239242132135983 epsU=1.0e-11 epsw=0.00012000000000000002
+From worker 9:  mintestRMSE=4.92079796846068 epsU=1.0e-11 epsw=0.0001
+From worker 26: mintestRMSE=10.02965217849076 epsU=1.0e-10 epsw=0.00019
+From worker 25: mintestRMSE=23.740085992561077 epsU=1.0e-11 epsw=0.00018
 
 
+m=5000,burnin=5,maxepoch=10
+From worker 13: mintestRMSE=616.5223955445152 epsU=1.0e-13 epsw=0.00015000000000000001
+From worker 2:  mintestRMSE=13.728546774227803 epsU=1.0e-7 epsw=5.0e-5
+From worker 8:  mintestRMSE=10.784011269134322 epsU=1.0e-11 epsw=0.0001
+From worker 16: mintestRMSE=279.5741075580638 epsU=1.0e-11 epsw=0.0002
+From worker 17: mintestRMSE=2233.932924239359 epsU=1.0e-13 epsw=0.0002
+From worker 11: mintestRMSE=16.481287701856164 epsU=1.0e-9 epsw=0.00015000000000000001
+From worker 10: mintestRMSE=14.635452380024155 epsU=1.0e-7 epsw=0.00015000000000000001
+From worker 6:  mintestRMSE=13.991608645633521 epsU=1.0e-7 epsw=0.0001
+From worker 12: mintestRMSE=121.25138769207014 epsU=1.0e-11 epsw=0.00015000000000000001
+From worker 5:  mintestRMSE=7.9715153554160265 epsU=1.0e-13 epsw=5.0e-5
+From worker 3:  mintestRMSE=8.039047788660913 epsU=1.0e-9 epsw=5.0e-5
+From worker 15: mintestRMSE=17.966711234396946 epsU=1.0e-9 epsw=0.0002
+From worker 4:  mintestRMSE=7.972137215704589 epsU=1.0e-11 epsw=5.0e-5
+From worker 7:  mintestRMSE=6.874661656018942 epsU=1.0e-9 epsw=0.0001
+From worker 9:  mintestRMSE=258.0604800239325 epsU=1.0e-13 epsw=0.0001
+From worker 14: mintestRMSE=8.260120757237734 epsU=1.0e-8 epsw=0.0002
+From worker 13: mintestRMSE=3504.263361368391 epsU=1.0e-14 epsw=0.00015
+From worker 8:  mintestRMSE=93.15724014141685 epsU=1.0e-12 epsw=0.0001
+From worker 2:  mintestRMSE=7.903988151480043 epsU=1.0e-8 epsw=5.0e-5
+From worker 17: mintestRMSE=9243.922476259802 epsU=1.0e-14 epsw=0.0002
+From worker 11: mintestRMSE=57.78156587898801 epsU=1.0e-10 epsw=0.00015000000000000001
+From worker 10: mintestRMSE=9.383926411825275 epsU=1.0e-8 epsw=0.0001500
+From worker 16: mintestRMSE=594.933044882208 epsU=1.0e-12 epsw=0.0002
+From worker 6:  mintestRMSE=6.519468390742143 epsU=1.0e-8 epsw=0.0001
+From worker 12: mintestRMSE=145.62788143938508 epsU=1.0e-12 epsw=0.00015000000000000001
+From worker 3:  mintestRMSE=6.937423465280565 epsU=1.0e-10 epsw=5.0e-5
+From worker 5:  mintestRMSE=6.930471392909188 epsU=1.0e-14 epsw=5.0e-5
+From worker 15: mintestRMSE=102.31323886754755 epsU=1.0e-10 epsw=0.0002
+From worker 4:  mintestRMSE=6.9305443188909015 epsU=1.0e-12 epsw=5.0e-5
+From worker 7:  mintestRMSE=11.68856944692802 epsU=1.0e-10 epsw=0.0001
+From worker 9:  mintestRMSE=93.16165831845832 epsU=1.0e-14 epsw=0.0001
+
+From worker 7:  mintestRMSE=8.275430653443172 epsU=1.3e-8 epsw=7.000000000000001e-5
+From worker 2:  mintestRMSE=8.388979568522812 epsU=5.0e-9 epsw=5.0e-5
+From worker 17: mintestRMSE=6.869784695710624 epsU=5.0e-9 epsw=0.00015000000000000001
+From worker 3:  mintestRMSE=8.705222632443572 epsU=9.000000000000001e-9 epsw=5.0e-5
+From worker 12: mintestRMSE=7.217989579821087 epsU=9.000000000000001e-9 epsw=0.00011
+From worker 11: mintestRMSE=6.996655450600661 epsU=5.0e-9 epsw=0.00011
+From worker 14: mintestRMSE=6.846727922847076 epsU=5.0e-9 epsw=0.00013000000000000002
+From worker 5:  mintestRMSE=7.7416483382033565 epsU=5.0e-9 epsw=7.000000000000001e-5
+From worker 13: mintestRMSE=7.445367402169559 epsU=1.3e-8 epsw=0.00011
+From worker 8:  mintestRMSE=7.296605917289547 epsU=5.0e-9 epsw=9.0e-5
+From worker 19: mintestRMSE=7.212972833685018 epsU=1.3e-8 epsw=0.00015000000000000001
+From worker 6:  mintestRMSE=8.0003321553431 epsU=9.000000000000001e-9 epsw=7.000000000000001e-5
+From worker 15: mintestRMSE=7.0384382014482005 epsU=9.000000000000001e-9 epsw=0.00013000000000000002
+From worker 18: mintestRMSE=7.1268574423966164 epsU=9.000000000000001e-9 epsw=0.00015000000000000001
+From worker 4:  mintestRMSE=9.01628322468627 epsU=1.3e-8 epsw=5.0e-5
+From worker 16: mintestRMSE=7.249037914619757 epsU=1.3e-8 epsw=0.00013000000000000002
+From worker 9:  mintestRMSE=7.539042824691202 epsU=9.000000000000001e-9 epsw=9.0e-5
+From worker 10: mintestRMSE=7.789719355594873 epsU=1.3e-8 epsw=9.0e-5
+From worker 7:  mintestRMSE=7.797201534730364 epsU=1.5000000000000002e-8 epsw=7.000000000000001e-5
+From worker 17: mintestRMSE=9.613922118741945 epsU=7.000000000000001e-9 epsw=0.00015000000000000001
+From worker 2:  mintestRMSE=7.594599201234452 epsU=7.000000000000001e-9 epsw=5.0e-5
+From worker 3:  mintestRMSE=8.011541838088323 epsU=1.1000000000000001e-8 epsw=5.0e-5
+From worker 12: mintestRMSE=6.595347935837568 epsU=1.1000000000000001e-8 epsw=0.00011
+From worker 11: mintestRMSE=6.204154404796703 epsU=7.000000000000001e-9 epsw=0.00011
+From worker 14: mintestRMSE=6.979148526775012 epsU=7.000000000000001e-9 epsw=0.00013000000000000002
+From worker 13: mintestRMSE=6.958702941290556 epsU=1.5000000000000002e-8 epsw=0.00011
+From worker 5:  mintestRMSE=6.999728238465846 epsU=7.000000000000001e-9 epsw=7.000000000000001e-5
+From worker 8:  mintestRMSE=6.499720552155101 epsU=7.000000000000001e-9 epsw=9.0e-5
+From worker 19: mintestRMSE=8.272817700352004 epsU=1.5000000000000002e-8 epsw=0.00015000000000000001
+From worker 6:  mintestRMSE=7.478319206862859 epsU=1.1000000000000001e-8 epsw=7.000000000000001e-5
+From worker 15: mintestRMSE=6.694775284926395 epsU=1.1000000000000001e-8 epsw=0.00013000000000000002
+From worker 18: mintestRMSE=9.168838707247765 epsU=1.1000000000000001e-8 epsw=0.00015000000000000001
+From worker 4:  mintestRMSE=8.448589898911102 epsU=1.5000000000000002e-8 epsw=5.0e-5
+From worker 16: mintestRMSE=7.114471284273264 epsU=1.5000000000000002e-8 epsw=0.00013000000000000002
+From worker 9:  mintestRMSE=6.936732024448265 epsU=1.1000000000000001e-8 epsw=9.0e-5
+From worker 10: mintestRMSE=7.329695544565619 epsU=1.5000000000000002e-8 epsw=9.0e-5
+
+julia>  From worker 27: testRMSE=0.5339890118889055 epsU=1.0e-10 epsw=4.4999999999999996e-5
+        From worker 16: testRMSE=0.6376968481419687 epsU=1.0e-11 epsw=2.4999999999999998e-5
+        From worker 26: testRMSE=0.5362253166237321 epsU=1.0e-9 epsw=4.4999999999999996e-5
+        From worker 14: testRMSE=0.6386556520420652 epsU=1.0e-9 epsw=2.4999999999999998e-5
+        From worker 24: testRMSE=0.5754171629752146 epsU=1.0e-13 epsw=3.5e-5
+        From worker 28: testRMSE=0.5337880004569499 epsU=1.0e-11 epsw=4.4999999999999996e-5
+        From worker 30: testRMSE=0.5337742943664874 epsU=1.0e-13 epsw=4.4999999999999996e-5
+        From worker 20: testRMSE=0.577545667248743 epsU=1.0e-9 epsw=3.5e-5
+        From worker 21: testRMSE=0.5755941399262829 epsU=1.0e-10 epsw=3.5e-5
+        From worker 10: testRMSE=0.7396050931526454 epsU=1.0e-11 epsw=1.4999999999999999e-5
+        From worker 15: testRMSE=0.6377527472679289 epsU=1.0e-10 epsw=2.4999999999999998e-5
+        From worker 17: testRMSE=0.6376993592534383 epsU=1.0e-12 epsw=2.4999999999999998e-5
+        From worker 7:  testRMSE=0.9459091465162863 epsU=1.0e-14 epsw=4.9999999999999996e-6
+        From worker 22: testRMSE=0.575425816235011 epsU=1.0e-11 epsw=3.5e-5
+        From worker 9:  testRMSE=0.7393581089745491 epsU=1.0e-10 epsw=1.4999999999999999e-5
+        From worker 18: testRMSE=0.637702143785178 epsU=1.0e-13 epsw=2.4999999999999998e-5
+        From worker 11: testRMSE=0.739639062848728 epsU=1.0e-12 epsw=1.4999999999999999e-5
+        From worker 3:  testRMSE=0.9449156136179448 epsU=1.0e-10 epsw=4.9999999999999996e-6
+        From worker 8:  testRMSE=0.7374116259312704 epsU=1.0e-9 epsw=1.4999999999999999e-5
+        From worker 6:  testRMSE=0.9459078807967488 epsU=1.0e-13 epsw=4.9999999999999996e-6
+        From worker 23: testRMSE=0.5754159591960126 epsU=1.0e-12 epsw=3.5e-5
+        From worker 4:  testRMSE=0.9458055554906694 epsU=1.0e-11 epsw=4.9999999999999996e-6
+        From worker 13: testRMSE=0.7396468476391022 epsU=1.0e-14 epsw=1.4999999999999999e-5
+        From worker 29: testRMSE=0.5337738436297913 epsU=1.0e-12 epsw=4.4999999999999996e-5
+        From worker 25: testRMSE=0.5754179755455955 epsU=1.0e-14 epsw=3.5e-5
+        From worker 12: testRMSE=0.7396453186711904 epsU=1.0e-13 epsw=1.4999999999999999e-5
+        From worker 31: testRMSE=0.5337749294972812 epsU=1.0e-14 epsw=4.4999999999999996e-5
+        From worker 5:  testRMSE=0.9458978253208521 epsU=1.0e-12 epsw=4.9999999999999996e-6
+        From worker 19: testRMSE=0.6377032231010744 epsU=1.0e-14 epsw=2.4999999999999998e-5
+        From worker 2:  testRMSE=0.9367635111363265 epsU=1.0e-9 epsw=4.9999999999999996e-6
+
+burnin=50; maxepoch=5;
+julia>  From worker 3:  testRMSE=0.5812494082439722 epsU=1.0e-10 epsw=4.9999999999999996e-6
+        From worker 4:  testRMSE=0.5807464587496509 epsU=1.0e-11 epsw=4.9999999999999996e-6
+        From worker 16: testRMSE=0.35506508324337765 epsU=1.0e-11 epsw=2.4999999999999998e-5
+        From worker 5:  testRMSE=0.5806915075670663 epsU=1.0e-12 epsw=4.9999999999999996e-6
+        From worker 8:  testRMSE=0.4134479931689114 epsU=1.0e-9 epsw=1.4999999999999999e-5
+        From worker 26: testRMSE=0.33069205285118997 epsU=1.0e-9 epsw=4.4999999999999996e-5
+        From worker 2:  testRMSE=0.5896360544603481 epsU=1.0e-9 epsw=4.9999999999999996e-6
+        From worker 14: testRMSE=0.3620138751112487 epsU=1.0e-9 epsw=2.4999999999999998e-5
+        From worker 17: testRMSE=0.35503566960751065 epsU=1.0e-12 epsw=2.4999999999999998e-5
+        From worker 15: testRMSE=0.3554002780948917 epsU=1.0e-10 epsw=2.4999999999999998e-5
+        From worker 10: testRMSE=0.40333838589531235 epsU=1.0e-11 epsw=1.4999999999999999e-5
+        From worker 20: testRMSE=0.3412623456931319 epsU=1.0e-9 epsw=3.5e-5
+        From worker 21: testRMSE=0.3365958509265907 epsU=1.0e-10 epsw=3.5e-5
+        From worker 11: testRMSE=0.4032797565116817 epsU=1.0e-12 epsw=1.4999999999999999e-5
+        From worker 24: testRMSE=0.3364139100942013 epsU=1.0e-13 epsw=3.5e-5
+        From worker 7:  testRMSE=0.5806813612152374 epsU=1.0e-14 epsw=4.9999999999999996e-6
+        From worker 6:  testRMSE=0.5806831275521905 epsU=1.0e-13 epsw=4.9999999999999996e-6
+        From worker 27: testRMSE=0.3269934175001529 epsU=1.0e-10 epsw=4.4999999999999996e-5
+        From worker 23: testRMSE=0.3364146010951973 epsU=1.0e-12 epsw=3.5e-5
+        From worker 29: testRMSE=0.3268802019751697 epsU=1.0e-12 epsw=4.4999999999999996e-5
+        From worker 25: testRMSE=0.3364139986965055 epsU=1.0e-14 epsw=3.5e-5
+        From worker 31: testRMSE=0.3268807353777894 epsU=1.0e-14 epsw=4.4999999999999996e-5
+        From worker 13: testRMSE=0.40327383787125026 epsU=1.0e-14 epsw=1.4999999999999999e-5
+        From worker 18: testRMSE=0.3550329207584149 epsU=1.0e-13 epsw=2.4999999999999998e-5
+        From worker 19: testRMSE=0.3550326952655224 epsU=1.0e-14 epsw=2.4999999999999998e-5
+        From worker 28: testRMSE=0.32688583178738784 epsU=1.0e-11 epsw=4.4999999999999996e-5
+        From worker 30: testRMSE=0.3268804586142469 epsU=1.0e-13 epsw=4.4999999999999996e-5
+        From worker 22: testRMSE=0.336426807584441 epsU=1.0e-11 epsw=3.5e-5
+        From worker 9:  testRMSE=0.4039716793479391 epsU=1.0e-10 epsw=1.4999999999999999e-5
+        From worker 12: testRMSE=0.40327427654164905 epsU=1.0e-13 epsw=1.4999999999999999e-5
 

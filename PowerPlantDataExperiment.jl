@@ -37,7 +37,7 @@ end
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
 @everywhere burnin=5;
-@everywhere maxepoch=10;
+@everywhere maxepoch=50;
 @everywhere Q=200;
 @everywhere m=500;
 @everywhere r=20;
@@ -46,11 +46,11 @@ end
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,seed,scale);
 @everywhere phitest=feature(Xtest,n,length_scale,seed,scale);
-@everywhere epsw=5.5e-5; 
-@everywhere epsU=1e-12;
-tic();w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);toc()
+@everywhere epsw=0.00011; 
+@everywhere epsU=1e-10;
 
 if 1==0
+tic();w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);toc()
 @everywhere T=maxepoch*int(floor(Ntrain/m));
 trainRMSE=SharedArray(Float64,T);
 testRMSE=SharedArray(Float64,T);
