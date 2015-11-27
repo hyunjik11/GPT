@@ -42,7 +42,7 @@ function feature(X::Array,n::Integer,length_scale::Real,seed::Integer,scale::Rea
     phi=Array(Float64,n,D,N)
     srand(seed)
     Z=randn(n,D)/length_scale
-    b=randn(n,D)
+    b=rand(n,D)*2*pi
     for i=1:N
 	for k=1:D
 	    for j=1:n
@@ -250,7 +250,7 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Inte
             # can now compute gradU where gradU[:,:,k]=stochastic gradient of log post wrt U^(k)
             gradU=Array(Float64,n,r,D)
             for k=1:D
-                gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y[batch]-fhat)/(sigma^2),n,r)
+                gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y_batch-fhat)/(sigma^2),n,r)
             end
 	    
             # SGLD step on w
@@ -352,7 +352,7 @@ function GPT_SGDERM(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Integ
             # can now compute gradU where gradU[:,:,k]=stochastic gradient of log post wrt U^(k)
             gradU=Array(Float64,n,r,D)
             for k=1:D
-                gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y[batch]-fhat)/(sigma^2),n,r)
+                gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y_batch-fhat)/(sigma^2),n,r)
             end
 	    
             # SGLD step on w
@@ -448,7 +448,7 @@ function GPT_GMC(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Integer,
             # can now compute gradU where gradU[:,:,k]=stochastic gradient of log post wrt U^(k)
             gradU=Array(Float64,n,r,D)
             for k=1:D
-                gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y[batch]-fhat)/(sigma^2),n,r)
+                gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y_batch-fhat)/(sigma^2),n,r)
             end
 	    
             # SGLD step on w
@@ -476,12 +476,11 @@ end
     
 
 #SGLD on No Tensor Model
-function GPNT_SGLD(phi::Array,y::Array,sigma::Real,m::Integer,eps_theta::Real,decay_rate::Real,maxepoch::Integer,theta_seed::Integer)
+function GPNT_SGLD(phi::Array,y::Array,sigma::Real,sigma_theta::Real,m::Integer,eps_theta::Real,decay_rate::Real,maxepoch::Integer,theta_seed::Integer)
     n,N=size(phi);
     numbatches=int(ceil(N/m))
     
-    #initialise theta by prior N(0,I)
-    sigma_theta=1;
+    #initialise theta
     srand(theta_seed)
     theta=sigma_theta*randn(n);
     epsilon=eps_theta;
@@ -501,8 +500,14 @@ function GPNT_SGLD(phi::Array,y::Array,sigma::Real,m::Integer,eps_theta::Real,de
             batch_size=length(idx) #this is m except for last batch
 
             epsilon=eps_theta*t^(-decay_rate)
-            grad_theta=-1/(sigma_theta^2)+(N/m)*phi_batch*(y_batch-phi_batch'*theta)/(sigma^2);
-            theta[:]+=epsilon*grad_theta/2+sqrt(epsilon)*randn(n);
+            grad_theta=-theta/(sigma_theta^2)+(N/m)*phi_batch*(y_batch-phi_batch'*theta)/(sigma^2);
+            grad=epsilon*grad_theta/2;
+            noise=sqrt(epsilon)*randn(n);
+            if t%100==0
+               # println("mean_epsgrad=",mean(grad)," sd_epsgrad=",std(grad)," sd_noise=",std(noise))
+            end
+           
+            theta[:]+=grad+noise;
 	    theta_store[:,t]=theta;
             
             t+=1;

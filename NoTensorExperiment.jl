@@ -1,7 +1,6 @@
 using GPT_SGLD
 using DataFrames
 using PyPlot
-using HDF5
 
 if 1==1
 @everywhere data=DataFrames.readtable("Folds5x2_pp.csv", header = true);
@@ -26,18 +25,19 @@ if 1==1
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
 end
-@everywhere maxepoch=1000;
-@everywhere m=5000;
+@everywhere maxepoch=3000;
+@everywhere m=50;
 @everywhere n=150;
 @everywhere phitrain=featureNotensor(Xtrain,n,length_scale,seed);
 @everywhere phitest=featureNotensor(Xtest,n,length_scale,seed);
-@everywhere eps_theta=0.00035;
+@everywhere eps_theta=0.0001;
 @everywhere sample_epochs=20;
-@everywhere decay_rate=1/3;
+@everywhere decay_rate=0;
+@everywhere sigma_theta=1;
 
 if 1==1
     println("n=",n," m=",m," maxepoch=",maxepoch," sample_epochs=",sample_epochs," eps_theta=",eps_theta," decay_rate=",decay_rate)
-    tic(); theta_store=GPNT_SGLD(phitrain,ytrain,sigma,m,eps_theta,decay_rate,maxepoch,234); toc();
+    tic(); theta_store=GPNT_SGLD(phitrain,ytrain,sigma,sigma_theta,m,eps_theta,decay_rate,maxepoch,234); toc();
     T=size(theta_store,2);
     n_samples=sample_epochs*integer(floor(Ntrain/m));
     low=integer(floor(T/n_samples-5/2));
@@ -62,4 +62,19 @@ if 1==1
     println(ytrainStd*sqrt(sum((meanfhat_train-ytrain).^2)/Ntrain))
     println(ytrainStd*sqrt(sum((meanfhat_test-ytest).^2)/(N-Ntrain)))
     
+end
+
+if 1==0
+    figure()
+for i=1:10
+    subplot(2,5,i)
+    ax=gca()
+    plot(vec(theta_store[10*i,:]))
+    plot(vec(theta_store2[10*i,:]))
+    ylim(-5,5)
+    xlabel("num_iterations(no burnin)")
+    setp(ax[:get_xticklabels](),fontsize=8)
+end
+
+savefig("Plots/NoTensorSGLDThetaTrace")
 end
