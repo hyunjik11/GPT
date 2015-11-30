@@ -87,7 +87,7 @@ if 1==1
         epsU=10.0^(-i); epsw=j*1e-5;
 	#idx=int(3*(j-70)/5+i-14);
         w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
-	myRMSE,temp=RMSE(w_store,U_store,I,phitest,ytest);
+	myRMSE,temp=ytrainStd*RMSE(w_store,U_store,I,phitest,ytest);
 
 	println("RMSE=",myRMSE,";seed=",seed,";sigma=",sigma,";length_scale=",length_scale,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=",epsw,";logepsU=-",i,";burnin=",burnin,";maxepoch=",maxepoch);
     end
@@ -120,5 +120,12 @@ file="10000SynthData.h5";
 Xtrain=h5read(file,"Xtrain");
 XtrainMean=h5read(file,"XtrainMean");
 end
+
+if 1==0 #writing stdout to file
+    	outfile=open(filename,"a") #append to file
+	println(outfile,"RMSE=",ytrainStd*predRMSE,";seed=",seed,";sigma=",sigma, 		";length_scale=",length_scale,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=",epsw, 		";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
+	close(outfile)
+end
+
 
 
