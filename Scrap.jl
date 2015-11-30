@@ -18,4 +18,4 @@ for i=1:10
     setp(ax[:get_xticklabels](),fontsize=8)
 end
 
-savefig("/homes/hkim/GPT/Plots/NoTensorSGLDThetaTrace")
+savefig("/homes/hkim/GPT/Plots/NoTensorSGLDThetaTraceDecay")
