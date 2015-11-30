@@ -33,7 +33,9 @@ RMSE=4.2746;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=85;e
 RMSE=4.2411;seed=17;sigma=0.2299;length_scale=1.4332;n=150;r=20;Q=200;m=50;epsw=100;epsU=1.0e-15;burnin=80;maxepoch=20
 ---------phi scaled-------------
 RMSE=4.18;seed=17;sigma=0.2299;length_scale=1.4332;n=150;r=20;Q=200;m=50;epsw=5.5e-5;epsU=1.0e-14;burnin=195;maxepoch=10;
-
+---------After Debugging--------
+RMSE=4.1070;seed=17;sigma=0.2299;length_scale=1.4332;n=150;r=20;Q=200;m=50;epsw=0.0001;epsU=1e-8;burnin=90;maxepoch=10
+RMSE=4.0732;seed=17;sigma=0.2299;length_scale=1.4332;n=150;r=20;Q=200;m=50;epsw=0.0001;epsU=1e-7;burnin=90;maxepoch=10
 
 
 Varying r=10:10:30

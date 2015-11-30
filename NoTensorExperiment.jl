@@ -1,6 +1,6 @@
-using GPT_SGLD
-using DataFrames
-using PyPlot
+@everywhere using GPT_SGLD
+@everywhere using DataFrames
+@everywhere using PyPlot
 
 if 1==1
 @everywhere data=DataFrames.readtable("Folds5x2_pp.csv", header = true);
@@ -25,22 +25,23 @@ if 1==1
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
 end
-@everywhere maxepoch=3000;
+@everywhere burnin=0;
+@everywhere maxepoch=500;
 @everywhere m=50;
 @everywhere n=150;
 @everywhere phitrain=featureNotensor(Xtrain,n,length_scale,seed);
 @everywhere phitest=featureNotensor(Xtest,n,length_scale,seed);
-@everywhere eps_theta=0.0001;
+@everywhere eps_theta=0.00015;
 @everywhere sample_epochs=20;
 @everywhere decay_rate=0;
 @everywhere sigma_theta=1;
 
-if 1==1
+if 1==0
     println("n=",n," m=",m," maxepoch=",maxepoch," sample_epochs=",sample_epochs," eps_theta=",eps_theta," decay_rate=",decay_rate)
     tic(); theta_store=GPNT_SGLD(phitrain,ytrain,sigma,sigma_theta,m,eps_theta,decay_rate,maxepoch,234); toc();
     T=size(theta_store,2);
     n_samples=sample_epochs*integer(floor(Ntrain/m));
-    low=integer(floor(T/n_samples-5/2));
+    #low=integer(floor(T/n_samples-5/2));
     trainRMSE=Array(Float64,n_samples);
     testRMSE=Array(Float64,n_samples);
     fhat_train=Array(Float64,Ntrain,n_samples);
@@ -78,3 +79,15 @@ end
 
 savefig("Plots/NoTensorSGLDThetaTrace")
 end
+
+if 1==1
+meangrad_store=SharedArray(Float64,n,50)
+@parallel for i=1:50
+theta_store,meangrad=GPNT_SGLD(phitrain,ytrain,sigma,sigma_theta,i*100,eps_theta,decay_rate,burnin,maxepoch,123);
+meangrad_store[:,i]=meangrad;
+println("m=",i*100," done")
+end
+
+end
+
+

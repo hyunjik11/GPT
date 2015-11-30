@@ -1,5 +1,4 @@
 @everywhere using GPT_SGLD
-@everywhere using Distributions
 @everywhere using DataFrames
 @everywhere using PyPlot
 @everywhere using Iterators
@@ -36,21 +35,21 @@ end
 @everywhere ytrain=datawhitening(ytrain);
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
-@everywhere burnin=50;
-@everywhere maxepoch=10;
+@everywhere burnin=10;
+@everywhere maxepoch=1000;
 @everywhere Q=200;
-@everywhere m=50;
+@everywhere m=5000;
 @everywhere r=20;
 @everywhere n=150;
 @everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,seed,scale);
 @everywhere phitest=feature(Xtest,n,length_scale,seed,scale);
-#@everywhere epsw=0.00011; 
-#@everywhere epsU=1e-10;
+@everywhere epsw=1e-4; 
+@everywhere epsU=1e-9;
+tic();w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);toc()
 
 if 1==0
-tic();w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);toc()
 @everywhere T=maxepoch*int(floor(Ntrain/m));
 trainRMSE=SharedArray(Float64,T);
 testRMSE=SharedArray(Float64,T);
@@ -73,9 +72,9 @@ println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfha
 #tic();myRMSEidx,temp=RMSE(w_store,U_store,I,phitest,ytest);toc();
 end
 
-if 1==1
-@everywhere t=Iterators.product(8:14,1:10)
-@everywhere myt=Array(Any,70);
+if 1==0
+@everywhere t=Iterators.product(6:8,4:5)
+@everywhere myt=Array(Any,6);
 @everywhere it=1;
 @everywhere for prod in t
 	myt[it]=prod;
@@ -84,12 +83,13 @@ if 1==1
 #myRMSE=SharedArray(Float64,70);
 @parallel for  Tuple in myt
 	i,j=Tuple;
-        epsU=10.0^(-i); epsw=j*1e-5;
+        epsU=10.0^(-i); epsw=10.0^(-j);
 	#idx=int(3*(j-70)/5+i-14);
         w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
-	myRMSE,temp=ytrainStd*RMSE(w_store,U_store,I,phitest,ytest);
+	myRMSE,temp=RMSE(w_store,U_store,I,phitest,ytest);
+	myRMSE=ytrainStd*myRMSE;
 
-	println("RMSE=",myRMSE,";seed=",seed,";sigma=",sigma,";length_scale=",length_scale,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=",epsw,";logepsU=-",i,";burnin=",burnin,";maxepoch=",maxepoch);
+	println("RMSE=",myRMSE,";seed=",seed,";sigma=",sigma,";length_scale=",length_scale,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=",epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
     end
 end
 

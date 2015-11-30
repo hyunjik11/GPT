@@ -2,7 +2,7 @@ module GPT_SGLD
 
 using Distributions
 
-export proj,geod,datawhitening,feature,feature2,featureNotensor,samplenz,pred,RMSE,GPT_SGLDERM,SDexp,GPT_SGDERM,GPNT_SGLD,GPT_GMC
+export proj, geod, datawhitening, feature, feature2, featureNotensor, samplenz, pred, RMSE, parallelRMSE, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD, GPT_GMC
     
 # define proj for Stiefel manifold
 function proj(U::Array,V::Array)
@@ -221,6 +221,19 @@ end
 function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array)
     Ntest=length(ytest);
     T=size(w_store,2);
+    meanfhat=zeros(Ntest);
+    for i=1:T
+        meanfhat+=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
+    end
+    meanfhat=meanfhat/T;
+    return norm(ytest-meanfhat)/sqrt(Ntest),meanfhat;
+end
+
+#work out minimum RMSE by averaging over predictions in w_store,U_store, returning both RMSE and meanhat
+#parallel version
+function parallelRMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array)
+    Ntest=length(ytest);
+    T=size(w_store,2);
     meanfhat= @parallel (+) for i=1:T
         pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
     end
@@ -229,7 +242,7 @@ function RMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytest::Array
 end
     
 #SGLD on Tucker Model with Stiefel Manifold
-function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,burnin::Integer,maxepoch::Integer)
+function GPT_SGLDERM(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # sigma is the s.d. of the observed values
     # epsw,epsU are the epsilons for w and U resp.
@@ -300,7 +313,7 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Inte
             for k=1:D
                 mom=proj(U[:,:,k],sqrt(epsU)*gradU[:,:,k]/2+randn(n,r))
                 U[:,:,k]=geod(U[:,:,k],mom,sqrt(epsU));
-                if U[:,;,k]==zeros(n,r) #if NaN appears while evaluating G
+                if U[:,:,k]==zeros(n,r) #if NaN appears while evaluating G
                     return zeros(Q,maxepoch*numbatches),zeros(n,r,D,maxepoch*numbatches)
                 end
             end
@@ -314,7 +327,7 @@ function GPT_SGLDERM(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Inte
 end
 
 #SGD on Tucker Model with Stiefel Manifold 
-function GPT_SGDERM(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,burnin::Integer,maxepoch::Integer)
+function GPT_SGDERM(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # sigma is the s.d. of the observed values
     # epsw,epsU are the epsilons for w and U resp.
@@ -398,7 +411,7 @@ function GPT_SGDERM(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Integ
 end
 
 #GMC on Tucker Model with Stiefel Manifold
-function GPT_GMC(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Integer,m::Integer,epsw::Real,epsU::Real,burnin::Integer,maxepoch::Integer,L::Integer)
+function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer, L::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # sigma is the s.d. of the observed values
     # epsw,epsU are the epsilons for w and U resp.
@@ -505,7 +518,7 @@ function GPT_GMC(phi::Array,y::Array,sigma::Real,I::Array,r::Integer,Q::Integer,
         
         accept_prob[epoch]=exp(H_new-H)
         
-        if u>accept_prob[epoch] #if true, reject 
+        if u[1]>accept_prob[epoch] #if true, reject 
             w=w_old; U=U_old;
         end
         
@@ -519,7 +532,7 @@ end
     
 
 #SGLD on No Tensor Model
-function GPNT_SGLD(phi::Array,y::Array,sigma::Real,sigma_theta::Real,m::Integer,eps_theta::Real,decay_rate::Real,maxepoch::Integer,theta_seed::Integer)
+function GPNT_SGLD(phi::Array, y::Array, sigma::Real, sigma_theta::Real, m::Integer, eps_theta::Real, decay_rate::Real, burnin::Integer, maxepoch::Integer, theta_seed::Integer)
     n,N=size(phi);
     numbatches=int(ceil(N/m))
     
@@ -527,23 +540,26 @@ function GPNT_SGLD(phi::Array,y::Array,sigma::Real,sigma_theta::Real,m::Integer,
     srand(theta_seed)
     theta=sigma_theta*randn(n);
     epsilon=eps_theta;
-    theta_store=Array(Float64,n,maxepoch*numbatches)
+    theta_store=Array(Float64,n,(maxepoch+burnin)*numbatches)
+    meangrad=zeros(n);
 
-    t=1; #iteration number
-    for epoch=1:maxepoch
+    t=0; #iteration number
+    g=0;
+    for epoch=1:(maxepoch+burnin)
         #randomly permute training data and divide into mini_batches of size m
         perm=randperm(N)
         phi=phi[:,perm]; y=y[perm];
         
         # run SGLD on w and SGLDERM on U
         for batch=1:numbatches
+	    t+=1;
             # random samples for the stochastic gradient
             idx=(m*(batch-1)+1):min(m*batch,N)
             phi_batch=phi[:,idx]; y_batch=y[idx];
             batch_size=length(idx) #this is m except for last batch
 
             epsilon=eps_theta*t^(-decay_rate)
-            grad_theta=-theta/(sigma_theta^2)+(N/m)*phi_batch*(y_batch-phi_batch'*theta)/(sigma^2);
+            grad_theta=-theta/(sigma_theta^2)+(N/batch_size)*phi_batch*(y_batch-phi_batch'*theta)/(sigma^2);
             grad=epsilon*grad_theta/2;
             noise=sqrt(epsilon)*randn(n);
             if t%100==0
@@ -552,11 +568,14 @@ function GPNT_SGLD(phi::Array,y::Array,sigma::Real,sigma_theta::Real,m::Integer,
            
             theta[:]+=grad+noise;
 	    theta_store[:,t]=theta;
-            
-            t+=1;
+	    if epoch>burnin && batch<numbatches
+		g+=1;
+            	meangrad+=phi_batch*(y_batch-phi_batch'*theta)/(sigma^2);
+	    end
         end
     end
-    return theta_store
+    meangrad=meangrad/g;
+    return theta_store,meangrad
 end
 
 end
