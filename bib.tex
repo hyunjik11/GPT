@@ -1,0 +1,383 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\setlength\parindent{0pt}
+\newcommand{\forceindent}{\leavevmode{\parindent=2em\indent}}
+
+\title{Inference for Tucker Decomposition Model}
+%\author{Share\LaTeX}
+
+\begin{document}
+
+\maketitle
+
+\section{Problem Statement and Model}
+
+We have a set of $N$ observations $y_i \in \mathbb{R}$ corresponding to a set of inputs $x_i \in \mathbb{R}^D, $ and we wish to regress $y=(y_i)_{i=1}^{N}$ on $X=(x_i)_{i=1}^{N}$. We assume that the data generating mechanism takes the form
+\begin{equation}
+y=f(X) + \epsilon \hspace{10 mm} \epsilon \sim \mathcal{N}(0,\sigma^2 I_N)
+\end{equation}
+where $f(X)=(f(x_i))_{i=1}^{N} \in \mathbb{R}^N$ and use Tucker decomposition so that the regression function takes the following form
+
+\begin{equation}
+\hat{f}(x)=\sum_{q=1}^Q w_q \prod_{k=1}^D (\phi^{(k)}(x))^T U^{(k)}_{\cdot I_{qk}}
+\end{equation}
+
+where 
+\begin{itemize}
+\item $(w_q)_{q=1}^Q$ are the Q non-zero elements of the lower rank core tensor $W \in \mathbb{R}^{r^D}$
+\item $(\phi^{(k)}(x))_{k=1}^D $ are the random Fourier features in $\mathbb{R}^n$ extracted from each component of $x$
+\item $(U^{(k)})_{k=1}^D$ are a set of real $n \times r$ matrices
+\item $I_{qk}$ is the index of the $k$th dimension of the location of $w_q$
+\end{itemize}
+We assume $n>r$, and wish to learn $w$ and the $U^{(k)}$ from the data. 
+
+\section{Bayesian Linear Regression}
+
+We will use results from Bayesian Linear Regression throughout when deriving the inference equations. Here is a brief summary.
+The model takes the form
+\begin{equation}
+y=X\beta + \epsilon \hspace{10 mm} \epsilon \sim \mathcal{N}(0,\sigma^2 I_N)
+\end{equation}
+where $y \in \mathbb{R}^N$, $X \in \mathbb{R}^{N \times D}$ and $\beta \in \mathbb{R}^D$. We place a centred Gaussian prior with spherical covariance on $\beta$
+\begin{equation}
+p(\beta)=\mathcal{N}(0,\sigma_b ^2)
+\end{equation}
+leading to the posterior
+\begin{equation}
+p(\beta | y)=\mathcal{N}(\mu,\Sigma)
+\end{equation}
+where
+\begin{equation}
+\mu=\frac{1}{\sigma^2}\Sigma X^T y  \hspace{10 mm} \Sigma=\bigg( \frac{1}{\sigma^2}X^T X + \frac{1}{\sigma_b^2}I_D \bigg) ^{-1}
+\end{equation}
+
+\section{Inference by Gibbs Sampling}
+First we assume $\{w,(U^{(k)}_{k=1})^D\}$ is an independent set and place independent Gaussian priors on $w$ and each entry of $U^{(k)}$
+\begin{equation}
+w_q \sim \mathcal{N}(0,\sigma_w^2) \hspace{10 mm} U^{(k)}_{ml} \sim \mathcal{N}(0,\sigma_u^2)
+\end{equation}
+Now 
+\begin{equation}
+\begin{split}
+\hat{f}(x_i)
+& =\sum_{q=1}^Q w_q \prod_{k=1}^D (\phi^{(k)}(x_i))^T U^{(k)}_{\cdot I_{qk}} \\
+& =\sum_{q=1}^Q w_q v_q(x_i)
+\end{split}
+\end{equation}
+So 
+\begin{equation}
+\hat{f}(X)=V^T w 
+\end{equation}
+where $V \in \mathbb{R}^{Q \times N}$ and $V_{qi}=v_q(x_i)$. \\
+Hence by (6) the Gibbs step for sampling $w$ is given by $p(w|U,X,y)=\mathcal{N}(w;\mu_w,\Sigma_w)$ where
+\begin{equation}
+\mu=\frac{1}{\sigma^2}\Sigma V y  \hspace{10 mm} \Sigma_w = \bigg( \frac{1}{\sigma^2}V V^T + \frac{1}{\sigma_w^2}I_Q \bigg) ^{-1}
+\end{equation}
+Computing $(\phi^{(j)}(x_i))^T U^{(k)}_{\cdot l}$ for $k=1,...,D, l=1,...,r$ requires $O(nrD)$ operations. Hence computing $V$ requires $O(NnrD)$ operations, and computing $\mu$ and $\Sigma$ requires $O(NQ+Q^2)$ and $O(NQ^2+Q^3)$ operations respectively. Also note that the computation of features $(\phi^{(k)}(x_i))_{k=1}^D $ requires $O(nD)$ operations. So this is $O(NnD)$ for the entire dataset.
+\\
+\\
+We have two options when learning $w$ and the $U^{(k)}$ by Gibbs sampling. We may either sample each $U^{(k)}$ at once or we may sample separately each column of $U^{(k)}$, assuming they are independent. The latter is expected to reduce the computational cost of inference.
+
+\subsection{Sample each $U^{(k)}$}
+Let $I_l=\{q \in \{1,..,Q\}: I_{qk}=l \}$. Then
+\begin{equation}
+\begin{split}
+\hat{f}(x_i)
+& =\sum_{q=1}^Q w_q \bigg(\prod_{j \neq k} (\phi^{(j)}(x_i))^T U^{(j)}_{\cdot I_{qj}}\bigg)(\phi^{(k)}(x_i))^T U^{(k)}_{\cdot I_{qk}}  \\
+& = (\psi^{(k)}(x_i))^T u^{(k)}
+\end{split}
+\end{equation}
+where
+\begin{itemize}
+\item $u^{(k)}=vec(U^{(k)}) \in \mathbb{R}^{nr}$
+\item $\psi^{(k)}(x_i)=a^{(k)}(x_i) \otimes \phi^{(k)}(x_i) \in \mathbb{R}^{nr}$
+\item $a^{(k)}_l(x_i)=\sum_{q \in I_l} w_q \prod_{j \neq k} (\phi^{(j)}(x_i))^T U^{(j)}_{\cdot I_{qj}}$
+\end{itemize}
+So 
+\begin{equation}
+\hat{f}(X)=(\Psi^{(k)})^T u^{(k)}
+\end{equation}
+where $\Psi^{(k)} \in \mathbb{R}^{nr \times N}$ and $\Psi^{(k)}_{\cdot i}=\psi^{(k)}(x_i)$.\\ Hence by (6) the Gibbs step for sampling $U^{(k)}$ is given by \\ 
+$p(u^{(k)}|(U^{(j)})_{j \neq k},w,X,y)=\mathcal{N}(u^{(k)};\mu^{(k)},\Sigma^{(k)})$ where
+\begin{equation}
+\mu^{(k)}=\frac{1}{\sigma^2}\Sigma^{(k)} \Psi^{(k)} y  \hspace{10 mm} \Sigma^{(k)} = \bigg( \frac{1}{\sigma^2}\Psi^{(k)}(\Psi^{(k)})^T + \frac{1}{\sigma_u^2}I_{nr} \bigg) ^{-1}
+\end{equation}
+Now computing $(\phi^{(j)}(x_i))^T U^{(j)}_{\cdot l}$ for $j\neq k, l=1,...,r$ requires $O(nrD)$ operations, from which we can compute the $\bigg(a^{(k)}_l(x_i)\bigg)_{l=1}^r$ in $O(QD)$ operations, so computing $\Psi^{(k)}$ requires $O(NrnD+NQD)$ operations. Computing $\mu_k$ and $\Sigma_k$ requires a further $O(Nnr+n^2r^2)$ and $O(Nn^2r^2+n^3r^3)$ operations respectively.
+\\
+\\
+So the overall complexity for one Gibbs step is $O(NnD+ NQ^2 + Q^3 + NnrD + D(NrnD+NQD+Nn^2r^2+n^3r^3))=O(N(n^2r^2D+nrD^2+Q^2+QD^2)+n^3r^3D+Q^3)$. It appears as though the computation of $\Sigma_k$ is the bottleneck, which motivates sampling each column of $U^{(k)}$ instead.
+
+\subsection{Sample each column of $U^{(k)}$}
+Define $I_l$ as above, and note that  $\coprod\limits_{l=1}^r I_l = \{1,...,Q\}$. Then note
+\begin{equation}
+\begin{aligned}
+\hat{f}(x_i)
+& =\sum_{q=1}^Q w_q \bigg(\prod_{j \neq k} (\phi^{(j)}(x_i))^T U^{(j)}_{\cdot I_{qj}}\bigg)(\phi^{(k)}(x_i))^T U^{(k)}_{\cdot I_{qk}}  \\
+& =\sum_{q \in I_l} w_q \bigg(\prod_{j \neq k} (\phi^{(j)}(x_i))^T U^{(j)}_{\cdot I_{qj}}\bigg)(\phi^{(k)}(x_i))^T U^{(k)}_{\cdot l} \\
+& \tab +\sum_{q \notin I_l } w_q \bigg(\prod_{j \neq k} (\phi^{(j)}(x_i))^T U^{(j)}_{\cdot I_{qj}}\bigg)(\phi^{(k)}(x_i))^T U^{(k)}_{\cdot I_{qk}} \\
+& =a_l^{(k)}(x_i) (\phi^{(k)}(x_i))^T U^{(k)}_{\cdot l} + \sum_{q \notin I_l} w_q v_q(x_i) 
+\end{aligned}
+\end{equation}
+with the same notation as above. \\
+So $\hat{f}(X) - V_{I_l \cdot }^T w_{I_l} = \Phi^{(k,l)} U^{(k)}_{\cdot l}$ where  $\Phi^{(k,l)} \in \mathbb{R}^{N \times n}$ and $\Phi^{(k,l)}_{i \cdot} = a_l^{(k)}(x_i) (\phi^{(k)}(x_i))^T$
+Hence by (6) the Gibbs step for sampling $U^{(k)}_{\cdot l}$ is given by \\
+$p(U^{(k)}_{\cdot l}|U^{(k)}_{\cdot -l}, (U^{(j)})_{j \neq k},w,X,y)=\mathcal{N}(U^{(k)}_{\cdot l};\mu^{(k)}_l,\Sigma^{(k)}_l)$ where
+\begin{equation}
+\mu^{(k)}_l=\frac{1}{\sigma^2}\Sigma^{(k)}_l (\Phi^{(k,l)})^T (y-V_{I_l \cdot }^T w_{I_l})  \hspace{10 mm} \Sigma^{(k)}_l = \bigg( \frac{1}{\sigma^2}(\Phi^{(k,l)})^T\Phi^{(k,l)} + \frac{1}{\sigma_u^2}I_{nr} \bigg) ^{-1}
+\end{equation}
+Computing $\Phi^{(k,l)}$ requires $O(NnrD)$ operations,  and computing $V_{I_l \cdot }^T w_{I_l}$ requires $O(NQ)$ operations. Computing $\mu^{(k)}_l$ and $\Sigma^{(k)}_l$ requires a further $O(Nn+n^2)$ and $O(Nn^2+n^3)$ operations respectively. Noting that there are $r$ possible values of $l$, the overall complexity for one Gibbs step is $O(NnD+NQ^2+Q^3+NnrD+D(r(NnrD+Nn^2+n^3+NQ))=O(N(nr^2D+n^2rD+QrD)+n^3rD+Q^3)$.
+
+\section{Stochastic Gradient Langevin Dynamics on Embedded Riemannian Manifolds}
+In our model, ideally we would like to restrict the $U^{(k)}$ so that their columns are linearly independent, in order to remove redundancies in the parametrisation. Hence we restrict the columns of the $U^{(k)}$ to be orthonormal, so that we are able to work on the Stiefel manifold:
+\begin{equation}
+\mathbb{V}_{n,r}=\{X \in \mathbb{R}^{n \times r}: X^TX=I \}
+\end{equation}
+This is a $nr-{r \choose 2}$ dimensional manifold embedded in the Euclidean space $\mathbb{R}^{n \times r}$
+To work on $\mathbb{V}_{n,r}$ for inference, we need to be able to draw samples from distributions defined on this manifold. \cite{byrne2013geodesic} describes \textit{Geodesic Monte Carlo}, a Hamiltonian Monte Carlo(HMC) method on Riemannian manifolds where the Markov Chain makes jumps along the geodesics\footnote{Definitions of all terms from differential geometry can be found in \cite{byrne2013geodesic} and further in \cite{edelman1998geometry}} of the manifold.
+The Stiefel manifold equipped with the Euclidean metric $\langle U,V\rangle=tr(U^TV)$ on its tangent space falls into this class, and so the algorithm can be directly applied to our problem. However, as is the case with other MCMC algorithms, each iteration of the HMC requires computations over the whole dataset,making the algorithm infeasible for truly big data. Hence we propose a variant of the \textit{Stochastic Gradient Langevin Dynamics} (SGLD) \cite{welling2011bayesian} algorithm  applicable to the manifold setting described above. As Langevin Monte Carlo (LMC) is derived from taking a single leapfrog step in HMC \cite{neal2011mcmc}, we may derive a Langevin version of Geodesic Monte Carlo, from which we can bring in ideas from stochastic optimisation to construct a version of SGLD applicable to embedded Riemannian manifolds, which we call SGLD-ERM.
+
+\subsection{General Case}
+Let $\theta$ denote the parameters of our model which we wish to learn, $p(\theta)$ the prior on $\theta$, and $p((x_i,y_i)|\theta)$ the likelihood of data item $(x_i,y_i)$. Now suppose $\theta \in \mathcal{M}$, a Riemannian manifold embedded in $\mathbb{R}^n$ with metric tensor $G(\theta)$. We wish to sample from the posterior
+\begin{equation}
+\pi(\theta) \propto p(\theta)\prod_{i=1}^N p(y_i|x_i,\theta)
+\end{equation}
+Let $P_{\theta}: \mathbb{R}^n \rightarrow \mathcal{T}_{\theta}\mathcal{M}$ denote the orthogonal projection onto the tangent space of $\mathcal{M}$ at $\theta$. Also let $\pi_{\mathcal{H}}$ denote the posterior density with respect to the Hausdorff measure on $\mathcal{M}$. For manifolds embedded in Euclidean space, $\pi_{\mathcal{H}}(\theta)=\frac{1}{\sqrt{|G(\theta)|}}\pi(\theta)$.
+At each step of the Markov chain(MC), we move along the tangent space at $\theta_t$ in the direction of the stochastic gradient (ie. along the projection of the gradient onto the tangent space). Then we inject some Gaussian noise which is again projected onto the same tangent space. This defines a vector $V_t$ of the tangent space. We then move along the unique geodesic from $\theta_t$ with direction $V_t$ to reach $\theta_{t+1}$, the next state of our MC. \\
+In detail:
+\begin{enumerate}
+\item Initialise MC by drawing $\theta_0 \in \mathcal{M}$ from its prior distribution. 
+\item For $t=0,...,T$:
+\begin{enumerate}
+\item $V_t = P_{\theta_t}\bigg(\frac{\sqrt{\epsilon_t}}{2}\Big(\nabla_{\theta}\log p(\theta_t)+\frac{N}{m}\sum_{i=1}^m \nabla_{\theta}\log p(y_{ti}|x_{ti},\theta_t)\Big) +Z \bigg)$ \\ where $Z \sim \mathcal{N}(0,I_n)$ and $(x_{ti},y_{ti})_{i=1}^m$ is our mini-batch of data for the stochastic gradient.
+\item $\theta_{t+1}=$Geodesic flow initialised by $(\theta_t,V_t)$ taken for time $\sqrt{\epsilon_t}$.
+\end{enumerate}
+\end{enumerate}
+The $\epsilon_t$ must satisfy the following conditions for ergodicity:
+\begin{equation}
+\sum_{t=1}^{\infty} \epsilon_t = \infty , \hspace{5mm} \sum_{t=1}^{\infty} \epsilon_t^2 < \infty
+\end{equation}
+We can easily check that SGLD-ERM applied to the Euclidean manifold $\mathbb{R}^n$ gives us standard SGLD.
+
+\subsection{Application to Tucker Decomposition Model}
+In our model, we deal with the product manifold:
+\begin{equation}
+\mathcal{M} = \mathbb{R}^Q \times (\mathbb{V}_{n,r})^D \ni \bigg(w,(U^{(k)})_{k=1}^D\bigg)
+\end{equation}
+where we equip the tangest space of each $\mathbb{V}_{n,r}$ with the Euclidean metric $\langle U,V \rangle=tr(U^TV)$. To apply the algorithm on product manifolds, we may simply apply the algorithm to each manifold of the product \cite{byrne2013geodesic}. We use the standard SGLD on $\mathbb{R}^Q$ for $w$, and use SGLD-ERM on $\mathbb{V}_{n,r}$ for each of the $U^{(k)}$.
+Let $\theta = (w,U^{(1)},...,U^{(D)})$. Now we impose the prior
+\begin{equation}
+p(\theta) = p(w) \prod_{k=1}^D p(U^{(k)})
+\end{equation}
+where $p(U^{(k)}) = \frac{1}{Vol(\mathbb{V}_{n,r})}$ for $k=1,...,D$ (the uniform distribution on $\mathbb{V}_{n,r}$) and $p(w)=\mathcal{N}(w;0,\sigma_w^2I_Q)$. \\
+First we need to set $\sigma_w$ so that when $w,U^{(1)},...,U^{(D)}$ are drawn from the prior we have
+\begin{equation}
+\mathbb{E}[\hat{f}(x)\hat{f}(y)]=\prod_{k=1}^D \langle \phi^{(k)}(x),\phi^{(k)}(y) \rangle \approx k(x,y)
+\end{equation}
+Now noting $\hat{f}(x)=\sum_{q=1}^Q w_q \prod_{k=1}^D (\phi^{(k)}(x))^T U^{(k)}_{\cdot I_{qk}}$ and simplifying the left hand side:
+\begin{equation}
+\begin{split}
+\mathbb{E}[\hat{f}(x)\hat{f}(y)]
+& = \sum_{q=1}^Q \sigma_w^2 \mathbb{E} \Big[\prod_{k=1}^D (\phi^{(k)}(x))^T U^{(k)}_{\cdot I_{qk}} (\phi^{(k)}(y))^T U^{(k)}_{\cdot I_{qk}} \Big] \text{(by independence of $w_q$)}\\
+& = \sum_{q=1}^Q \sigma_w^2 \prod_{k=1}^D \mathbb{E}[(\phi^{(k)}(x))^T U^{(k)}_{\cdot I_{qk}} (\phi^{(k)}(y))^T U^{(k)}_{\cdot I_{qk}}] \text{(by independence of $U^{(k)}$)} \\
+& = \sum_{q=1}^Q \sigma_w^2 \prod_{k=1}^D \mathbb{E}[(U^{(k)}_{\cdot I_{qk}})^T\phi^{(k)}(x) (\phi^{(k)}(y))^T U^{(k)}_{\cdot I_{qk}}]
+\end{split}
+\end{equation}
+Now by the trace trick: 
+\begin{equation}
+\begin{aligned}
+\mathbb{E}[(U^{(k)}_{\cdot I_{qk}})^T\phi^{(k)}(x) (\phi^{(k)}(y))^T U^{(k)}_{\cdot I_{qk}}]
+& = \mathbb{E}[tr((U^{(k)}_{\cdot I_{qk}})^T\phi^{(k)}(x) (\phi^{(k)}(y))^T U^{(k)}_{\cdot I_{qk}})] \\
+& = \mathbb{E}[tr(\phi^{(k)}(x) (\phi^{(k)}(y))^T U^{(k)}_{\cdot I_{qk}}(U^{(k)}_{\cdot I_{qk}})^T )] \\
+& = tr\Big(\phi^{(k)}(x) (\phi^{(k)}(y))^T \mathbb{E}\bigg[U^{(k)}_{\cdot I_{qk}}(U^{(k)}_{\cdot I_{qk}})^T\bigg]\Big)
+\end{aligned}
+\end{equation}
+Now for any column $u$ of $U^{(k)}$, we have that: \\
+$1=u^Tu=\mathbb{E}[u^Tu]=n\mathbb{E}[u^2_i] \hspace{5 mm} \forall i$ by symmetry. \\
+Hence the diagonals of $\mathbb{E}\bigg[U^{(k)}_{\cdot I_{qk}}(U^{(k)}_{\cdot I_{qk}})^T\bigg]$ are all $\frac{1}{n}$. Also the non-diagonals are 0, since for $i \neq j, \mathbb{E}[u_iu_j]=\mathbb{E}[(-u_i)u_j] \implies \mathbb{E}[u_iu_j]=0$ (since $u \buildrel d \over = -u$). \\
+Hence $\mathbb{E}\bigg[U^{(k)}_{\cdot I_{qk}}(U^{(k)}_{\cdot I_{qk}})^T\bigg]=\frac{1}{n} I$ so we have
+\begin{equation}
+\begin{aligned}
+tr\Big(\phi^{(k)}(x) (\phi^{(k)}(y))^T \mathbb{E}\bigg[U^{(k)}_{\cdot I_{qk}}(U^{(k)}_{\cdot I_{qk}})^T\bigg]\Big)
+& =tr\Big(\frac{1}{n} \phi^{(k)}(x) (\phi^{(k)}(y))^T\Big) \\
+& = \frac{1}{n} \langle \phi^{(k)}(x), \phi^{(k)}(y) \rangle
+\end{aligned}
+\end{equation}
+Hence
+\begin{equation}
+\begin{aligned}
+\mathbb{E}[\hat{f}(x)\hat{f}(y)]
+& =\sum_{q=1}^Q \sigma_w^2 \prod_{k=1}^D \frac{1}{n} \langle \phi^{(k)}(x), \phi^{(k)}(y) \rangle \\
+& =\frac{Q \sigma_w^2}{n^D}  \prod_{k=1}^D \langle \phi^{(k)}(x), \phi^{(k)}(y) \rangle
+\end{aligned}
+\end{equation}
+So we wish to set $ Q \sigma_w^2 = n^D$, in other words $\sigma_w= \sqrt{\frac{n^D}{Q}}$. Notice that this can potentially be very big for large $D$. Hence instead we scale the features $\phi^{(k)}(x)$ by factor $\sqrt{\frac{n}{Q^{1/D}}}$ and set $\sigma_w=1$ for numerical stability.
+
+Now 
+\begin{equation}
+p(y_i|x_i,\theta)=\mathcal{N}(y_i;\hat{f}(x_i),\sigma^2) 
+\end{equation}
+where $\hat{f}(x_i)=\sum_{q=1}^Q w_q \prod_{k=1}^D (\phi^{(k)}(x_i))^T U^{(k)}_{\cdot I_{qk}}$. \\ 
+So our algorithm runs as follows:
+\begin{enumerate}
+\item Initialise MC by drawing $\theta_0=(w,U_0^{(1)},...,U_0^{(D)})$ from its prior distribution. 
+\item For $t=0,...,T$:
+\begin{enumerate}
+\item $w_{t+1}= w_t + \frac{\epsilon_t^w}{2}\bigg(\nabla_w\log p(w_t)+\frac{N}{m} \sum_{i=1}^m \nabla_w\log p(y_{ti}|x_{ti},\theta_t) \bigg) + \eta_t^w$ \\
+where $\eta_t^w \sim \mathcal{N}(0,\epsilon_t^w I_Q)$.
+\item For k=1,...,D:
+\begin{enumerate}
+\item $V_t^{(k)}= P_{U_t^{(k)}}\bigg(\frac{\sqrt{\epsilon_t^k}}{2}\Big(\frac{N}{m} \sum_{i=1}^m \nabla_{U^{(k)}}\log p(y_{ti}|x_{ti},\theta_t) \Big)+Z\bigg)$ \\
+where $Z \sim \mathcal{N}(0,I_{n \times r})$ so $Z \in R^{n \times r}$ \\ 
+and $P_U(V)=V-\frac{1}{2}U(U^TV+V^TU)$.
+\item $U_{t+1}^{(k)}=
+\begin{bmatrix}
+U_t^{(k)} & V_t^{(k)}
+\end{bmatrix}
+E_t^{(k)}
+\begin{bmatrix}
+exp(-\sqrt{\epsilon_t^k} A)\\
+0_r
+\end{bmatrix}$ \\
+where $E_t^{(k)}=exp \bigg( \sqrt{\epsilon_t^k}
+\begin{bmatrix}
+A & -(V_t^{(k)})^T V_t^{(k)} \\
+I_r & A
+\end{bmatrix}
+\bigg) \in \mathbb{R}^{2r \times 2r}$ \\
+and $A=(U_t^{(k)})^T V_t^{(k)} \in \mathbb{R}^{r \times r}$.
+\end{enumerate}
+\end{enumerate}
+\end{enumerate}
+Note that we only need the left half of $E_t^{(k)}$ to compute the product, due to the $0_r$ in the last matrix.
+As before, we need each sequence $(\epsilon_t^w)$ and $((\epsilon_t^k))_{k=1}^D$ to satisfy (18). \\
+Now note that all matrix multiplications and projections require $O(nr^2)$ operations to compute. Matrix exponentials cost $O(r^3)$, but $O(nr^2)$ dominates since $n>r$. So it remains to figure out the cost of evaluating log densities and their gradients.
+\begin{itemize}
+\item Computing $(\phi^{(k)}(x_i))_{k=1}^D $ requires $O(nD)$ operations, and recall that computing $(\phi^{(k)}(x_i))^T U^{(k)}_{\cdot l}$ for $k=1,...,D, l=1,...,r$ requires $O(nrD)$ operations. Then computing $\hat{f}(x_i)$ according to (8) requires $O(QD)$ operations. Hence it costs $O(nrD+QD)$ operations in total.
+\item $\log p(w_t)=-\frac{1}{2\sigma_w^2}w_t^T w_t+C$. Hence $\nabla_w \log p(w_t) = -\frac{1}{\sigma_w^2}w_t$, which just requires $O(Q)$ operations.
+\item $\log p(y_i|x_i,\theta)=-\frac{1}{2\sigma^2}(y_i-\hat{f}_t(x_i))^2$
+ where $\hat{f}_t(x_i)=w_t^T V_{\cdot i}|_{(U^{(k)}=U_t^{(k)})_{k=1}^D}$ ($V$ as in (9)). Hence:
+ \begin{itemize}
+ \item $\nabla_w\log p(y_{ti}|x_{ti},\theta_t)=\frac{1}{\sigma^2}(y_{ti}-\hat{f}_t(x_{ti}))V_{\cdot ti}|_{(U^{(k)}=U_t^{(k)})_{k=1}^D}$. \\ 
+ Note $V_{\cdot ti}$ is computed when calculating $\hat{f}_t(x_{ti})$. So this step requires only $O(1)$ additional operations.
+ \item $\nabla_{U^{(k)}}\log p(y_{ti}|x_{ti},\theta_t)=\frac{1}{\sigma^2}(y_{ti}-\hat{f}_t(x_{ti}))\Psi_{\cdot ti}^{(k)}|_{w=w_t,(U^{(j)}=U_t^{(j)})_{j \neq k}}$ \\
+ We know from section 3.1 that computing $\Psi_{\cdot ti}^{(k)}$ requires $O(nrD+QD)$ operations. But in fact we can further reduce this since now we want $\Big(\Psi_{\cdot ti}^{(k)}\Big)_{k=1}^D$ at the same time. Having computed $(\phi^{(k)}(x_i))^T U^{(k)}_{\cdot l}$ for $k=1,...,D, l=1,...,r$ in $O(nrD)$ operations, we can compute $\prod_{j=1}^D (\phi^{(j)}(x_i))^T U^{(j)}_{\cdot I_{qj}}$ for fixed q in $O(D)$ operations. For each $k$ we may divide this expression by a suitable scalar, to compute $\Big(\prod_{j \neq k} (\phi^{(j)}(x_i))^T U^{(j)}_{\cdot I_{qj}} \Big)_{k=1}^D$ in a further $O(D)$. Carrying this out for each $q$ requires $O(QD)$, hence we can get the $\bigg(a^{(k)}_l(x_i)\bigg)_{l=1,k=1}^{r,D}$ in $O(QD)$ operations, so computing $\Big(\Psi^{(k)}_{\cdot ti}\Big)_{k=1}^D$ requires $O(nrD+QD)$ operations.
+ \end{itemize}
+ \end{itemize}
+ So in total, each step of the SGLD-ERM algorithm costs $O(Q+mnrD+m(nrD+QD)+D(nr^2))=O(m(nrD+QD)+nr^2D)$.
+
+\section{Stochastic Gradient Nos\'{e}-Hoover Thermostat on Embedded Riemannian Manifolds}
+A potential problem of SGLD is that stochastic gradients introduce an unknown amount of noise. Hence the performance of the algorithm may be sensitive to the choice of discretisation step sizes $\epsilon$. \cite{ding2014bayesian} proposes Stochastic Gradient Nos\'{e}-Hoover Thermostat(SGNHT), which claims to self-adapt to the unknown noise with the help of an additional friction variable. Hence this allows for the use of a larger step size or smaller minibatches to improve sampling efficiency without losing accuracy. We construct an application of SGNHT to our embedded Riemannian manifold setting, which we call SGNHT-ERM. This turns out to be a small modification to SGLD-ERM, except that now we take multiple leapfrog steps as opposed to one. Also we need to incorporate the diffusion factor $A$ from the stochastic differential equation describing Langevin dynamics. So the algorithm in section 4.1 is modified as follows:
+\begin{enumerate}
+\item Initialise MC by drawing $\theta_0 \in \mathcal{M}$ from its prior distribution. 
+\item For $t=0,...,T$:
+\begin{enumerate}
+\item Initialise $V_t\sim \mathcal{N}(0,I_n)$, $\xi \leftarrow A$.
+\item For $l=0,...,L$:
+\begin{enumerate}
+\item \mbox{$V_t \leftarrow P_{\theta_t}\bigg(V_t+\sqrt{\epsilon_t}\Big(\nabla_{\theta}\log p(\theta_t)+\frac{N}{m}\sum_{i=1}^m \nabla_{\theta}\log p(y_{ti}|x_{ti},\theta_t)-V_t \xi +\sqrt{2A}Z \Big)\bigg)$} 
+\\ where $(x_{ti},y_{ti})_{i=1}^m$ is our mini-batch of data for the stochastic gradient and $Z \sim \mathcal{N}(0,\sqrt{\epsilon_t}I_n)$
+\item $(\theta_t,V_t) \leftarrow $Geodesic flow initialised by $(\theta_t,V_t)$ taken for time $\sqrt{\epsilon_t}$.
+\item $\xi \leftarrow \xi + \sqrt{\epsilon_t}\Big(\frac{1}{n}\langle V_t,V_t \rangle_{G(\theta_t)} -1\Big)$ \\ where $n$ is the dimensionality of $\theta$, and $\langle , \rangle_{G(\theta_t)}$ is the Riemannian metric defined on the tangent space of $\mathcal{M}$ at $\theta_t$.
+\end{enumerate}
+\end{enumerate}
+
+\end{enumerate}
+
+The time complexity of one transition kernel is simply $L$ times that of SGLD-ERM, but using multiple leapfrog steps will reduce autocorrelation in the samples, allowing for faster mixing and less correlated samples. Hence it may be that we need much fewer samples than SGLD-ERM for predictions of similar quality. \\
+
+When applying SGNHT-ERM to the Tucker Model with the product manifold, we may again apply the algorithm to each manifold of the product.So the algorithm in section 4.2 is modified as follows:
+\begin{enumerate}
+\item Initialise MC by drawing $\theta_0=(w_0,U_0^{(1)},...,U_0^{(D)})$ from its prior distribution. 
+\item For $t=0,...,T$:
+\begin{enumerate}
+\item Initialise $p_t \sim \mathcal{N}(0,I_Q)$, $\xi_w \leftarrow A_w$, $V^{(k)}_t\sim \mathcal{N}(0,I_{n \times r})$, $\xi_k \leftarrow A_k \hspace{5mm} \forall k$.
+\item For $l=0,...,L$:
+\begin{enumerate}
+\item \mbox{$p_t \leftarrow p_t + \sqrt{\epsilon_t^w} \Big(\nabla_w\log p(w_t)+\frac{N}{m} \sum_{i=1}^m \nabla_w\log p(y_{ti}|x_{ti},\theta_t)-\xi_w p_t +\sqrt{2A_w}Z \Big)$} \\
+where $Z \sim \mathcal{N}(0,\sqrt{\epsilon_t^w}I_Q)$ \\
+For $k=1,...,D$: \\
+\forceindent \mbox{$V_t^{(k)} \leftarrow P_{U_t^{(k)}}\bigg(V_t^{(k)}+\sqrt{\epsilon_t^k}\Big(\frac{N}{m} \sum_{i=1}^m \nabla_{U^{(k)}}\log p(y_{ti}|x_{ti},\theta_t) -\xi_kV_t^{(k)} +\sqrt{2A_k}Z \Big)\bigg)$} \\
+where $Z \sim \mathcal{N}(0,\sqrt{\epsilon_t^k}I_{n \times r})$
+\item $w_t \leftarrow w_t + \sqrt{\epsilon_t^w}p_t$ \\
+For $k=1,...,D$: \\
+\forceindent $U_{t+1}^{(k)}=
+\begin{bmatrix}
+U_t^{(k)} & V_t^{(k)}
+\end{bmatrix}
+E_t^{(k)}
+\begin{bmatrix}
+exp(-\sqrt{\epsilon_t^k} A)\\
+0_r
+\end{bmatrix}$ \\
+\forceindent where $E_t^{(k)}=exp \bigg( \sqrt{\epsilon_t^k}
+\begin{bmatrix}
+A & -(V_t^{(k)})^T V_t^{(k)} \\
+I_r & A
+\end{bmatrix}
+\bigg) \in \mathbb{R}^{2r \times 2r}$ \\
+\forceindent and $A=(U_t^{(k)})^T V_t^{(k)} \in \mathbb{R}^{r \times r}$.
+\item $\xi_w \leftarrow \xi_w + \sqrt{\epsilon_t^w}(\frac{1}{Q}p_t^T p_t -1)$ \\ 
+$\xi_k \leftarrow \xi_k + \sqrt{\epsilon_t^k}(\frac{1}{nr}tr(V_t^{(k)} ^T V_t^{(k)}) -1)$
+
+\end{enumerate}
+\end{enumerate}
+
+\end{enumerate}
+
+\section{Geodesic Monte Carlo - Hamiltonian Monte Carlo on Embedded Riemannian Manifolds}
+
+We describe the method of \textit{Geodesic Monte Carlo} in \cite{byrne2013geodesic} applied to our model, a Hamiltonian Monte Carlo(HMC) method on Riemannian manifolds where the Markov Chain makes jumps along the geodesics. 
+
+\begin{enumerate}
+\item Initialise MC by drawing $\theta_0=(w_0,U_0^{(1)},...,U_0^{(D)})$ from its prior distribution. 
+\item For $t=0,...,T$:
+\begin{enumerate}
+\item Initialise $p_t \sim \mathcal{N}(0,I_Q)$, $V^{(k)}_t\sim \mathcal{N}(0,I_{n \times r}) \hspace{5mm} \forall k$, \\
+\mbox{$H_t \leftarrow \log p(w_t)+\sum_{i=1}^N \log p(y_{i}|x_{i},\theta_t)-\frac{1}{2}\sum_{k=1}^D tr(V_t^{(k)}^T V_t^{(k)}) -\frac{1}{2}p_t^T p_t$} \\
+$\theta=(w,U^{(1)},...U^{(D)}) \leftarrow \theta_t=(w_t,U_t^{(1)},...U_t^{(D)})$
+\item For $l=0,...,L$:
+\begin{enumerate}
+\item \mbox{$p_t \leftarrow p_t + \frac{\sqrt{\epsilon_t^w}}{2} \Big(\nabla_w\log p(w_t)+\sum_{i=1}^N \nabla_w\log p(y_{i}|x_{i},\theta_t)\Big)$} \\
+For $k=1,...,D$: \\
+\forceindent \mbox{$V_t^{(k)} \leftarrow P_{U_t^{(k)}}\bigg(V_t^{(k)}+\frac{\sqrt{\epsilon_t^k}}{2}\Big(\sum_{i=1}^N \nabla_{U^{(k)}}\log p(y_{i}|x_{i},\theta) \Big)\bigg)$} \\
+\item $w \leftarrow w + \sqrt{\epsilon_t^w}p_t$ \\
+For $k=1,...,D$: \\
+\forceindent $[U^{(k)},V^{(k)}] \leftarrow
+\begin{bmatrix}
+U^{(k)} & V^{(k)}
+\end{bmatrix}
+E^{(k)}
+\begin{bmatrix}
+exp(-\sqrt{\epsilon_t^k} A) & 0_r\\
+0_r & exp(-\sqrt{\epsilon_t^k} A)
+\end{bmatrix}$ \\
+\forceindent where $E^{(k)}=exp \bigg( \sqrt{\epsilon_t^k}
+\begin{bmatrix}
+A & -(V^{(k)})^T V^{(k)} \\
+I_r & A
+\end{bmatrix}
+\bigg) \in \mathbb{R}^{2r \times 2r}$ \\
+\forceindent and $A=(U^{(k)})^T V^{(k)} \in \mathbb{R}^{r \times r}$. \\ 
+\item \mbox{$p_t \leftarrow p_t + \frac{\sqrt{\epsilon_t^w}}{2} \Big(\nabla_w\log p(w_t)+\sum_{i=1}^N \nabla_w\log p(y_{i}|x_{i},\theta_t)\Big)$} \\
+For $k=1,...,D$: \\
+\forceindent \mbox{$V_t^{(k)} \leftarrow P_{U_t^{(k)}}\bigg(V_t^{(k)}+\frac{\sqrt{\epsilon_t^k}}{2}\Big(\sum_{i=1}^N \nabla_{U^{(k)}}\log p(y_{i}|x_{i},\theta) \Big)\bigg)$} \\
+\end{enumerate}
+\item \mbox{$H^* \leftarrow \log p(w)+\sum_{i=1}^N \log p(y_{i}|x_{i},\theta)-\frac{1}{2}\sum_{k=1}^D tr(V_t^{(k)}^T V_t^{(k)}) -\frac{1}{2}p_t^T p_t$} \\
+$u \sim Unif[0,1]$ \\
+If $u \leq exp(H^*-H_t)$ \\
+\forceindent $\theta_{t+1}=(w_{t+1},U_{t+1}^{(1)},...,U_{t+1}^{(D)}) \leftarrow \theta=(w,U^{(1)},...,U^{(D)})$ \\
+else \\
+\forceindent $\theta_{t+1} \leftarrow \theta_t$
+\end{enumerate}
+
+\end{enumerate}
+
+\medskip
+
+\bibliographystyle{unsrt}%Used BibTeX style is unsrt
+\bibliography{sample}
+
+\end{document}

@@ -18,7 +18,7 @@ RealData Records:
 Mean prediction gives RMSE 17.1331
 Using GP gives RMSE=4.0056 in 5371 seconds.
 For n=100;r=10;Q=100;m=100; one training epoch on training set size 5000 takes 3 seconds.
-For n=150;r=20;Q=200;m=50; one training epoch on training set size 5000 takes 10 seconds.
+For n=150;r=20;Q=200;m=50; one training epoch on training set size 5000 takes 6 seconds.
 A single set of predictions on test set size 4568 given w,U,I,phitest takes 0.3 seconds
 
 RMSE=4.248;seed=17;sigma=0.2299;length_scale=1.4332;n=150;r=20;Q=200;m=50;epsw=100;epsU=1.0e-16;burnin=80;maxepoch=5

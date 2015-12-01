@@ -38,7 +38,7 @@ end
 
 if 1==0
     println("n=",n," m=",m," maxepoch=",maxepoch," sample_epochs=",sample_epochs," eps_theta=",eps_theta," decay_rate=",decay_rate)
-    tic(); theta_store=GPNT_SGLD(phitrain,ytrain,sigma,sigma_theta,m,eps_theta,decay_rate,maxepoch,234); toc();
+    tic(); theta_store=GPNT_SGLD(phitrain,ytrain,sigma,sigma_theta,m,eps_theta,decay_rate,maxepoch,123); toc();
     T=size(theta_store,2);
     n_samples=sample_epochs*integer(floor(Ntrain/m));
     #low=integer(floor(T/n_samples-5/2));
