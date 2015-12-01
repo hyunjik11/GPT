@@ -36,9 +36,9 @@ end
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
 @everywhere burnin=10;
-@everywhere maxepoch=200;
+@everywhere maxepoch=1000;
 @everywhere Q=200;
-@everywhere m=50;
+@everywhere m=5000;
 @everywhere r=20;
 @everywhere n=150;
 @everywhere I=samplenz(r,D,Q,seed);
