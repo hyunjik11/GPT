@@ -2,7 +2,7 @@ module GPT_SGLD
 
 using Distributions
 
-export proj, geod, datawhitening, feature, feature2, featureNotensor, samplenz, pred, RMSE, parallelRMSE, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD, GPT_GMC
+export proj, geod, datawhitening, feature, feature2, featureNotensor, samplenz, pred, RMSE, parallelRMSE, createmesh,fhatdraw, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD, GPT_GMC
     
 # define proj for Stiefel manifold
 function proj(U::Array,V::Array)
@@ -240,6 +240,40 @@ function parallelRMSE(w_store::Array,U_store::Array,I::Array,phitest::Array,ytes
     meanfhat=meanfhat/T;
     return norm(ytest-meanfhat)/sqrt(Ntest),meanfhat;
 end
+
+#create mesh for GPT_demo
+function createmesh(interval_start,interval_end,npts)
+    x=linspace(interval_start,interval_end,npts)
+    y=linspace(interval_start,interval_end,npts)
+    grid=Array(Float64,npts^2,2); k=1;
+    for i=1:npts
+        for j=1:npts
+            grid[k,:]=[x[i] y[j]];
+            k+=1;
+        end
+    end
+    #grid=[x[1] y[1]; x[1] y[2]; ...]
+    return x,y,grid
+end
+
+#draw fhat from Tensor model for GPT_demo
+function fhatdraw(X,n,length_scale,r,Q)
+    N,D=size(X)
+    scale=sqrt(n/(Q^(1/D)));
+    seed=17;
+    phi=feature(X,n,length_scale,seed,scale)
+    sigma_w=1;
+    w=sigma_w*randn(Q)
+    U=Array(Float64,n,r,D)
+    for k=1:D
+        Z=randn(r,n)
+        U[:,:,k]=transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from V_{n,r}
+    end
+    I=samplenz(r,D,Q,seed)
+    
+    return pred(w,U,I,phi)
+end
+
     
 #SGLD on Tucker Model with Stiefel Manifold
 function GPT_SGLDERM(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer)
