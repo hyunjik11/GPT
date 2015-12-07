@@ -2,7 +2,7 @@ module GPT_SGLD
 
 using Distributions
 
-export proj, geod, datawhitening, feature, feature2, featureNotensor, samplenz, pred, RMSE, parallelRMSE, createmesh,fhatdraw, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD, GPT_GMC
+export proj, geod, datawhitening, feature, feature2, featureNotensor, samplenz, pred, RMSE, parallelRMSE, createmesh,fhatdraw, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD, GPT_GMC,GPT_SGLDERMw
     
 # define proj for Stiefel manifold
 function proj(U::Array,V::Array)
