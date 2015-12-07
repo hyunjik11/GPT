@@ -35,10 +35,10 @@ end
 @everywhere ytrain=datawhitening(ytrain);
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
-@everywhere burnin=10;
-@everywhere maxepoch=1000;
+@everywhere burnin=60;
+@everywhere maxepoch=10;
 @everywhere Q=200;
-@everywhere m=5000;
+@everywhere m=50;
 @everywhere r=20;
 @everywhere n=150;
 @everywhere I=samplenz(r,D,Q,seed);
@@ -47,7 +47,7 @@ end
 @everywhere phitest=feature(Xtest,n,length_scale,seed,scale);
 @everywhere epsw=1e-4; 
 @everywhere epsU=1e-7;
-tic();w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);toc()
+tic();w_store,U_store=GPT_SGLDERMw(phitrain,ytrain,sigma,I,r,Q,m,epsw,burnin,maxepoch);toc()
 
 if 1==0
 @everywhere T=maxepoch*int(floor(Ntrain/m));
