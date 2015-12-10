@@ -35,8 +35,8 @@ end
 @everywhere ytrain=datawhitening(ytrain);
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
-@everywhere burnin=60;
-@everywhere maxepoch=10;
+@everywhere burnin=0;
+@everywhere maxepoch=50;
 @everywhere Q=200;
 @everywhere m=50;
 @everywhere r=20;
@@ -47,7 +47,25 @@ end
 @everywhere phitest=feature(Xtest,n,length_scale,seed,scale);
 @everywhere epsw=1e-4; 
 @everywhere epsU=1e-7;
-tic();w_store,U_store=GPT_SGLDERMw(phitrain,ytrain,sigma,I,r,Q,m,epsw,burnin,maxepoch);toc()
+@everywhere L=4;
+tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L);toc()
+
+if 1==1
+    T=size(w_store,2);
+    trainRMSE=SharedArray(Float64,T);
+    testRMSE=SharedArray(Float64,T);
+    for i=1:T
+	fhattrain=pred(w_store[:,i],U_store[:,:,:,i],I,phitrain);
+	trainRMSE[i]=ytrainStd*norm(ytrain-fhattrain)/sqrt(Ntrain);
+	fhattest=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
+	testRMSE[i]=ytrainStd*norm(ytest-fhattest)/sqrt(N-Ntrain);
+    end
+
+#println("epsw=",epsw," epsU=",epsU,"trainRMSE=",ytrainStd*norm(ytrain-mean(trainfhat,2))/sqrt(Ntrain))
+#println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfhat,2))/sqrt(N-Ntrain))
+
+end
+
 
 if 1==0
 @everywhere T=maxepoch*int(floor(Ntrain/m));

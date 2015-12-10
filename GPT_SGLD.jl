@@ -14,8 +14,9 @@ function geod(U::Array,mom::Array,t::Real)
     n,r=size(U)
     A=U'*mom
     temp=[A -mom'*mom;eye(r) A]
-    E=expm(t*temp) #can become NaN when temp too large. Return 0 in this case
+    E=expm(t*temp) #can become NaN when temp too large. Return 0 in this case with warning
     if sum(isnan(E))>0
+        println("Get NaN when moving along Geodesic. Try smaller epsU") 
         return zeros(n,r)
     else
         mexp=expm(-t*A)
@@ -36,11 +37,12 @@ function geodboth(U::Array,mom::Array,t::Real)
     temp=[A -mom'*mom;eye(r) A]
     E=expm(t*temp) #can become NaN when temp too large. Return 0 in this case
     if sum(isnan(E))>0
+        println("Get NaN when moving along Geodesic. Try smaller epsU")
         return zeros(n,r),zeros(n,r)
     else
         mexp=expm(-t*A)
         tmpU=[U mom]*E[:,1:r]*mexp;
-        tmpV=[U mom]*E[:,(r+1):end]*mexp;
+        tmpV=[U mom]*E[:,(r+1):2r]*mexp;
         #ensure that tmpU has cols of unit norm
         normconst=Array(Float64,1,r);
         for l=1:r
@@ -445,14 +447,13 @@ function GPT_SGDERM(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::
 end
 
 #GMC on Tucker Model with Stiefel Manifold
-function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer, L::Integer)
+function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer, L::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # sigma is the s.d. of the observed values
     # epsw,epsU are the epsilons for w and U resp.
     # maxepoch is the number of sweeps through whole dataset
     
     n,D,N=size(phi)
-    numbatches=int(ceil(N/m))
     sigma_w=1;
     
     # initialise w,U^(k)
@@ -471,8 +472,12 @@ function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Int
     for epoch=1:(burnin+maxepoch)
         w_old=w; U_old=U;
         # initialise momentum terms and Hamiltonian
-        p=randn(Q); mom=randn(n,r,D);
-        H=-sum(w.*w)/(2*sigma_w^2)-norm(y-pred(w,U,I,phi))^2/(2*sigma^2)-sum(mom.*mom)/2-sum(p.*p)/2;
+        p=randn(Q); mom=Array(Float64,n,r,D);
+        for k=1:D
+            mom[:,:,k]=proj(U[:,:,k],randn(n,r));
+        end
+        H_old=-sum(w.*w)/(2*sigma_w^2)-norm(y-pred(w,U,I,phi))^2/(2*sigma^2)-sum(mom.*mom)/2-sum(p.*p)/2;
+        #println("H=",H_old)
         pred_new=Array(Float64,N); # used later for computing H_new
         # leapfrog step
         for l=1:L
@@ -510,7 +515,7 @@ function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Int
             for k=1:D
                 U[:,:,k],mom[:,:,k]=geodboth(U[:,:,k],mom[:,:,k],sqrt(epsU));
                 if U[:,:,k]==zeros(n,r) #if NaN appears while evaluating G
-                    return zeros(Q,maxepoch*numbatches),zeros(n,r,D,maxepoch*numbatches)
+                    return zeros(Q,maxepoch),zeros(n,r,D,maxepoch),zeros(maxepoch+burnin)*NaN
                 end
             end
 
@@ -547,10 +552,11 @@ function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Int
             end
         end
 
-        H_new=-sum(w.*w)/(2*sigma_w^2)-norm(y-pred_new)^2/(2*sigma^2)-sum(mom.*mom)/2-sum(p.*p)/2;
+        H=-sum(w.*w)/(2*sigma_w^2)-norm(y-pred_new)^2/(2*sigma^2)-sum(mom.*mom)/2-sum(p.*p)/2;
         u=rand(1);
         
-        accept_prob[epoch]=exp(H_new-H)
+        accept_prob[epoch]=exp(H-H_old)
+        println("accept_prob=",accept_prob[epoch])
         
         if u[1]>accept_prob[epoch] #if true, reject 
             w=w_old; U=U_old;
@@ -665,7 +671,7 @@ function GPT_SGLDERMw(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q
 	    end
         end
     end
-    return w_store
+    return w_store,U
 end
 
 end
