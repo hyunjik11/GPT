@@ -1,6 +1,6 @@
 @everywhere using GPT_SGLD
 @everywhere using DataFrames
-@everywhere using PyPlot
+#@everywhere using PyPlot
 @everywhere using Iterators
 #using GaussianProcess
 
@@ -35,35 +35,38 @@ end
 @everywhere ytrain=datawhitening(ytrain);
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
-@everywhere burnin=0;
-@everywhere maxepoch=50;
+@everywhere burnin=100;
+@everywhere maxepoch=10;
 @everywhere Q=200;
 @everywhere m=50;
-@everywhere r=20;
-@everywhere n=150;
-@everywhere I=samplenz(r,D,Q,seed);
+#@everywhere r=5;
+@everywhere n=100;
+#@everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,seed,scale);
 @everywhere phitest=feature(Xtest,n,length_scale,seed,scale);
-@everywhere epsw=1e-4; 
-@everywhere epsU=1e-7;
-@everywhere L=4;
-tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L);toc()
-
-if 1==1
-    T=size(w_store,2);
-    trainRMSE=SharedArray(Float64,T);
-    testRMSE=SharedArray(Float64,T);
-    for i=1:T
+#@everywhere epsw=1e-4; 
+#@everywhere epsU=1e-7;
+#@everywhere L=3;
+#tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L);toc()
+#tic();w_store,U=GPT_SGLDERMw(phitrain,ytrain,sigma,I,r,Q,m,epsw,burnin,maxepoch);toc()
+if 1==0
+    trainRMSE=SharedArray(Float64,maxepoch);
+    testRMSE=SharedArray(Float64,maxepoch);
+    trainfhat=SharedArray(Float64,Ntrain,10);
+    testfhat=SharedArray(Float64,N-Ntrain,10);
+    @sync @parallel for i=1:maxepoch
 	fhattrain=pred(w_store[:,i],U_store[:,:,:,i],I,phitrain);
 	trainRMSE[i]=ytrainStd*norm(ytrain-fhattrain)/sqrt(Ntrain);
 	fhattest=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
 	testRMSE[i]=ytrainStd*norm(ytest-fhattest)/sqrt(N-Ntrain);
+	if i>maxepoch-10
+		trainfhat[:,i-(maxepoch-10)]=fhattrain
+		testfhat[:,i-(maxepoch-10)]=fhattest
+	end
     end
-
-#println("epsw=",epsw," epsU=",epsU,"trainRMSE=",ytrainStd*norm(ytrain-mean(trainfhat,2))/sqrt(Ntrain))
-#println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfhat,2))/sqrt(N-Ntrain))
-
+println(" trainRMSE=",ytrainStd*norm(ytrain-mean(trainfhat,2))/sqrt(Ntrain),"epsw=",epsw," epsU=",epsU," L=",L," maxepoch=",maxepoch)
+println(" testRMSE=",ytrainStd*norm(ytest-mean(testfhat,2))/sqrt(N-Ntrain),"epsw=",epsw," epsU=",epsU," L=",L," maxepoch=",maxepoch)
 end
 
 
@@ -71,16 +74,16 @@ if 1==0
 @everywhere T=maxepoch*int(floor(Ntrain/m));
 trainRMSE=SharedArray(Float64,T);
 testRMSE=SharedArray(Float64,T);
-trainfhat=SharedArray(Float64,Ntrain,1000);
-testfhat=SharedArray(Float64,N-Ntrain,1000);
+trainfhat=SharedArray(Float64,Ntrain,100);
+testfhat=SharedArray(Float64,N-Ntrain,100);
 @sync @parallel for i=1:T
-	fhattrain=pred(w_store[:,i],U_store[:,:,:,i],I,phitrain);
+	fhattrain=pred(w_store[:,i],U,I,phitrain);
 	trainRMSE[i]=ytrainStd*norm(ytrain-fhattrain)/sqrt(Ntrain);
-	fhattest=pred(w_store[:,i],U_store[:,:,:,i],I,phitest);
+	fhattest=pred(w_store[:,i],U,I,phitest);
 	testRMSE[i]=ytrainStd*norm(ytest-fhattest)/sqrt(N-Ntrain);
-	if i>T-1000
-		trainfhat[:,i-(T-1000)]=fhattrain
-		testfhat[:,i-(T-1000)]=fhattest
+	if i>T-100
+		trainfhat[:,i-(T-100)]=fhattrain
+		testfhat[:,i-(T-100)]=fhattest
 	end
 end
 println("epsw=",epsw," epsU=",epsU,"trainRMSE=",ytrainStd*norm(ytrain-mean(trainfhat,2))/sqrt(Ntrain))
@@ -90,9 +93,9 @@ println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfha
 #tic();myRMSEidx,temp=RMSE(w_store,U_store,I,phitest,ytest);toc();
 end
 
-if 1==0
-@everywhere t=Iterators.product(6:8,4:5)
-@everywhere myt=Array(Any,6);
+#if 1==1
+@everywhere t=Iterators.product(5:5:50,4:6)
+@everywhere myt=Array(Any,30);
 @everywhere it=1;
 @everywhere for prod in t
 	myt[it]=prod;
@@ -101,15 +104,21 @@ if 1==0
 #myRMSE=SharedArray(Float64,70);
 @parallel for  Tuple in myt
 	i,j=Tuple;
-        epsU=10.0^(-i); epsw=10.0^(-j);
+        r=i; epsw=10.0^(-j);
+	I=samplenz(r,D,Q,seed);
 	#idx=int(3*(j-70)/5+i-14);
-        w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
+        w_store,U=GPT_SGLDERMw(phitrain,ytrain,sigma,I,r,Q,m,epsw,burnin,maxepoch);
+	U_store=Array(Float64,n,r,D,size(w_store,2))
+	for k=1:size(w_store,2)
+		U_store[:,:,:,k]=U;
+	end
 	myRMSE,temp=RMSE(w_store,U_store,I,phitest,ytest);
 	myRMSE=ytrainStd*myRMSE;
 
-	println("RMSE=",myRMSE,";seed=",seed,";sigma=",sigma,";length_scale=",length_scale,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=",epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
+	#println("RMSE=",myRMSE,";seed=",seed,";sigma=",sigma,";length_scale=",length_scale,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=",epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
+println("RMSE=",myRMSE,";r=",r,";epsw=",epsw,";burnin=",burnin,";maxepoch=",maxepoch);
     end
-end
+#end
 
 if 1==0
 numI=50;
