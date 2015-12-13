@@ -35,7 +35,7 @@ end
 @everywhere ytrain=datawhitening(ytrain);
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
-@everywhere burnin=100;
+@everywhere burnin=500;
 @everywhere maxepoch=10;
 @everywhere Q=200;
 @everywhere m=50;
@@ -94,8 +94,8 @@ println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfha
 end
 
 #if 1==1
-@everywhere t=Iterators.product(5:5:50,4:6)
-@everywhere myt=Array(Any,30);
+@everywhere t=Iterators.product(5:5:50,2:2:10)
+@everywhere myt=Array(Any,50);
 @everywhere it=1;
 @everywhere for prod in t
 	myt[it]=prod;
@@ -104,7 +104,7 @@ end
 #myRMSE=SharedArray(Float64,70);
 @parallel for  Tuple in myt
 	i,j=Tuple;
-        r=i; epsw=10.0^(-j);
+        r=i; epsw=j*1e-5;
 	I=samplenz(r,D,Q,seed);
 	#idx=int(3*(j-70)/5+i-14);
         w_store,U=GPT_SGLDERMw(phitrain,ytrain,sigma,I,r,Q,m,epsw,burnin,maxepoch);
