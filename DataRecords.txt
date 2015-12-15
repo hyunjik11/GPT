@@ -51,4 +51,56 @@ RMSE=4.783744852427538;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=10;Q=200;m=5
 RMSE=4.382685885091741;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=20;Q=200;m=50;epsw=100;epsU=1.0e-16;burnin=18;maxepoch=2;begin_ind=176
 RMSE=4.460167606168897;seed=17;sigma=0.2299;sigmaRBF=1.4332;n=150;r=30;Q=200;m=50;epsw=100;epsU=1.0e-15;burnin=18;maxepoch=2;begin_ind=116
 
+Fix U and learn w (n=150,m=50,Q=200,varying r)
+	From worker 22: RMSE=4.488809667480381;r=5;epsw=0.0001;burnin=500;maxepoch=10
+	From worker 2:  RMSE=4.623734402104644;r=5;epsw=2.0e-5;burnin=500;maxepoch=10
+        From worker 7:  RMSE=4.535348323943338;r=5;epsw=4.0e-5;burnin=500;maxepoch=10
+        From worker 17: RMSE=4.494361626122221;r=5;epsw=8.0e-5;burnin=500;maxepoch=10
+        From worker 12: RMSE=4.5064294559313245;r=5;epsw=6.000000000000001e-5;burnin=500;maxepoch=10
+        From worker 23: RMSE=4.2159601494836165;r=10;epsw=0.0001;burnin=500;maxepoch=10
+        From worker 24: RMSE=NaN;r=15;epsw=0.0001;burnin=500;maxepoch=10
+        From worker 18: RMSE=4.135181928811026;r=15;epsw=8.0e-5;burnin=500;maxepoch=10
+        From worker 2:  RMSE=4.293046879772407;r=10;epsw=2.0e-5;burnin=500;maxepoch=10
+        From worker 3:  RMSE=4.143301639801986;r=15;epsw=2.0e-5;burnin=500;maxepoch=10
+        From worker 13: RMSE=4.1328537006050166;r=15;epsw=6.000000000000001e-5;burnin=500;maxepoch=10
+        From worker 8:  RMSE=4.136170238272138;r=15;epsw=4.0e-5;burnin=500;maxepoch=10
+        From worker 17: RMSE=4.21834270514523;r=10;epsw=8.0e-5;burnin=500;maxepoch=10
+        From worker 12: RMSE=4.2268970106476855;r=10;epsw=6.000000000000001e-5;burnin=500;maxepoch=10
+        From worker 7:  RMSE=4.2450033701345316;r=10;epsw=4.0e-5;burnin=500;maxepoch=10
+        From worker 25: RMSE=4.103466236593049;r=20;epsw=0.0001;burnin=500;maxepoch=10
+        From worker 19: RMSE=NaN;r=25;epsw=8.0e-5;burnin=500;maxepoch=10
+        From worker 9:  RMSE=4.121613023578351;r=25;epsw=4.0e-5;burnin=500;maxepoch=10
+        From worker 14: RMSE=4.111985082871489;r=25;epsw=6.000000000000001e-5;burnin=500;maxepoch=10
+        From worker 4:  RMSE=4.150289757331854;r=25;epsw=2.0e-5;burnin=500;maxepoch=10
+        From worker 26: RMSE=NaN;r=25;epsw=0.0001;burnin=500;maxepoch=10
+        From worker 27: RMSE=4.0827505771779835;r=30;epsw=0.0001;burnin=500;maxepoch=10
+        From worker 10: RMSE=4.14701343289123;r=35;epsw=4.0e-5;burnin=500;maxepoch=10
+        From worker 18: RMSE=4.1050066478902;r=20;epsw=8.0e-5;burnin=500;maxepoch=10
+        From worker 5:  RMSE=4.16484755001302;r=35;epsw=2.0e-5;burnin=500;maxepoch=10
+        From worker 3:  RMSE=4.135981332426209;r=20;epsw=2.0e-5;burnin=500;maxepoch=10
+        From worker 8:  RMSE=4.1150348500299945;r=20;epsw=4.0e-5;burnin=500;maxepoch=10
+        From worker 28: RMSE=4.1304823768551895;r=35;epsw=0.0001;burnin=500;maxepoch=10
+        From worker 15: RMSE=4.1387584120891745;r=35;epsw=6.000000000000001e-5;burnin=500;maxepoch=10
+        From worker 13: RMSE=4.108077913410387;r=20;epsw=6.000000000000001e-5;burnin=500;maxepoch=10
+        From worker 20: RMSE=4.133705479178168;r=35;epsw=8.0e-5;burnin=500;maxepoch=10
+        From worker 29: RMSE=4.084813059747743;r=40;epsw=0.0001;burnin=500;maxepoch=10
+        From worker 11: RMSE=4.114013456338488;r=45;epsw=4.0e-5;burnin=500;maxepoch=10
+        From worker 6:  RMSE=4.132671262358205;r=45;epsw=2.0e-5;burnin=500;maxepoch=10
+        From worker 21: RMSE=4.104846427194669;r=45;epsw=8.0e-5;burnin=500;maxepoch=10
+        From worker 30: RMSE=4.103363411401574;r=45;epsw=0.0001;burnin=500;maxepoch=10
+        From worker 31: RMSE=NaN;r=50;epsw=0.0001;burnin=500;maxepoch=10
+        From worker 16: RMSE=4.107649202641356;r=45;epsw=6.000000000000001e-5;burnin=500;maxepoch=10
+        From worker 19: RMSE=4.083387469685843;r=30;epsw=8.0e-5;burnin=500;maxepoch=10
+        From worker 14: RMSE=4.085260756065598;r=30;epsw=6.000000000000001e-5;burnin=500;maxepoch=10
+        From worker 4:  RMSE=4.102431212067955;r=30;epsw=2.0e-5;burnin=500;maxepoch=10
+        From worker 9:  RMSE=4.090067968408389;r=30;epsw=4.0e-5;burnin=500;maxepoch=10
+        From worker 10: RMSE=4.102966362716205;r=40;epsw=4.0e-5;burnin=500;maxepoch=10
+        From worker 5:  RMSE=4.115922354920252;r=40;epsw=2.0e-5;burnin=500;maxepoch=10
+        From worker 15: RMSE=4.094996398515117;r=40;epsw=6.000000000000001e-5;burnin=500;maxepoch=10
+        From worker 20: RMSE=4.08942820958673;r=40;epsw=8.0e-5;burnin=500;maxepoch=10
+        From worker 11: RMSE=4.201630829246613;r=50;epsw=4.0e-5;burnin=500;maxepoch=10
+        From worker 6:  RMSE=4.222890355212661;r=50;epsw=2.0e-5;burnin=500;maxepoch=10
+        From worker 21: RMSE=4.188936815209024;r=50;epsw=8.0e-5;burnin=500;maxepoch=10
+        From worker 16: RMSE=4.192884153749677;r=50;epsw=6.000000000000001e-5;burnin=500;maxepoch=10
+
 

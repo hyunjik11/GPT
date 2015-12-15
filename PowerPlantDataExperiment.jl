@@ -35,22 +35,22 @@ end
 @everywhere ytrain=datawhitening(ytrain);
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
-@everywhere burnin=500;
-@everywhere maxepoch=10;
+@everywhere burnin=0;
+@everywhere maxepoch=20;
 @everywhere Q=200;
 @everywhere m=50;
-#@everywhere r=5;
+@everywhere r=20;
 @everywhere n=100;
-#@everywhere I=samplenz(r,D,Q,seed);
+@everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,seed,scale);
 @everywhere phitest=feature(Xtest,n,length_scale,seed,scale);
-#@everywhere epsw=1e-4; 
-#@everywhere epsU=1e-7;
-#@everywhere L=3;
-#tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L);toc()
-#tic();w_store,U=GPT_SGLDERMw(phitrain,ytrain,sigma,I,r,Q,m,epsw,burnin,maxepoch);toc()
-if 1==0
+@everywhere epsw=1e-5; 
+@everywhere epsU=1e-8;
+@everywhere L=10;
+tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L);toc()
+
+#if 1==0
     trainRMSE=SharedArray(Float64,maxepoch);
     testRMSE=SharedArray(Float64,maxepoch);
     trainfhat=SharedArray(Float64,Ntrain,10);
@@ -67,7 +67,7 @@ if 1==0
     end
 println(" trainRMSE=",ytrainStd*norm(ytrain-mean(trainfhat,2))/sqrt(Ntrain),"epsw=",epsw," epsU=",epsU," L=",L," maxepoch=",maxepoch)
 println(" testRMSE=",ytrainStd*norm(ytest-mean(testfhat,2))/sqrt(N-Ntrain),"epsw=",epsw," epsU=",epsU," L=",L," maxepoch=",maxepoch)
-end
+#end
 
 
 if 1==0
@@ -93,7 +93,7 @@ println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfha
 #tic();myRMSEidx,temp=RMSE(w_store,U_store,I,phitest,ytest);toc();
 end
 
-#if 1==1
+if 1==0
 @everywhere t=Iterators.product(5:5:50,2:2:10)
 @everywhere myt=Array(Any,50);
 @everywhere it=1;
@@ -118,7 +118,7 @@ end
 	#println("RMSE=",myRMSE,";seed=",seed,";sigma=",sigma,";length_scale=",length_scale,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=",epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
 println("RMSE=",myRMSE,";r=",r,";epsw=",epsw,";burnin=",burnin,";maxepoch=",maxepoch);
     end
-#end
+end
 
 if 1==0
 numI=50;
