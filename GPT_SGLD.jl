@@ -447,7 +447,7 @@ function GPT_SGDERM(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::
 end
 
 #GMC on Tucker Model with Stiefel Manifold
-function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer, L::Integer)
+function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer, L::Integer,param_seed::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # sigma is the s.d. of the observed values
     # epsw,epsU are the epsilons for w and U resp.
@@ -460,7 +460,7 @@ function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Int
     w_store=Array(Float64,Q,maxepoch)
     U_store=Array(Float64,n,r,D,maxepoch)
     accept_prob=Array(Float64,maxepoch+burnin)
-    
+    srand(param_seed)
     w=sigma_w*randn(Q)
 
     U=Array(Float64,n,r,D)
