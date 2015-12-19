@@ -80,7 +80,7 @@ end
 savefig("Plots/NoTensorSGLDThetaTrace")
 end
 
-if 1==1
+if 1==0
 meangrad_store=SharedArray(Float64,n,50)
 @parallel for i=1:50
 theta_store,meangrad=GPNT_SGLD(phitrain,ytrain,sigma,sigma_theta,i*100,eps_theta,decay_rate,burnin,maxepoch,123);
