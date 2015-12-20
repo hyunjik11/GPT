@@ -48,7 +48,7 @@ end
 @everywhere epsw=1e-5; 
 @everywhere epsU=1e-8;
 @everywhere L=30;
-@everywhere param_seed=123;
+@everywhere param_seed=234;
 tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L,param_seed);toc()
 
 #if 1==0
