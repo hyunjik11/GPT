@@ -5,12 +5,12 @@ ProjDir="/Users/hyunjik11/Documents/Stan/Examples";
 cd(ProjDir)
 fullthetastanmodel="
 data {
-  int<lower=0> N;
-  int<lower=0> n;
+  int<lower=1> N;
+  int<lower=1> n;
   matrix[N,n] phi;
   vector[N] y;
   real<lower=0> sigma;
-  real<lower=0> sigma_theta;
+  real<lower=0.0001> sigma_theta;
 }
 parameters {
   vector[n] theta;
@@ -21,9 +21,9 @@ model {
 }
 generated quantities {
   vector[N] pred;
-  pred <- phi * theta;
   real RMSE;
-  RMSE <- (y-pred)'*(y-pred);
+  pred <- phi * theta;
+  RMSE <- sqrt((y-pred)'*(y-pred)/N);
 }
 "
 fullthetadata= [
@@ -34,7 +34,7 @@ fullthetadata= [
                                    "sigma" => sigma,
                                    "sigma_theta" => sigma_theta)
                       ];
-stanmodel=Stanmodel(adapt=10,update=10,name="fulltheta",model=fullthetastanmodel);
+stanmodel=Stanmodel(adapt=1,update=1,name="fulltheta",model=fullthetastanmodel);
 sim1=stan(stanmodel,fullthetadata,ProjDir,CmdStanDir="/Users/hyunjik11/Documents/Stan/cmdstan-2.9.0")
 nodesubset=["lp__","accept_stat__","theta.1", "theta.2", "theta.3", "theta.4", "theta.5"]
 sim=sim1[:, nodesubset, :]
