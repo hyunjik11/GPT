@@ -1,8 +1,8 @@
 module GPT_SGLD
 
-using Distributions
+using Distributions,Optim,ForwardDiff
 
-export proj, geod, datawhitening, feature, feature2, featureNotensor, samplenz, pred, RMSE, parallelRMSE, createmesh,fhatdraw, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD, GPT_GMC,GPT_SGLDERMw
+export proj, geod, datawhitening, feature, feature2, featureNotensor, samplenz, pred, RMSE, parallelRMSE, createmesh,fhatdraw, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD,GPNT_logmarginal,GPNT_hyperparameters,GPT_GMC,GPT_SGLDERMw
     
 # define proj for Stiefel manifold
 function proj(U::Array,V::Array)
@@ -61,7 +61,7 @@ function datawhitening(X::Array)
 end
 
 # extract features from tensor decomp of each row of X
-function feature(X::Array,n::Integer,length_scale::Real,seed::Integer,scale::Real)    
+function feature(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer,scale::Real)    
     N,D=size(X)
     phi=Array(Float64,n,D,N)
     srand(seed)
@@ -74,31 +74,31 @@ function feature(X::Array,n::Integer,length_scale::Real,seed::Integer,scale::Rea
 	    end
 	end
     end
-    return scale*sqrt(2/n)*phi
+    return scale*(sigma_RBF)^(1/D)*sqrt(2/n)*phi
 end
 
 # alternative Fourier feature embedding
-function feature2(X::Array,n::Integer,length_scale::Real,seed::Integer,scale::Real)    
+function feature2(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer,scale::Real)    
     if n%2==0
 	half_n=int(n/2)
     	N,D=size(X)
     	phi=Array(Float64,n,D,N)
     	srand(seed)
-    	Z=randn(n,D)/length_scale
+    	Z=randn(half_n,D)/length_scale
 	    for i=1:N
 		for k=1:D
 		    for j=1:half_n
-			phi[2*j-1,k,i]=sin(X[i,k]*Z[2*j-1,k])
-			phi[2*j,k,i]=cos(X[i,k]*Z[2*j,k])
+			phi[2*j-1,k,i]=sin(X[i,k]*Z[j,k])
+			phi[2*j,k,i]=cos(X[i,k]*Z[j,k])
 		    end
 		end
 	    end
-	return scale*sqrt(2/n)*phi
+	return scale*(sigma_RBF)^(1/D)*sqrt(2/n)*phi
     else error("n is not even")
     end
 end
 
-function featureNotensor(X::Array,n::Integer,length_scale::Real,seed::Integer)    
+function featureNotensor(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer)    
     N,D=size(X)
     phi=Array(Float64,n,N)
     srand(seed)
@@ -107,7 +107,25 @@ function featureNotensor(X::Array,n::Integer,length_scale::Real,seed::Integer)
     for i=1:N
         phi[:,i]=cos(sum(repmat(X[i,:],n,1).*Z,2) + b)
     end
-    return sqrt(2/n)*phi
+    return sqrt(2/n)*sigma_RBF*phi
+end
+
+function featureNotensor2(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer)      if n%2==0
+        half_n=int(n/2)
+        N,D=size(X)
+        phi=Array(Float64,n,N)
+        srand(seed)
+        Z=randn(half_n,D)/length_scale
+        for i=1:N
+            for j=1:half_n
+                temp=sum(X[i,:].*Z[j,:])
+                phi[2*j-1,i]=sin(temp)
+                phi[2*j,i]=cos(temp)
+            end                    
+        end
+        return sqrt(2/n)*sigma_RBF*phi
+    else error("n is not even")
+    end
 end
 
 # sample the Q random non-zero locations of w
@@ -602,9 +620,6 @@ function GPNT_SGLD(phi::Array, y::Array, sigma::Real, sigma_theta::Real, m::Inte
             grad_theta=-theta/(sigma_theta^2)+(N/batch_size)*phi_batch*(y_batch-phi_batch'*theta)/(sigma^2);
             grad=epsilon*grad_theta/2;
             noise=sqrt(epsilon)*randn(n);
-            if t%100==0
-               # println("mean_epsgrad=",mean(grad)," sd_epsgrad=",std(grad)," sd_noise=",std(noise))
-            end
            
             theta[:]+=grad+noise;
 	    theta_store[:,t]=theta;
@@ -616,6 +631,30 @@ function GPNT_SGLD(phi::Array, y::Array, sigma::Real, sigma_theta::Real, m::Inte
     end
     meangrad=meangrad/g;
     return theta_store,meangrad
+end
+
+# function to return the negative log marginal likelihood of No Tensor model
+function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Real,sigma_RBF::Real,sigma::Real,seed::Integer)
+    N=size(X,1);
+    phi=featureNotensor(X,n,length_scale,sigma_RBF,seed);
+    A=phi*phi'+sigma^2*I;
+    b=phi*y;
+    B=\(A,b);
+    return (N-n)*log(sigma)+log(det(A))/2+(sum(y.*y)-sum(b.*B))/(2*sigma^2)
+end
+
+#learning hyperparams sigma,sigma_RBF,length_scale for No Tensor Model by optimising marginal likelihood
+function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Real,init_sigma_RBF::Real,init_sigma::Real,seed::Integer)
+    logmarginal(hyperparams::Vector)=GPNT_logmarginal(X,y,n,exp(hyperparams[1]),exp(hyperparams[2]),exp(hyperparams[3]),seed); # log marginal likelihood as a fn of hyperparams=log([length_scale,sigma_RBF,sigma]) only.
+    # exp needed to enable unconstrained optimisation, since length_scale,sigmaRBF,sigma must be positive
+    g=ForwardDiff.gradient(logmarginal)
+    function g!(hyperparams::Vector,storage::Vector)
+        grad=g(hyperparams)
+        for i=1:length(hyperparams)
+            storage[i]=grad[i]
+        end
+    end
+    optimize(logmarginal,g!,log([init_length_scale,init_sigma_RBF,init_sigma]),method=:cg,show_trace = true, extended_trace = true)
 end
 
 function GPT_SGLDERMw(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, burnin::Integer, maxepoch::Integer)

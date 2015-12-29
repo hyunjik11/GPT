@@ -1,8 +1,7 @@
 @everywhere using GPT_SGLD
 @everywhere using DataFrames
-@everywhere using PyPlot
+#@everywhere using PyPlot
 
-if 1==1
 @everywhere data=DataFrames.readtable("Folds5x2_pp.csv", header = true);
 @everywhere data = convert(Array,data);
 @everywhere N=size(data,1);
@@ -11,6 +10,7 @@ if 1==1
 @everywhere seed=17;
 @everywhere length_scale=1.4332;
 @everywhere sigma=0.2299;
+@everywhere sigma_RBF=1;
 @everywhere Xtrain = data[1:Ntrain,1:D];
 @everywhere ytrain = data[1:Ntrain,D+1];
 @everywhere XtrainMean=mean(Xtrain,1); 
@@ -24,13 +24,13 @@ if 1==1
 @everywhere ytrain= datawhitening(ytrain);
 @everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
 @everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
-end
+@everywhere Xtrain=Xtrain[1:Ntrain,:];
 @everywhere burnin=0;
 @everywhere maxepoch=500;
 @everywhere m=50;
 @everywhere n=150;
-@everywhere phitrain=featureNotensor(Xtrain,n,length_scale,seed);
-@everywhere phitest=featureNotensor(Xtest,n,length_scale,seed);
+@everywhere phitrain=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed);
+@everywhere phitest=featureNotensor(Xtest,n,length_scale,sigma_RBF,seed);
 @everywhere eps_theta=0.00015;
 @everywhere sample_epochs=20;
 @everywhere decay_rate=0;

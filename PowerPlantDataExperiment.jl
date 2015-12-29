@@ -1,17 +1,17 @@
 @everywhere using GPT_SGLD
 @everywhere using DataFrames
 #@everywhere using PyPlot
-@everywhere using Iterators
+#@everywhere using Iterators
 #using GaussianProcess
 
 if 1==0
 tic()
-f=SECov(length_scale,1);
+f=SECov(length_scale,sigma_RBF);
 gp=GP(0,f,4);
 gp_post=GPpost(gp,Xtrain,ytrain,sigma);
 gp_pred=Mean(gp_post,Xtest);
 toc()
-println("RMSE for GP=",ytrainStd*norm(ytest-gp_pred)/sqrt(N-Ntrain))
+println("testRMSE for GP=",ytrainStd*norm(ytest-gp_pred)/sqrt(N-Ntrain))
 end
 
 @everywhere data=DataFrames.readtable("Folds5x2_pp.csv", header = true);
@@ -22,6 +22,7 @@ end
 @everywhere seed=17;
 @everywhere length_scale=1.4332;
 @everywhere sigma=0.2299;
+@everywhere sigma_RBF=1;
 @everywhere Xtrain = data[1:Ntrain,1:D];
 @everywhere ytrain = data[1:Ntrain,D+1];
 @everywhere XtrainMean=mean(Xtrain,1); 
@@ -43,15 +44,15 @@ end
 @everywhere n=100;
 @everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
-@everywhere phitrain=feature(Xtrain,n,length_scale,seed,scale);
-@everywhere phitest=feature(Xtest,n,length_scale,seed,scale);
+@everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
+@everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
 @everywhere epsw=1e-5; 
 @everywhere epsU=1e-8;
 @everywhere L=30;
 @everywhere param_seed=234;
-tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L,param_seed);toc()
+#tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L,param_seed);toc()
 
-#if 1==0
+if 1==0
     trainRMSE=SharedArray(Float64,maxepoch);
     testRMSE=SharedArray(Float64,maxepoch);
     trainfhat=SharedArray(Float64,Ntrain,10);
@@ -68,7 +69,7 @@ tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,
     end
 println(" trainRMSE=",ytrainStd*norm(ytrain-mean(trainfhat,2))/sqrt(Ntrain),"epsw=",epsw," epsU=",epsU," L=",L," maxepoch=",maxepoch)
 println(" testRMSE=",ytrainStd*norm(ytest-mean(testfhat,2))/sqrt(N-Ntrain),"epsw=",epsw," epsU=",epsU," L=",L," maxepoch=",maxepoch)
-#end
+end
 
 
 if 1==0
