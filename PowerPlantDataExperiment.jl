@@ -1,24 +1,27 @@
 @everywhere using GPT_SGLD
 @everywhere using DataFrames
-#@everywhere using PyPlot
-#@everywhere using Iterators
-#using GaussianProcess
+@everywhere using PyPlot
+@everywhere using Iterators
+using GaussianProcess
 
-if 1==0
+#=
 tic()
 f=SECov(length_scale,sigma_RBF);
 gp=GP(0,f,4);
 gp_post=GPpost(gp,Xtrain,ytrain,sigma);
-gp_pred=Mean(gp_post,Xtest);
+gp_predtrain=Mean(gp_post,Xtrain);    
+gp_predtest=Mean(gp_post,Xtest);
 toc()
-println("testRMSE for GP=",ytrainStd*norm(ytest-gp_pred)/sqrt(N-Ntrain))
-end
+println("trainRMSE for GP=",ytrainStd*norm(ytrain-gp_predtrain)/sqrt(Ntrain))   
+println("testRMSE for GP=",ytrainStd*norm(ytest-gp_predtest)/sqrt(Ntest))
+=#
 
 @everywhere data=DataFrames.readtable("Folds5x2_pp.csv", header = true);
 @everywhere data = convert(Array,data);
 @everywhere N=size(data,1);
 @everywhere D=4;
-@everywhere Ntrain=5000;
+@everywhere Ntrain=500;
+@everywhere Ntest=500;
 @everywhere seed=17;
 @everywhere length_scale=1.4332;
 @everywhere sigma=0.2299;
@@ -34,14 +37,14 @@ end
 @everywhere ytrainStd=std(ytrain);
 @everywhere Xtrain = datawhitening(Xtrain);
 @everywhere ytrain=datawhitening(ytrain);
-@everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
-@everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
+@everywhere Xtest = (data[Ntrain+1:Ntrain+Ntest,1:D]-repmat(XtrainMean,Ntest,1))./repmat(XtrainStd,Ntest,1);
+@everywhere ytest = (data[Ntrain+1:Ntrain+Ntest,D+1]-ytrainMean)/ytrainStd;
 @everywhere burnin=0;
 @everywhere maxepoch=100;
 @everywhere Q=200;
 @everywhere m=50;
 @everywhere r=20;
-@everywhere n=100;
+@everywhere n=150;
 @everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
@@ -52,7 +55,7 @@ end
 @everywhere param_seed=234;
 #tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L,param_seed);toc()
 
-if 1==0
+#=
     trainRMSE=SharedArray(Float64,maxepoch);
     testRMSE=SharedArray(Float64,maxepoch);
     trainfhat=SharedArray(Float64,Ntrain,10);
@@ -70,9 +73,9 @@ if 1==0
 println(" trainRMSE=",ytrainStd*norm(ytrain-mean(trainfhat,2))/sqrt(Ntrain),"epsw=",epsw," epsU=",epsU," L=",L," maxepoch=",maxepoch)
 println(" testRMSE=",ytrainStd*norm(ytest-mean(testfhat,2))/sqrt(N-Ntrain),"epsw=",epsw," epsU=",epsU," L=",L," maxepoch=",maxepoch)
 end
+=#
 
-
-if 1==0
+#=
 @everywhere T=maxepoch*int(floor(Ntrain/m));
 trainRMSE=SharedArray(Float64,T);
 testRMSE=SharedArray(Float64,T);
@@ -93,11 +96,10 @@ println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfha
 #plot(trainRMSE)
 #plot(testRMSE)
 #tic();myRMSEidx,temp=RMSE(w_store,U_store,I,phitest,ytest);toc();
-end
+=#
 
-if 1==0
-@everywhere t=Iterators.product(5:5:50,2:2:10)
-@everywhere myt=Array(Any,50);
+@everywhere t=Iterators.product(2:6,3:8)
+@everywhere myt=Array(Any,30);
 @everywhere it=1;
 @everywhere for prod in t
 	myt[it]=prod;
@@ -105,24 +107,22 @@ if 1==0
     end
 #myRMSE=SharedArray(Float64,70);
 @parallel for  Tuple in myt
-	i,j=Tuple;
-        r=i; epsw=j*1e-5;
-	I=samplenz(r,D,Q,seed);
-	#idx=int(3*(j-70)/5+i-14);
-        w_store,U=GPT_SGLDERMw(phitrain,ytrain,sigma,I,r,Q,m,epsw,burnin,maxepoch);
-	U_store=Array(Float64,n,r,D,size(w_store,2))
-	for k=1:size(w_store,2)
-		U_store[:,:,:,k]=U;
-	end
-	myRMSE,temp=RMSE(w_store,U_store,I,phitest,ytest);
-	myRMSE=ytrainStd*myRMSE;
+    i,j=Tuple;
+    epsw=float(string("1e-",i)); epsU=float(string("1e-",j));
+    #idx=int(3*(j-70)/5+i-14);
+    w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
+    testRMSE=Array(Float64,maxepoch)
+    numbatches=int(ceil(N/m))
+    for epoch=1:maxepoch
+        testpred=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest)
+        testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
+    end
 
 	#println("RMSE=",myRMSE,";seed=",seed,";sigma=",sigma,";length_scale=",length_scale,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=",epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
-println("RMSE=",myRMSE,";r=",r,";epsw=",epsw,";burnin=",burnin,";maxepoch=",maxepoch);
-    end
+println("r=",r,";minRMSE=",minimum(testRMSE),"minepoch=",indmin(testRMSE),";epsw=",epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
 end
 
-if 1==0
+#=
 numI=50;
 meanfhat=Array(Float64,N-Ntrain,numI);
 for iseed=1:numI
@@ -133,7 +133,7 @@ for iseed=1:numI
 end
 meanfhatfinal=mean(meanfhat,2);
 println("RMSE=",norm(ytest-meanfhatfinal)/sqrt(N-Ntrain))
-end
+=#
 
 if 1==0 #storing variables to h5 file
 using HDF5

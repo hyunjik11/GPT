@@ -3,7 +3,7 @@ module GaussianProcess
 using PyPlot
 
 
-export GP, GPmean, GPcov, SECov, Mean, Cov, GPrand, GPpost, plot1d
+export GP, GPmean, GPcov, SECov, Mean, Cov, GPrand, GPpost, GPlogmarginal,plot1d
 
 type GP
     mean::Union(Function,Real) #mean function (could also be const)
@@ -128,6 +128,13 @@ function plot1d(gp::GP,xrange=[-1,1])
     else
         error("GP dimension not equal to 1")
     end
+end
+
+function GPlogmarginal(gp::GP,x_values,y_values,sigma_noise::Real)
+    #function to return the log marginal likelihood of y_values under the GP model
+    K=Cov(gp,x_values); #covariance matrix
+    temp=\(K+sigma_noise^2*I,y_values);
+    return -(sum(y_values.*temp)+log(det(K+sigma_noise^2*I)))/2
 end
 
 ################### private functions #################

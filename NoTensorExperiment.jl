@@ -6,7 +6,8 @@
 @everywhere data = convert(Array,data);
 @everywhere N=size(data,1);
 @everywhere D=4;
-@everywhere Ntrain=5000;
+@everywhere Ntrain=500;
+@everywhere Ntest=500;
 @everywhere seed=17;
 @everywhere length_scale=1.4332;
 @everywhere sigma=0.2299;
@@ -22,9 +23,8 @@
 @everywhere ytrainStd=std(ytrain);
 @everywhere Xtrain = datawhitening(Xtrain);
 @everywhere ytrain= datawhitening(ytrain);
-@everywhere Xtest = (data[Ntrain+1:end,1:D]-repmat(XtrainMean,N-Ntrain,1))./repmat(XtrainStd,N-Ntrain,1);
-@everywhere ytest = (data[Ntrain+1:end,D+1]-ytrainMean)/ytrainStd;
-@everywhere Xtrain=Xtrain[1:Ntrain,:];
+@everywhere Xtest = (data[Ntrain+1:Ntrain+Ntest,1:D]-repmat(XtrainMean,Ntest,1))./repmat(XtrainStd,Ntest,1);
+@everywhere ytest = (data[Ntrain+1:Ntrain+Ntest,D+1]-ytrainMean)/ytrainStd;
 @everywhere burnin=0;
 @everywhere maxepoch=500;
 @everywhere m=50;
