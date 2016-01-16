@@ -98,8 +98,8 @@ println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfha
 #tic();myRMSEidx,temp=RMSE(w_store,U_store,I,phitest,ytest);toc();
 =#
 
-@everywhere t=Iterators.product(5:5:50,3:7,6:9)
-@everywhere myt=Array(Any,200);
+@everywhere t=Iterators.product(5:5:50,3:6)
+@everywhere myt=Array(Any,40);
 @everywhere it=1;
 @everywhere for prod in t
 	myt[it]=prod;
@@ -107,20 +107,21 @@ println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfha
         end
 #myRMSE=SharedArray(Float64,70);
 @sync @parallel for  Tuple in myt
-    r,i,j=Tuple;
-    epsw=float(string("1e-",i)); epsU=float(string("1e-",j));
+    r,i=Tuple;
+    epsw=float(string("1e-",i)); #epsU=float(string("1e-",j));
     I=samplenz(r,D,Q,seed);
     #idx=int(3*(j-70)/5+i-14);
-    w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
+    w_store,U=GPT_SGLDERMw(phitrain,ytrain,sigma,I,r,Q,m,epsw,burnin,maxepoch);
+    
     testRMSE=Array(Float64,maxepoch)
     numbatches=int(ceil(Ntrain/m))
     for epoch=1:maxepoch
-        testpred=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest)
+        testpred=pred(w_store[:,epoch*numbatches],U,I,phitest)
         testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
     end
-
+    =#
 	#println("RMSE=",myRMSE,";seed=",seed,";sigma=",sigma,";length_scale=",length_scale,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=",epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
-println("r=",r,";minRMSE=",minimum(testRMSE),"minepoch=",indmin(testRMSE),";epsw=",epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
+println("r=",r,";minRMSE=",minimum(testRMSE),";minepoch=",indmin(testRMSE),";epsw=",epsw,";burnin=",burnin,";maxepoch=",maxepoch);
 end
 
 #=

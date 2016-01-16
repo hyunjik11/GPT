@@ -118,6 +118,21 @@ elapsed time: 137613.706079079 seconds
  testRMSE=4.0598 epsw=1.0e-5 epsU=1.0e-8 L=30 maxepoch=500
 
 Learn U&w for various values of r, using only 500 train 500 test from PowerPlant:
+	From worker 9:  r=5;minRMSE=4.197089531312421minepoch=254;epsw=0.001;epsU=1.0e-7;burnin=0;maxepoch=300
+	From worker 2:  r=10;minRMSE=4.166581231817735minepoch=152;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
+	From worker 2:  r=15;minRMSE=4.175639913650419minepoch=238;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
+	From worker 2:  r=20;minRMSE=4.196203366324859minepoch=68;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
+	From worker 4:  r=25;minRMSE=4.197614811752313minepoch=196;epsw=0.0001;epsU=1.0e-6;burnin=0;maxepoch=300
+	From worker 2:  r=30;minRMSE=4.182157548122416minepoch=201;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
+	From worker 5:  r=35;minRMSE=4.152996234091927minepoch=164;epsw=1.0e-5;epsU=1.0e-6;burnin=0;maxepoch=300
+	From worker 3:  r=40;minRMSE=4.200301044622255minepoch=111;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
+	From worker 3:  r=45;minRMSE=4.1576315183862045minepoch=112;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
+	From worker 4:  r=50;minRMSE=4.207251121960894minepoch=281;epsw=0.0001;epsU=1.0e-6;burnin=0;maxepoch=300
+
+
+
+
+
 	From worker 2:  r=5;minRMSE=4.238196871845053minepoch=188;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 27: r=5;minRMSE=6.3063646918220755minepoch=300;epsw=1.0e-5;epsU=1.0e-9;burnin=0;maxepoch=300
         From worker 22: r=5;minRMSE=6.538776305193175minepoch=300;epsw=1.0e-7;epsU=1.0e-8;burnin=0;maxepoch=300
@@ -127,7 +142,6 @@ Learn U&w for various values of r, using only 500 train 500 test from PowerPlant
         From worker 29: r=15;minRMSE=10.01274512019903minepoch=300;epsw=1.0e-6;epsU=1.0e-9;burnin=0;maxepoch=300
         From worker 8:  r=15;minRMSE=4.244662390299624minepoch=192;epsw=1.0e-7;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 24: r=15;minRMSE=4.249498446455648minepoch=249;epsw=0.001;epsU=1.0e-9;burnin=0;maxepoch=300
-        From worker 2:  r=10;minRMSE=4.166581231817735minepoch=152;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 27: r=10;minRMSE=5.229327390395851minepoch=297;epsw=1.0e-5;epsU=1.0e-9;burnin=0;maxepoch=300
         From worker 22: r=10;minRMSE=5.391319101469527minepoch=300;epsw=1.0e-7;epsU=1.0e-8;burnin=0;maxepoch=300
         From worker 12: r=10;minRMSE=4.505114409878621minepoch=244;epsw=1.0e-5;epsU=1.0e-7;burnin=0;maxepoch=300
@@ -137,11 +151,10 @@ Learn U&w for various values of r, using only 500 train 500 test from PowerPlant
         From worker 5:  r=15;minRMSE=4.237574855576944minepoch=212;epsw=1.0e-5;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 31: r=25;minRMSE=14.773237769023844minepoch=300;epsw=1.0e-7;epsU=1.0e-9;burnin=0;maxepoch=300
         From worker 11: r=20;minRMSE=4.310120288656628minepoch=207;epsw=0.0001;epsU=1.0e-7;burnin=0;maxepoch=300
-        From worker 4:  r=25;minRMSE=4.197614811752313minepoch=196;epsw=0.0001;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 15: r=15;minRMSE=4.614845250242334minepoch=286;epsw=1.0e-7;epsU=1.0e-7;burnin=0;maxepoch=300
         From worker 14: r=25;minRMSE=4.480537683182322minepoch=298;epsw=1.0e-6;epsU=1.0e-7;burnin=0;maxepoch=300
         From worker 17: r=30;minRMSE=4.230374763534725minepoch=219;epsw=0.001;epsU=1.0e-8;burnin=0;maxepoch=300
-        From worker 2:  r=15;minRMSE=4.175639913650419minepoch=238;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
+       
         From worker 27: r=15;minRMSE=6.75731403382971minepoch=300;epsw=1.0e-5;epsU=1.0e-9;burnin=0;maxepoch=300
         From worker 23: r=35;minRMSE=6.400745135076647minepoch=300;epsw=1.0e-7;epsU=1.0e-8;burnin=0;maxepoch=300
         From worker 29: r=20;minRMSE=10.867512804324747minepoch=300;epsw=1.0e-6;epsU=1.0e-9;burnin=0;maxepoch=300
@@ -154,8 +167,7 @@ Learn U&w for various values of r, using only 500 train 500 test from PowerPlant
         From worker 8:  r=20;minRMSE=4.234534403127336minepoch=190;epsw=1.0e-7;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 20: r=35;minRMSE=5.286811571014024minepoch=299;epsw=1.0e-5;epsU=1.0e-8;burnin=0;maxepoch=300
         From worker 13: r=40;minRMSE=4.615559656917982minepoch=273;epsw=1.0e-5;epsU=1.0e-7;burnin=0;maxepoch=300
-        From worker 3:  r=40;minRMSE=4.200301044622255minepoch=111;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
-        From worker 16: r=45;minRMSE=4.546041416185174minepoch=271;epsw=1.0e-7;epsU=1.0e-7;burnin=0;maxepoch=300
+               From worker 16: r=45;minRMSE=4.546041416185174minepoch=271;epsw=1.0e-7;epsU=1.0e-7;burnin=0;maxepoch=300
         From worker 6:  r=45;minRMSE=4.201101886360693minepoch=294;epsw=1.0e-5;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 18: r=20;minRMSE=4.422837151524161minepoch=274;epsw=0.0001;epsU=1.0e-8;burnin=0;maxepoch=300
         From worker 25: r=45;minRMSE=4.264822819028499minepoch=247;epsw=0.001;epsU=1.0e-9;burnin=0;maxepoch=300
@@ -164,10 +176,8 @@ Learn U&w for various values of r, using only 500 train 500 test from PowerPlant
         From worker 9:  r=50;minRMSE=4.253099624791756minepoch=292;epsw=1.0e-7;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 21: r=25;minRMSE=6.046198676582617minepoch=300;epsw=1.0e-6;epsU=1.0e-8;burnin=0;maxepoch=300
         From worker 19: r=50;minRMSE=4.605519155961198minepoch=261;epsw=0.0001;epsU=1.0e-8;burnin=0;maxepoch=300
-        From worker 2:  r=20;minRMSE=4.196203366324859minepoch=68;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
-        From worker 15: r=20;minRMSE=4.418027753353054minepoch=297;epsw=1.0e-7;epsU=1.0e-7;burnin=0;maxepoch=300
+               From worker 15: r=20;minRMSE=4.418027753353054minepoch=297;epsw=1.0e-7;epsU=1.0e-7;burnin=0;maxepoch=300
         From worker 27: r=20;minRMSE=6.255252275766934minepoch=297;epsw=1.0e-5;epsU=1.0e-9;burnin=0;maxepoch=300
-        From worker 9:  r=5;minRMSE=4.197089531312421minepoch=254;epsw=0.001;epsU=1.0e-7;burnin=0;maxepoch=300
         From worker 26: r=30;minRMSE=4.289054822121205minepoch=262;epsw=0.0001;epsU=1.0e-9;burnin=0;maxepoch=300
         From worker 22: r=20;minRMSE=5.501715928831088minepoch=295;epsw=1.0e-7;epsU=1.0e-8;burnin=0;maxepoch=300
         From worker 12: r=20;minRMSE=4.3823572305845415minepoch=297;epsw=1.0e-5;epsU=1.0e-7;burnin=0;maxepoch=300
@@ -199,7 +209,7 @@ Learn U&w for various values of r, using only 500 train 500 test from PowerPlant
         From worker 15: r=25;minRMSE=4.468702874738392minepoch=298;epsw=1.0e-7;epsU=1.0e-7;burnin=0;maxepoch=300
         From worker 19: r=15;minRMSE=5.606001885474987minepoch=300;epsw=1.0e-5;epsU=1.0e-8;burnin=0;maxepoch=300
         From worker 29: r=30;minRMSE=8.515165234792985minepoch=300;epsw=1.0e-6;epsU=1.0e-9;burnin=0;maxepoch=300
-        From worker 3:  r=45;minRMSE=4.1576315183862045minepoch=112;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
+       
         From worker 3:  Get NaN when moving along Geodesic. Try smaller epsU
         From worker 26: r=35;minRMSE=4.4107579728681054minepoch=289;epsw=0.0001;epsU=1.0e-9;burnin=0;maxepoch=300
         From worker 31: r=35;minRMSE=13.12066071764595minepoch=300;epsw=1.0e-7;epsU=1.0e-9;burnin=0;maxepoch=300
@@ -221,7 +231,7 @@ Learn U&w for various values of r, using only 500 train 500 test from PowerPlant
         From worker 17: r=40;minRMSE=4.324500574848485minepoch=249;epsw=0.001;epsU=1.0e-8;burnin=0;maxepoch=300
         From worker 3:  r=5;minRMSE=4.234150362897009minepoch=288;epsw=0.0001;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 19: r=20;minRMSE=4.91662616016543minepoch=295;epsw=1.0e-5;epsU=1.0e-8;burnin=0;maxepoch=300
-        From worker 2:  r=30;minRMSE=4.182157548122416minepoch=201;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
+       
         From worker 27: r=30;minRMSE=5.3244574690213575minepoch=300;epsw=1.0e-5;epsU=1.0e-9;burnin=0;maxepoch=300
         From worker 14: r=35;minRMSE=4.405441716661329minepoch=284;epsw=1.0e-6;epsU=1.0e-7;burnin=0;maxepoch=300
         From worker 16: r=10;minRMSE=4.187738360239421minepoch=288;epsw=0.001;epsU=1.0e-8;burnin=0;maxepoch=300
@@ -253,7 +263,6 @@ Learn U&w for various values of r, using only 500 train 500 test from PowerPlant
         From worker 30: r=15;minRMSE=12.173234378381547minepoch=299;epsw=1.0e-7;epsU=1.0e-9;burnin=0;maxepoch=300
         From worker 13: r=5;minRMSE=4.490501417606543minepoch=284;epsw=1.0e-6;epsU=1.0e-7;burnin=0;maxepoch=300
         From worker 3:  r=15;minRMSE=4.252866439055185minepoch=271;epsw=0.0001;epsU=1.0e-6;burnin=0;maxepoch=300
-        From worker 5:  r=35;minRMSE=4.152996234091927minepoch=164;epsw=1.0e-5;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 4:  r=40;minRMSE=4.237080412683771minepoch=271;epsw=0.0001;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 2:  r=35;minRMSE=4.1560630707958275minepoch=276;epsw=0.001;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 13: r=10;minRMSE=4.555410517582321minepoch=244;epsw=1.0e-6;epsU=1.0e-7;burnin=0;maxepoch=300
@@ -311,8 +320,7 @@ Learn U&w for various values of r, using only 500 train 500 test from PowerPlant
         From worker 17: r=10;minRMSE=4.3146136837244065minepoch=288;epsw=0.0001;epsU=1.0e-8;burnin=0;maxepoch=300
         From worker 7:  r=10;minRMSE=4.239854186642512minepoch=241;epsw=1.0e-7;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 31: r=50;minRMSE=12.001790637500873minepoch=300;epsw=1.0e-7;epsU=1.0e-9;burnin=0;maxepoch=300
-        From worker 4:  r=50;minRMSE=4.207251121960894minepoch=281;epsw=0.0001;epsU=1.0e-6;burnin=0;maxepoch=300
-        From worker 4:  r=5;minRMSE=4.252066113800781minepoch=285;epsw=1.0e-5;epsU=1.0e-6;burnin=0;maxepoch=300
+               From worker 4:  r=5;minRMSE=4.252066113800781minepoch=285;epsw=1.0e-5;epsU=1.0e-6;burnin=0;maxepoch=300
         From worker 11: r=45;minRMSE=4.39351300220416minepoch=287;epsw=0.0001;epsU=1.0e-7;burnin=0;maxepoch=300
         From worker 21: r=50;minRMSE=7.3634568338936734minepoch=300;epsw=1.0e-6;epsU=1.0e-8;burnin=0;maxepoch=300
         From worker 14: r=50;minRMSE=4.7824008826484175minepoch=299;epsw=1.0e-6;epsU=1.0e-7;burnin=0;maxepoch=300
