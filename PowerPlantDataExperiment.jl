@@ -1,8 +1,8 @@
 @everywhere using GPT_SGLD
 @everywhere using DataFrames
-@everywhere using PyPlot
+#@everywhere using PyPlot
 @everywhere using Iterators
-using GaussianProcess
+#using GaussianProcess
 
 #=
 tic()
@@ -40,12 +40,12 @@ println("testRMSE for GP=",ytrainStd*norm(ytest-gp_predtest)/sqrt(Ntest))
 @everywhere Xtest = (data[Ntrain+1:Ntrain+Ntest,1:D]-repmat(XtrainMean,Ntest,1))./repmat(XtrainStd,Ntest,1);
 @everywhere ytest = (data[Ntrain+1:Ntrain+Ntest,D+1]-ytrainMean)/ytrainStd;
 @everywhere burnin=0;
-@everywhere maxepoch=100;
+@everywhere maxepoch=300;
 @everywhere Q=200;
 @everywhere m=50;
-@everywhere r=20;
+#@everywhere r=20;
 @everywhere n=150;
-@everywhere I=samplenz(r,D,Q,seed);
+#@everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
 @everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
@@ -98,21 +98,22 @@ println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfha
 #tic();myRMSEidx,temp=RMSE(w_store,U_store,I,phitest,ytest);toc();
 =#
 
-@everywhere t=Iterators.product(2:6,3:8)
-@everywhere myt=Array(Any,30);
+@everywhere t=Iterators.product(5:5:50,3:7,6:9)
+@everywhere myt=Array(Any,200);
 @everywhere it=1;
 @everywhere for prod in t
 	myt[it]=prod;
         it+=1;
-    end
+        end
 #myRMSE=SharedArray(Float64,70);
-@parallel for  Tuple in myt
-    i,j=Tuple;
+@sync @parallel for  Tuple in myt
+    r,i,j=Tuple;
     epsw=float(string("1e-",i)); epsU=float(string("1e-",j));
+    I=samplenz(r,D,Q,seed);
     #idx=int(3*(j-70)/5+i-14);
     w_store,U_store=GPT_SGLDERM(phitrain,ytrain,sigma,I,r,Q,m,epsw,epsU,burnin,maxepoch);
     testRMSE=Array(Float64,maxepoch)
-    numbatches=int(ceil(N/m))
+    numbatches=int(ceil(Ntrain/m))
     for epoch=1:maxepoch
         testpred=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest)
         testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
