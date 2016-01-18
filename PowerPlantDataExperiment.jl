@@ -46,7 +46,7 @@ println("testRMSE for GP=",ytrainStd*norm(ytest-gp_predtest)/sqrt(Ntest))
 #@everywhere r=20;
 @everywhere n=150;
 #@everywhere I=samplenz(r,D,Q,seed);
-@everywhere scale=sqrt(n/(Q^(1/D)));
+@everywhere scale=sigma_RBF*sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
 @everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
 @everywhere epsw=1e-5; 
@@ -98,8 +98,8 @@ println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfha
 #tic();myRMSEidx,temp=RMSE(w_store,U_store,I,phitest,ytest);toc();
 =#
 
-@everywhere t=Iterators.product(5:5:50,3:6)
-@everywhere myt=Array(Any,40);
+@everywhere t=Iterators.product(5:5:50,3:5,5:7)
+@everywhere myt=Array(Any,90);
 @everywhere it=1;
 @everywhere for prod in t
 	myt[it]=prod;
@@ -119,7 +119,7 @@ println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfha
         testpred=pred(w_store[:,epoch*numbatches],U,I,phitest)
         testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
     end
-    =#
+    
 	#println("RMSE=",myRMSE,";seed=",seed,";sigma=",sigma,";length_scale=",length_scale,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=",epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
 println("r=",r,";minRMSE=",minimum(testRMSE),";minepoch=",indmin(testRMSE),";epsw=",epsw,";burnin=",burnin,";maxepoch=",maxepoch);
 end

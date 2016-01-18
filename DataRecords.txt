@@ -328,3 +328,53 @@ Learn U&w for various values of r, using only 500 train 500 test from PowerPlant
         From worker 14: r=5;minRMSE=4.492332499799693minepoch=284;epsw=1.0e-7;epsU=1.0e-7;burnin=0;maxepoch=300
         From worker 11: r=50;minRMSE=4.395032680571873minepoch=281;epsw=0.0001;epsU=1.0e-7;burnin=0;maxepoch=300
 
+Learn w only from various values of r, using 500 train 500 test only:
+        From worker 7:  r=5;minRMSE=4.848177883853336;minepoch=266;epsw=0.0001;burnin=0;maxepoch=300
+	From worker 2:  r=10;minRMSE=4.167897197172535;minepoch=260;epsw=0.001;burnin=0;maxepoch=300	
+	From worker 3:  r=15;minRMSE=4.255607693461359;minepoch=91;epsw=0.001;burnin=0;maxepoch=300
+	From worker 3:  r=20;minRMSE=4.327547266516095;minepoch=198;epsw=0.001;burnin=0;maxepoch=300
+	From worker 4:  r=25;minRMSE=4.446610626586317;minepoch=278;epsw=0.001;burnin=0;maxepoch=300
+	From worker 4:  r=30;minRMSE=4.174048973631393;minepoch=253;epsw=0.001;burnin=0;maxepoch=300
+        From worker 10: r=35;minRMSE=4.485037579775061;minepoch=275;epsw=0.0001;burnin=0;maxepoch=300
+        From worker 5:  r=40;minRMSE=4.480529637640775;minepoch=120;epsw=0.001;burnin=0;maxepoch=300
+	From worker 6:  r=45;minRMSE=4.270920807081234;minepoch=211;epsw=0.001;burnin=0;maxepoch=300
+	From worker 11: r=50;minRMSE=4.559050368753505;minepoch=280;epsw=0.0001;burnin=0;maxepoch=300
+
+	From worker 7:  r=10;minRMSE=4.246008084162156;minepoch=251;epsw=0.0001;burnin=0;maxepoch=300
+        From worker 2:  r=5;minRMSE=3.852208709722219e7;minepoch=1;epsw=0.001;burnin=0;maxepoch=300
+        From worker 12: r=5;minRMSE=6.522024455050863;minepoch=300;epsw=1.0e-5;burnin=0;maxepoch=300
+        From worker 17: r=5;minRMSE=11.844166416050165;minepoch=300;epsw=1.0e-6;burnin=0;maxepoch=300
+        From worker 8:  r=15;minRMSE=4.393589523338064;minepoch=287;epsw=0.0001;burnin=0;maxepoch=300        
+        From worker 12: r=10;minRMSE=5.097471535945413;minepoch=298;epsw=1.0e-5;burnin=0;maxepoch=300
+        From worker 17: r=10;minRMSE=8.290729218735146;minepoch=298;epsw=1.0e-6;burnin=0;maxepoch=300
+        
+        From worker 18: r=15;minRMSE=11.137237062546102;minepoch=300;epsw=1.0e-6;burnin=0;maxepoch=300
+        From worker 13: r=15;minRMSE=7.062453533116818;minepoch=288;epsw=1.0e-5;burnin=0;maxepoch=300
+        From worker 14: r=25;minRMSE=7.05185499054603;minepoch=300;epsw=1.0e-5;burnin=0;maxepoch=300
+        
+        From worker 19: r=25;minRMSE=13.107773761388247;minepoch=300;epsw=1.0e-6;burnin=0;maxepoch=300
+        From worker 9:  r=25;minRMSE=4.851774272968691;minepoch=278;epsw=0.0001;burnin=0;maxepoch=300
+
+        From worker 15: r=35;minRMSE=6.239279799239567;minepoch=294;epsw=1.0e-5;burnin=0;maxepoch=300
+        From worker 8:  r=20;minRMSE=4.641334157696125;minepoch=294;epsw=0.0001;burnin=0;maxepoch=300
+        
+        From worker 5:  r=35;minRMSE=2838.3199813872798;minepoch=1;epsw=0.001;burnin=0;maxepoch=300
+        From worker 20: r=35;minRMSE=11.947436830357084;minepoch=300;epsw=1.0e-6;burnin=0;maxepoch=300
+        From worker 18: r=20;minRMSE=14.892381893686423;minepoch=300;epsw=1.0e-6;burnin=0;maxepoch=300
+        From worker 16: r=45;minRMSE=5.571283131571991;minepoch=298;epsw=1.0e-5;burnin=0;maxepoch=300
+        From worker 13: r=20;minRMSE=6.978868845559159;minepoch=294;epsw=1.0e-5;burnin=0;maxepoch=300
+        From worker 11: r=45;minRMSE=4.584131750541112;minepoch=229;epsw=0.0001;burnin=0;maxepoch=300
+        
+        From worker 21: r=45;minRMSE=12.559788396720045;minepoch=300;epsw=1.0e-6;burnin=0;maxepoch=300
+        From worker 14: r=30;minRMSE=5.514217468307957;minepoch=299;epsw=1.0e-5;burnin=0;maxepoch=300
+        
+        From worker 19: r=30;minRMSE=9.942251253517728;minepoch=299;epsw=1.0e-6;burnin=0;maxepoch=300
+        From worker 9:  r=30;minRMSE=4.290722676714673;minepoch=296;epsw=0.0001;burnin=0;maxepoch=300
+        From worker 10: r=40;minRMSE=4.931825607215079;minepoch=297;epsw=0.0001;burnin=0;maxepoch=300
+        From worker 15: r=40;minRMSE=5.94682341640815;minepoch=297;epsw=1.0e-5;burnin=0;maxepoch=300
+
+        From worker 20: r=40;minRMSE=11.687011489894402;minepoch=299;epsw=1.0e-6;burnin=0;maxepoch=300
+        From worker 16: r=50;minRMSE=6.24734215805593;minepoch=299;epsw=1.0e-5;burnin=0;maxepoch=300
+        
+        From worker 6:  r=50;minRMSE=3.2162263124587727e8;minepoch=1;epsw=0.001;burnin=0;maxepoch=300
+        From worker 21: r=50;minRMSE=9.203201535007894;minepoch=300;epsw=1.0e-6;burnin=0;maxepoch=300
