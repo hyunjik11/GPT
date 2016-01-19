@@ -60,44 +60,95 @@ function datawhitening(X::Array)
     return X
 end
 
-# extract features from tensor decomp of each row of X
-function feature(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer,scale::Real)    
+# extract features from tensor decomp of each row of X using same length scale for each dimension
+function feature(X::Array,n::Integer,length_scale::Real, sigma_RBF::Real,seed::Integer,scale::Real)    
     N,D=size(X)
     phi=Array(Float64,n,D,N)
     srand(seed)
     Z=randn(n,D)/length_scale
     b=rand(n,D)*2*pi
     for i=1:N
-	for k=1:D
-	    for j=1:n
-		phi[j,k,i]=cos(X[i,k]*Z[j,k]+b[j,k])
-	    end
-	end
+		for k=1:D
+			for j=1:n
+				phi[j,k,i]=cos(X[i,k]*Z[j,k]+b[j,k])
+			end
+		end
     end
     return scale*(sigma_RBF)^(1/D)*sqrt(2/n)*phi
 end
 
-# alternative Fourier feature embedding
+# extract features from tensor decomp of each row of X using varying length scales for different dimensions
+function feature(X::Array,n::Integer,length_scale::Vector, sigma_RBF::Real,seed::Integer,scale::Real)    
+    N,D=size(X)
+    if length(length_scale)!=D
+		error("dimensions of X and length_scale do not match")
+	end
+    phi=Array(Float64,n,D,N)
+    srand(seed)
+    Z=Array(Float64,n,D)
+    for k=1:D
+		Z[:,k]=randn(n)/length_scale[k]
+    end
+    b=rand(n,D)*2*pi
+    for i=1:N
+		for k=1:D
+			for j=1:n
+				phi[j,k,i]=cos(X[i,k]*Z[j,k]+b[j,k])
+			end
+		end
+    end
+    return scale*(sigma_RBF)^(1/D)*sqrt(2/n)*phi
+end
+
+# alternative Fourier feature embedding for same length_scale
 function feature2(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer,scale::Real)    
     if n%2==0
-	half_n=int(n/2)
-    	N,D=size(X)
-    	phi=Array(Float64,n,D,N)
-    	srand(seed)
-    	Z=randn(half_n,D)/length_scale
-	    for i=1:N
-		for k=1:D
-		    for j=1:half_n
-			phi[2*j-1,k,i]=sin(X[i,k]*Z[j,k])
-			phi[2*j,k,i]=cos(X[i,k]*Z[j,k])
-		    end
+		half_n=int(n/2)
+		N,D=size(X)
+		phi=Array(Float64,n,D,N)
+		srand(seed)
+		Z=randn(half_n,D)/length_scale
+		for i=1:N
+			for k=1:D
+				for j=1:half_n
+					phi[2*j-1,k,i]=sin(X[i,k]*Z[j,k])
+					phi[2*j,k,i]=cos(X[i,k]*Z[j,k])
+				end
+			end
 		end
-	    end
-	return scale*(sigma_RBF)^(1/D)*sqrt(2/n)*phi
+		return scale*(sigma_RBF)^(1/D)*sqrt(2/n)*phi
     else error("n is not even")
     end
 end
 
+# alternative Fourier feature embedding for varying length_scales
+function feature2(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,seed::Integer,scale::Real)    
+    if n%2==0
+		half_n=int(n/2)
+		N,D=size(X)
+		if length(length_scale)!=D
+			error("dimensions of X and length_scale do not match")
+		end
+		phi=Array(Float64,n,D,N)
+		srand(seed)
+		Z=Array(Float64,half_n,D)
+		for k=1:D
+			Z[:,k]=randn(half_n)/length_scale[k]
+		end
+		    for i=1:N
+				for k=1:D
+					for j=1:half_n
+						phi[2*j-1,k,i]=sin(X[i,k]*Z[j,k])
+						phi[2*j,k,i]=cos(X[i,k]*Z[j,k])
+					end
+				end
+		end
+		return scale*(sigma_RBF)^(1/D)*sqrt(2/n)*phi
+    else error("n is not even")
+    end
+end
+
+# fourier feature embedding for the no tensor model (full-theta) using same length_scale
 function featureNotensor(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer)    
     N,D=size(X)
     phi=Array(Float64,n,N)
@@ -105,25 +156,76 @@ function featureNotensor(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,
     Z=randn(n,D)/length_scale
     b=2*pi*rand(n)
     for i=1:N
-        phi[:,i]=cos(sum(repmat(X[i,:],n,1).*Z,2) + b)
+		for j=1:n
+        	phi[j,i]=cos(sum(X[i,:].*Z[j,:]) + b[j])
+		end
     end
     return sqrt(2/n)*sigma_RBF*phi
 end
 
-function featureNotensor2(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer)      if n%2==0
-        half_n=int(n/2)
-        N,D=size(X)
-        phi=Array(Float64,n,N)
-        srand(seed)
-        Z=randn(half_n,D)/length_scale
-        for i=1:N
-            for j=1:half_n
-                temp=sum(X[i,:].*Z[j,:])
-                phi[2*j-1,i]=sin(temp)
-                phi[2*j,i]=cos(temp)
-            end                    
-        end
-        return sqrt(2/n)*sigma_RBF*phi
+# fourier feature embedding for the no tensor model (full-theta) using varying length_scales
+function featureNotensor(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,seed::Integer)    
+    N,D=size(X)
+	if length(length_scale)!=D
+			error("dimensions of X and length_scale do not match")
+	end
+    phi=Array(Float64,n,N)
+    srand(seed)
+    Z=Array(Float64,n,D)
+    for k=1:D
+		Z[:,k]=randn(n)/length_scale[k]
+    end
+    b=2*pi*rand(n)
+    for i=1:N
+		for j=1:n
+        	phi[j,i]=cos(sum(X[i,:].*Z[j,:]) + b[j])
+		end
+    end
+    return sqrt(2/n)*sigma_RBF*phi
+end
+
+# alternative fourier feature embedding for the no tensor model (full-theta) using fixed length_scales
+function featureNotensor2(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer)
+	if n%2==0
+		half_n=int(n/2)
+		N,D=size(X)
+		phi=Array(Float64,n,N)
+		srand(seed)
+		Z=randn(half_n,D)/length_scale
+		for i=1:N
+		    for j=1:half_n
+		        temp=sum(X[i,:].*Z[j,:])
+		        phi[2*j-1,i]=sin(temp)
+		        phi[2*j,i]=cos(temp)
+		    end                    
+		end
+		return sqrt(2/n)*sigma_RBF*phi
+    else error("n is not even")
+    end
+end
+
+# alternative fourier feature embedding for the no tensor model (full-theta) using varying length_scales
+function featureNotensor2(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,seed::Integer)
+	if n%2==0
+		half_n=int(n/2)
+		N,D=size(X)
+		if length(length_scale)!=D
+			error("dimensions of X and length_scale do not match")
+		end
+		phi=Array(Float64,n,N)
+		srand(seed)
+		Z=Array(Float64,half_n,D)
+		for k=1:D
+			Z[:,k]=randn(half_n)/length_scale[k]
+		end
+		for i=1:N
+		    for j=1:half_n
+		        temp=sum(X[i,:].*Z[j,:])
+		        phi[2*j-1,i]=sin(temp)
+		        phi[2*j,i]=cos(temp)
+		    end                    
+		end
+		return sqrt(2/n)*sigma_RBF*phi
     else error("n is not even")
     end
 end
@@ -225,7 +327,7 @@ function computeA(U_phi::Array,w::Array,I::Array,r::Integer)
 end
 
 # compute Psi as in (12)
-function computePsi(A,phi)
+function computePsi(A::Array,phi::Array)
     r,D,data_size=size(A)
     n,D,data_size=size(phi)
     Psi=Array(Float64,n*r,data_size,D)
@@ -276,12 +378,33 @@ function createmesh(interval_start,interval_end,npts)
     return x,y,grid
 end
 
-#draw fhat from Tensor model for GPT_demo
-function fhatdraw(X,n,length_scale,r,Q)
+#draw fhat from Tensor model for GPT_demo for same length_scale across dimensions
+function fhatdraw(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,r::Integer,Q::Integer)
     N,D=size(X)
     scale=sqrt(n/(Q^(1/D)));
     seed=17;
-    phi=feature(X,n,length_scale,seed,scale)
+    phi=feature(X,n,length_scale,sigma_RBF,seed,scale)
+    sigma_w=1;
+    w=sigma_w*randn(Q)
+    U=Array(Float64,n,r,D)
+    for k=1:D
+        Z=randn(r,n)
+        U[:,:,k]=transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from V_{n,r}
+    end
+    I=samplenz(r,D,Q,seed)
+    
+    return pred(w,U,I,phi)
+end
+
+#draw fhat from Tensor model for GPT_demo for varying length_scale
+function fhatdraw(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,r::Integer,Q::Integer)
+    N,D=size(X)
+	if length(length_scale)!=D
+			error("dimensions of X and length_scale do not match")
+	end
+    scale=sqrt(n/(Q^(1/D)));
+    seed=17;
+    phi=feature(X,n,length_scale,sigma_RBF,seed,scale)
     sigma_w=1;
     w=sigma_w*randn(Q)
     U=Array(Float64,n,r,D)
@@ -296,9 +419,9 @@ end
 
     
 #SGLD on Tucker Model with Stiefel Manifold
-function GPT_SGLDERM(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer)
+function GPT_SGLDERM(phi::Array, y::Array, signal_var::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
-    # sigma is the s.d. of the observed values
+    # signal_var is the variance of the observed values
     # epsw,epsU are the epsilons for w and U resp.
     # maxepoch is the number of sweeps through whole dataset
     
@@ -340,7 +463,7 @@ function GPT_SGLDERM(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q:
             fhat=computefhat(V,w)
 
             # now can compute gradw, the stochastic gradient of log post wrt w
-            gradw=(N/batch_size)*V*(y_batch-fhat)/(sigma^2)-w/(sigma_w^2)
+            gradw=(N/batch_size)*V*(y_batch-fhat)/signal_var-w/(sigma_w^2)
 
             # compute U_phi[q,i,k]=expression in big brackets in (11)
             U_phi=computeU_phi(V,temp,I)
@@ -354,7 +477,7 @@ function GPT_SGLDERM(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q:
             # can now compute gradU where gradU[:,:,k]=stochastic gradient of log post wrt U^(k)
             gradU=Array(Float64,n,r,D)
             for k=1:D
-                gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y_batch-fhat)/(sigma^2),n,r)
+                gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y_batch-fhat)/signal_var,n,r)
             end
 	    
             # SGLD step on w
@@ -381,9 +504,9 @@ function GPT_SGLDERM(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q:
 end
 
 #SGD on Tucker Model with Stiefel Manifold 
-function GPT_SGDERM(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer)
+function GPT_SGDERM(phi::Array, y::Array, signal_var::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
-    # sigma is the s.d. of the observed values
+    # signal_var is the variance of the observed values
     # epsw,epsU are the epsilons for w and U resp.
     # maxepoch is the number of sweeps through whole dataset
     
@@ -424,7 +547,7 @@ function GPT_SGDERM(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::
             fhat=computefhat(V,w)
 
             # now can compute gradw, the stochastic gradient of log post wrt w
-            gradw=(N/batch_size)*V*(y_batch-fhat)/(sigma^2)-w/(sigma_w^2)
+            gradw=(N/batch_size)*V*(y_batch-fhat)/signal_var-w/(sigma_w^2)
 
             # compute U_phi[q,i,k]=expression in big brackets in (11)
             U_phi=computeU_phi(V,temp,I)
@@ -438,7 +561,7 @@ function GPT_SGDERM(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::
             # can now compute gradU where gradU[:,:,k]=stochastic gradient of log post wrt U^(k)
             gradU=Array(Float64,n,r,D)
             for k=1:D
-                gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y_batch-fhat)/(sigma^2),n,r)
+                gradU[:,:,k]=reshape((N/batch_size)*Psi[:,:,k]*(y_batch-fhat)/signal_var,n,r)
             end
 	    
             # SGLD step on w
@@ -465,9 +588,9 @@ function GPT_SGDERM(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::
 end
 
 #GMC on Tucker Model with Stiefel Manifold
-function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer, L::Integer,param_seed::Integer)
+function GPT_GMC(phi::Array, y::Array, signal_var::Real, I::Array, r::Integer, Q::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer, L::Integer,param_seed::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
-    # sigma is the s.d. of the observed values
+    # signal_var is the variance of the observed values
     # epsw,epsU are the epsilons for w and U resp.
     # maxepoch is the number of sweeps through whole dataset
     
@@ -494,7 +617,7 @@ function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Int
         for k=1:D
             mom[:,:,k]=proj(U[:,:,k],randn(n,r));
         end
-        H_old=-sum(w.*w)/(2*sigma_w^2)-norm(y-pred(w,U,I,phi))^2/(2*sigma^2)-sum(mom.*mom)/2-sum(p.*p)/2;
+        H_old=-sum(w.*w)/(2*sigma_w^2)-norm(y-pred(w,U,I,phi))^2/(2*signal_var)-sum(mom.*mom)/2-sum(p.*p)/2;
         #println("H=",H_old)
         pred_new=Array(Float64,N); # used later for computing H_new
         # leapfrog step
@@ -507,7 +630,7 @@ function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Int
             # compute fhat where fhat[i]=V[:,i]'w
             fhat=computefhat(V,w)
             # now can compute gradw, the stochastic gradient of log post wrt w
-            gradw=V*(y-fhat)/(sigma^2)-w/(sigma_w^2)
+            gradw=V*(y-fhat)/(signal_var)-w/(sigma_w^2)
             # update p
             p+=sqrt(epsw)*gradw/2;
             # compute U_phi[q,i,k]=expression in big brackets in (11)
@@ -519,7 +642,7 @@ function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Int
             # can now compute gradU where gradU[:,:,k]=gradient of log post wrt U^(k)
             gradU=Array(Float64,n,r,D)
             for k=1:D
-                gradU[:,:,k]=reshape(Psi[:,:,k]*(y-fhat)/(sigma^2),n,r)
+                gradU[:,:,k]=reshape(Psi[:,:,k]*(y-fhat)/(signal_var),n,r)
             end
             # update mom
             for k=1:D
@@ -545,7 +668,7 @@ function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Int
             # compute fhat where fhat[i]=V[:,i]'w
             fhat=computefhat(V,w)
             # now can compute gradw, the stochastic gradient of log post wrt w
-            gradw=V*(y-fhat)/(sigma^2)-w/(sigma_w^2)
+            gradw=V*(y-fhat)/(signal_var)-w/(sigma_w^2)
             # update p
             p+=sqrt(epsw)*gradw/2;
             # compute U_phi[q,i,k]=expression in big brackets in (11)
@@ -557,7 +680,7 @@ function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Int
             # can now compute gradU where gradU[:,:,k]=gradient of log post wrt U^(k)
             gradU=Array(Float64,n,r,D)
             for k=1:D
-                gradU[:,:,k]=reshape(Psi[:,:,k]*(y-fhat)/(sigma^2),n,r)
+                gradU[:,:,k]=reshape(Psi[:,:,k]*(y-fhat)/signal_var,n,r)
             end
             # update mom
             for k=1:D
@@ -570,7 +693,7 @@ function GPT_GMC(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Int
             end
         end
 
-        H=-sum(w.*w)/(2*sigma_w^2)-norm(y-pred_new)^2/(2*sigma^2)-sum(mom.*mom)/2-sum(p.*p)/2;
+        H=-sum(w.*w)/(2*sigma_w^2)-norm(y-pred_new)^2/(2*signal_var)-sum(mom.*mom)/2-sum(p.*p)/2;
         u=rand(1);
         
         accept_prob[epoch]=exp(H-H_old)
@@ -590,7 +713,7 @@ end
     
 
 #SGLD on No Tensor Model
-function GPNT_SGLD(phi::Array, y::Array, sigma::Real, sigma_theta::Real, m::Integer, eps_theta::Real, decay_rate::Real, burnin::Integer, maxepoch::Integer, theta_seed::Integer)
+function GPNT_SGLD(phi::Array, y::Array, signal_var::Real, sigma_theta::Real, m::Integer, eps_theta::Real, decay_rate::Real, burnin::Integer, maxepoch::Integer, theta_seed::Integer)
     n,N=size(phi);
     numbatches=int(ceil(N/m))
     
@@ -617,7 +740,7 @@ function GPNT_SGLD(phi::Array, y::Array, sigma::Real, sigma_theta::Real, m::Inte
             batch_size=length(idx) #this is m except for last batch
 
             epsilon=eps_theta*t^(-decay_rate)
-            grad_theta=-theta/(sigma_theta^2)+(N/batch_size)*phi_batch*(y_batch-phi_batch'*theta)/(sigma^2);
+            grad_theta=-theta/(sigma_theta^2)+(N/batch_size)*phi_batch*(y_batch-phi_batch'*theta)/signal_var;
             grad=epsilon*grad_theta/2;
             noise=sqrt(epsilon)*randn(n);
            
@@ -625,7 +748,7 @@ function GPNT_SGLD(phi::Array, y::Array, sigma::Real, sigma_theta::Real, m::Inte
 	    theta_store[:,t]=theta;
 	    if epoch>burnin && batch<numbatches
 		g+=1;
-            	meangrad+=phi_batch*(y_batch-phi_batch'*theta)/(sigma^2);
+            	meangrad+=phi_batch*(y_batch-phi_batch'*theta)/signal_var;
 	    end
         end
     end
@@ -633,20 +756,34 @@ function GPNT_SGLD(phi::Array, y::Array, sigma::Real, sigma_theta::Real, m::Inte
     return theta_store,meangrad
 end
 
-# function to return the negative log marginal likelihood of No Tensor model
-function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Real,sigma_RBF::Real,sigma::Real,seed::Integer)
-    N=size(X,1);
+# function to return the negative log marginal likelihood of No Tensor model for fixed length_scale
+function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Real,sigma_RBF::Real,signal_var::Real,seed::Integer)
+    N,D=size(X);
     phi=featureNotensor(X,n,length_scale,sigma_RBF,seed);
-    A=phi*phi'+sigma^2*I;
+    A=phi*phi'+signal_var*eye(n);
     b=phi*y;
-    B=\(A,b);
-    return (N-n)*log(sigma)+log(det(A))/2+(sum(y.*y)-sum(b.*B))/(2*sigma^2)
+	B=\(A,b);
+    return (N-n)*log(signal_var)/2+log(det(A))/2+(sum(y.*y)-sum(b.*B))/(2*signal_var)
 end
 
-#learning hyperparams sigma,sigma_RBF,length_scale for No Tensor Model by optimising marginal likelihood
-function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Real,init_sigma_RBF::Real,init_sigma::Real,seed::Integer)
-    logmarginal(hyperparams::Vector)=GPNT_logmarginal(X,y,n,exp(hyperparams[1]),exp(hyperparams[2]),exp(hyperparams[3]),seed); # log marginal likelihood as a fn of hyperparams=log([length_scale,sigma_RBF,sigma]) only.
-    # exp needed to enable unconstrained optimisation, since length_scale,sigmaRBF,sigma must be positive
+# function to return the negative log marginal likelihood of No Tensor model for varying length_scale
+function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,signal_var::Real,seed::Integer)
+    N,D=size(X);
+	if length(length_scale)!=D
+			error("dimensions of X and length_scale do not match")
+	end
+    phi=featureNotensor(X,n,length_scale,sigma_RBF,seed);
+    A=phi*phi'+signal_var*eye(n);
+    b=phi*y;
+	B=\(A,b);
+    return (N-n)*log(signal_var)/2+log(det(A))/2+(sum(y.*y)-sum(b.*B))/(2*signal_var)
+end
+
+#learning hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising marginal likelihood for fixed length_scale
+function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Real,init_sigma_RBF::Real,init_signal_var::Real,seed::Integer)
+	D=size(X,2);
+    logmarginal(hyperparams::Vector)=GPNT_logmarginal(X,y,n,exp(hyperparams[1]),exp(hyperparams[2]),exp(hyperparams[3]),seed); # log marginal likelihood as a fn of hyperparams=log([length_scale,sigma_RBF,signal_var]) only.
+    # exp needed to enable unconstrained optimisation, since length_scale,sigmaRBF,signal_var must be positive
     g=ForwardDiff.gradient(logmarginal)
     function g!(hyperparams::Vector,storage::Vector)
         grad=g(hyperparams)
@@ -654,12 +791,27 @@ function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Re
             storage[i]=grad[i]
         end
     end
-    optimize(logmarginal,g!,log([init_length_scale,init_sigma_RBF,init_sigma]),method=:cg,show_trace = true, extended_trace = true)
+    optimize(logmarginal,g!,log([init_length_scale,init_sigma_RBF,init_signal_var]),method=:cg,show_trace = true, extended_trace = true)
 end
 
-function GPT_SGLDERMw(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, burnin::Integer, maxepoch::Integer)
+#learning hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising marginal likelihood for varying length_scale
+function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Vector,init_sigma_RBF::Real,init_signal_var::Real,seed::Integer)
+	D=size(X,2);
+    logmarginal(hyperparams::Vector)=GPNT_logmarginal(X,y,n,exp(hyperparams[1:D]),exp(hyperparams[D+1]),exp(hyperparams[D+2]),seed); # log marginal likelihood as a fn of hyperparams=log([length_scale,sigma_RBF,signal_var]) only.
+    # exp needed to enable unconstrained optimisation, since length_scale,sigmaRBF,signal_var must be positive
+    g=ForwardDiff.gradient(logmarginal)
+    function g!(hyperparams::Vector,storage::Vector)
+        grad=g(hyperparams)
+        for i=1:length(hyperparams)
+            storage[i]=grad[i]
+        end
+    end
+    optimize(logmarginal,g!,log([init_length_scale,init_sigma_RBF,init_signal_var]),method=:cg,show_trace = true, extended_trace = true)
+end
+
+function GPT_SGLDERMw(phi::Array, y::Array, signal_var::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, burnin::Integer, maxepoch::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
-    # sigma is the s.d. of the observed values
+    # signal_var is the variance of the observed values
     # epsw,epsU are the epsilons for w and U resp.
     # maxepoch is the number of sweeps through whole dataset
     
@@ -700,7 +852,7 @@ function GPT_SGLDERMw(phi::Array, y::Array, sigma::Real, I::Array, r::Integer, Q
             fhat=computefhat(V,w)
 
             # now can compute gradw, the stochastic gradient of log post wrt w
-            gradw=(N/batch_size)*V*(y_batch-fhat)/(sigma^2)-w/(sigma_w^2)
+            gradw=(N/batch_size)*V*(y_batch-fhat)/signal_var-w/(sigma_w^2)
 	    
             # SGLD step on w
             w[:]+=epsw*gradw/2 +sqrt(epsw)*randn(Q)

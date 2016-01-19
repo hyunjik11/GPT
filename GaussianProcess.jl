@@ -23,12 +23,19 @@ end
 
 
 ######### List of covariance functions ###############
-function SECov(length::Real,sigma::Real)
+function covSEiso(length::Real,sigma::Real)
     function f(x,y)
         return sigma^2*exp(-norm(x-y)^2/(2*length^2))
     end
     return f
 end
+
+function covSEard(length::Vector,sigma::Real)
+	function f(x,y)
+		return sigma^2*exp(-((x-y)./length).^2/2)
+	end
+	return f
+end 
 
 ######################################################
 
