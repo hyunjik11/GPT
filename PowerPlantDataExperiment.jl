@@ -1,7 +1,7 @@
 @everywhere using GPT_SGLD
 @everywhere using DataFrames
-#@everywhere using PyPlot
-@everywhere using Iterators
+@everywhere using PyPlot
+#@everywhere using Iterators
 #using GaussianProcess
 
 #=
@@ -23,9 +23,9 @@ println("testRMSE for GP=",ytrainStd*norm(ytest-gp_predtest)/sqrt(Ntest))
 @everywhere Ntrain=500;
 @everywhere Ntest=500;
 @everywhere seed=18;
-@everywhere length_scale=2.435;
-@everywhere sigma=0.253;
-@everywhere sigma_RBF=0.767;
+@everywhere length_scale=1.4332;
+@everywhere signal_var=0.2299^2;
+@everywhere sigma_RBF=1;
 @everywhere Xtrain = data[1:Ntrain,1:D];
 @everywhere ytrain = data[1:Ntrain,D+1];
 @everywhere XtrainMean=mean(Xtrain,1); 
@@ -40,20 +40,31 @@ println("testRMSE for GP=",ytrainStd*norm(ytest-gp_predtest)/sqrt(Ntest))
 @everywhere Xtest = (data[Ntrain+1:Ntrain+Ntest,1:D]-repmat(XtrainMean,Ntest,1))./repmat(XtrainStd,Ntest,1);
 @everywhere ytest = (data[Ntrain+1:Ntrain+Ntest,D+1]-ytrainMean)/ytrainStd;
 @everywhere burnin=0;
-@everywhere maxepoch=300;
+@everywhere maxepoch=1;
 @everywhere Q=200;
 @everywhere m=50;
-#@everywhere r=20;
+@everywhere r=20;
 @everywhere n=150;
-#@everywhere I=samplenz(r,D,Q,seed);
+@everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
 @everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
-@everywhere epsw=1e-5; 
-@everywhere epsU=1e-8;
+#@everywhere epsw=1e-5; 
+#@everywhere epsU=1e-8;
+@everywhere epsilon=1e-5;
+@everywhere alpha=0.9;
 @everywhere L=30;
 @everywhere param_seed=234;
 #tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L,param_seed);toc()
+tic(); w_store,U_store=GPT_SGLDERM_RMSprop(phitrain, ytrain, signal_var, I, r, Q, m, epsilon, alpha, burnin, maxepoch); toc();
+#=
+testRMSE=Array(Float64,maxepoch)
+numbatches=int(ceil(Ntrain/m))
+for epoch=1:maxepoch
+    testpred=pred(w_store[:,epoch*numbatches],U,I,phitest)
+    testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
+end
+=#
 
 #=
     trainRMSE=SharedArray(Float64,maxepoch);
@@ -98,6 +109,7 @@ println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfha
 #tic();myRMSEidx,temp=RMSE(w_store,U_store,I,phitest,ytest);toc();
 =#
 
+#=
 @everywhere t=Iterators.product(5:5:50,3:5,5:7)
 @everywhere myt=Array(Any,90);
 @everywhere it=1;
@@ -123,6 +135,7 @@ println("epsw=",epsw," epsU=",epsU,"testRMSE=",ytrainStd*norm(ytest-mean(testfha
 	#println("RMSE=",myRMSE,";seed=",seed,";sigma=",sigma,";length_scale=",length_scale,";n=",n,";r=",r,";Q=",Q,";m=",m,";epsw=",epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
 println("r=",r,";minRMSE=",minimum(testRMSE),";minepoch=",indmin(testRMSE),";epsw=",epsw,";burnin=",burnin,";maxepoch=",maxepoch);
 end
+=#
 
 #=
 numI=50;

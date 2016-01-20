@@ -2,7 +2,7 @@ module GPT_SGLD
 
 using Distributions,Optim,ForwardDiff
 
-export proj, geod, datawhitening, feature, feature2, featureNotensor, samplenz, pred, RMSE, parallelRMSE, createmesh,fhatdraw, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD,GPNT_logmarginal,GPNT_hyperparameters,GPT_GMC,GPT_SGLDERMw
+export proj, geod, datawhitening, feature, feature2, featureNotensor, samplenz, pred, RMSE, parallelRMSE, createmesh,fhatdraw, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD,GPNT_logmarginal,GPNT_hyperparameters,GPT_GMC,GPT_SGLDERMw,GPT_SGLDERM_RMSprop
     
 # define proj for Stiefel manifold
 function proj(U::Array,V::Array)
