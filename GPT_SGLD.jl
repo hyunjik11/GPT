@@ -824,7 +824,7 @@ end
 
 # function to learn hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising non-Gaussian marginal likelihood using the stochastic EM algorithm for fixed length_scale
 function GPNT_hyperparameters_ng(init_theta::Vector,init_length_scale::Real,init_sigma_RBF::Real,init_signal_var::Real,
-neglogjointlkhd::Function,gradneglogjointlkhd::Function,epsilon::Real=1e-5,num_gd_iter::Integer=10)
+neglogjointlkhd::Function,gradneglogjointlkhd::Function,epsilon::Real=1e-5,num_cg_iter::Integer=10,num_sgld_iter::Integer=10)
 	# neglogjointlkhd should be -log p(y,theta;hyperparams), a function with 
 	# input theta,length_scale,sigma_RBF,signal_var and scalar output
 
@@ -847,7 +847,7 @@ neglogjointlkhd::Function,gradneglogjointlkhd::Function,epsilon::Real=1e-5,num_g
 	while absdiff>1e-7
 		println("iteration ",iter)
 		# E step - sample theta from posterior using SGLD - but then need to decide on step size
-		for i=1:10
+		for i=1:num_sgld_iter
 			theta-=epsilon*g(theta,loghyperparams...)[1:n]+sqrt(epsilon)*randn(n)
 		end
 		println("theta norm=",norm(theta))
@@ -861,7 +861,7 @@ neglogjointlkhd::Function,gradneglogjointlkhd::Function,epsilon::Real=1e-5,num_g
 		    	storage[i]=grad[i]
 			end
 		end
-		l=optimize(f2,g2!,loghyperparams,method=:cg,show_trace = true, extended_trace = true, iterations=num_gd_iter)
+		l=optimize(f2,g2!,loghyperparams,method=:cg,show_trace = true, extended_trace = true, iterations=num_cg_iter)
 		new_loghyperparams=l.minimum
 
 		#update convergence statistics
