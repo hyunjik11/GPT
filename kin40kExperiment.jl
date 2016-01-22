@@ -48,7 +48,7 @@
 #@everywhere epsU=1e-8;
 @everywhere numbatches=int(ceil(Ntrain/m))
 
-
+#=
 tic(); w_store,U_store=GPT_SGLDERM_RMSprop(phitrain, ytrain, signal_var, I, r, Q, m, epsilon, alpha, burnin, maxepoch); toc();
 w_store_thin=Array(Float64,Q,maxepoch);
 U_store_thin=Array(Float64,n,r,D,maxepoch);
@@ -60,20 +60,21 @@ c=h5open("wU_store_kin40k.h5","w") do file
 	write(file,"w_store",w_store_thin);
 	write(file,"U_store",U_store_thin);
 end
+=#
 
 
-#=
 @everywhere file="wU_store_kin40k.h5";
 @everywhere w_store=h5read(file,"w_store");
 @everywhere U_store=h5read(file,"U_store");
 testRMSE=SharedArray(Float64,maxepoch);
 testpred=SharedArray(Float64,Ntest,maxepoch);
 @sync @parallel for epoch=1:maxepoch
-	testpred=pred(w_store[:,epoch],U_store[:,:,:,epoch],I,phitest);
-    testpred[:,epoch]=testpred
-    testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
+	testpredtemp=pred(w_store[:,epoch],U_store[:,:,:,epoch],I,phitest);
+    testpred[:,epoch]=testpredtemp
+    testRMSE[epoch]=ytrainStd*norm(ytest-testpredtemp)/sqrt(Ntest)
+	println("epoch ",epoch," done")
 end
-=#
+
 
 #GPNT_hyperparameters(Xtrain,ytrain,n,length_scale,sigma_RBF,signal_var,seed)
 #=

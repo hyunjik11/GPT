@@ -823,7 +823,7 @@ function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Ve
 end
 
 # function to learn hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising non-Gaussian marginal likelihood using the stochastic EM algorithm for fixed length_scale
-function GPNT_hyperparameters_ng(init_theta::Vector,init_length_scale::Real,init_sigma_RBF::Real,init_signal_var::Real,
+function GPNT_hyperparameters_ng(init_theta::Vector,init_length_scale::Union{Real,Vector},init_sigma_RBF::Real,init_signal_var::Real,
 neglogjointlkhd::Function,gradneglogjointlkhd::Function,epsilon::Real=1e-5,num_cg_iter::Integer=10,num_sgld_iter::Integer=10)
 	# neglogjointlkhd should be -log p(y,theta;hyperparams), a function with 
 	# input theta,length_scale,sigma_RBF,signal_var and scalar output
