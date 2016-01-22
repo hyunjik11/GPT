@@ -37,8 +37,8 @@
 @everywhere n=150;
 @everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
-@everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
-@everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
+#@everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
+#@everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
 @everywhere epsw=1e-4; 
 @everywhere epsU=1e-7;
 @everywhere epsilon=1e-8;

@@ -2,7 +2,7 @@ module GPT_SGLD
 
 using Distributions,Optim,ForwardDiff
 
-export proj, geod, datawhitening, feature, feature2, featureNotensor, samplenz, pred, RMSE, parallelRMSE, createmesh,fhatdraw, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD,GPNT_logmarginal,GPNT_hyperparameters,GPT_GMC,GPT_SGLDERMw,GPT_SGLDERM_RMSprop
+export proj, geod, datawhitening, feature, feature2, featureNotensor, gradfeatureNotensor, samplenz, pred, RMSE, parallelRMSE, createmesh,fhatdraw, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD,GPNT_logmarginal,GPNT_hyperparameters,GPT_GMC,GPT_SGLDERMw,GPT_SGLDERM_RMSprop,GPNT_hyperparameters_ng
     
 # define proj for Stiefel manifold
 function proj(U::Array,V::Array)
@@ -182,6 +182,17 @@ function featureNotensor(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Rea
 		end
     end
     return sqrt(2/n)*sigma_RBF*phi
+end
+
+# function to give grad of phi wrt length_scale and sigma_RBF. 
+# input phi=featureNotensor(X,n,length_scale,sigma_RBF,seed)
+# Returns a tuple of two arrays, first is grad phi wrt length_scale, second is grad phi wrt sigma_RBF
+function gradfeatureNotensor(X::Array,length_scale::Real,sigma_RBF::Real,seed::Integer,phi::Array)
+	D=size(X,2);
+	n=size(phi,1);	
+	srand(seed)
+	Z=randn(n,D)
+	return phi.*(Z*X'),phi/sigma_RBF
 end
 
 # alternative fourier feature embedding for the no tensor model (full-theta) using fixed length_scales
@@ -756,7 +767,7 @@ function GPNT_SGLD(phi::Array, y::Array, signal_var::Real, sigma_theta::Real, m:
     return theta_store,meangrad
 end
 
-# function to return the negative log marginal likelihood of No Tensor model for fixed length_scale
+# function to return the negative log marginal likelihood of No Tensor model with Gaussian likelihood and fixed length_scale
 function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Real,sigma_RBF::Real,signal_var::Real,seed::Integer)
     N,D=size(X);
     phi=featureNotensor(X,n,length_scale,sigma_RBF,seed);
@@ -766,7 +777,7 @@ function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Real,sigma_
     return (N-n)*log(signal_var)/2+log(det(A))/2+(sum(y.*y)-sum(b.*B))/(2*signal_var)
 end
 
-# function to return the negative log marginal likelihood of No Tensor model for varying length_scale
+# function to return the negative log marginal likelihood of No Tensor model with Gaussian likelihood and varying length_scale
 function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,signal_var::Real,seed::Integer)
     N,D=size(X);
 	if length(length_scale)!=D
@@ -779,7 +790,7 @@ function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Vector,sigm
     return (N-n)*log(signal_var)/2+log(det(A))/2+(sum(y.*y)-sum(b.*B))/(2*signal_var)
 end
 
-#learning hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising marginal likelihood for fixed length_scale
+# learning hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising Gaussian marginal likelihood for fixed length_scale
 function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Real,init_sigma_RBF::Real,init_signal_var::Real,seed::Integer)
 	D=size(X,2);
     logmarginal(hyperparams::Vector)=GPNT_logmarginal(X,y,n,exp(hyperparams[1]),exp(hyperparams[2]),exp(hyperparams[3]),seed); # log marginal likelihood as a fn of hyperparams=log([length_scale,sigma_RBF,signal_var]) only.
@@ -791,10 +802,11 @@ function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Re
             storage[i]=grad[i]
         end
     end
-    optimize(logmarginal,g!,log([init_length_scale,init_sigma_RBF,init_signal_var]),method=:cg,show_trace = true, extended_trace = true)
+    l=optimize(logmarginal,g!,log([init_length_scale,init_sigma_RBF,init_signal_var]),method=:cg,show_trace = true, extended_trace = true)
+	return exp(l.minimum)
 end
 
-#learning hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising marginal likelihood for varying length_scale
+#learning hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising Gaussian marginal likelihood for varying length_scale
 function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Vector,init_sigma_RBF::Real,init_signal_var::Real,seed::Integer)
 	D=size(X,2);
     logmarginal(hyperparams::Vector)=GPNT_logmarginal(X,y,n,exp(hyperparams[1:D]),exp(hyperparams[D+1]),exp(hyperparams[D+2]),seed); # log marginal likelihood as a fn of hyperparams=log([length_scale,sigma_RBF,signal_var]) only.
@@ -806,8 +818,76 @@ function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Ve
             storage[i]=grad[i]
         end
     end
-    optimize(logmarginal,g!,log([init_length_scale,init_sigma_RBF,init_signal_var]),method=:cg,show_trace = true, extended_trace = true)
+    l=optimize(logmarginal,g!,log([init_length_scale,init_sigma_RBF,init_signal_var]),method=:cg,show_trace = true, extended_trace = true)
+	return exp(l.minimum)
 end
+
+# function to learn hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising non-Gaussian marginal likelihood using the stochastic EM algorithm for fixed length_scale
+function GPNT_hyperparameters_ng(init_theta::Vector,init_length_scale::Real,init_sigma_RBF::Real,init_signal_var::Real,
+neglogjointlkhd::Function,gradneglogjointlkhd::Function,epsilon::Real=1e-5,num_gd_iter::Integer=10)
+	# neglogjointlkhd should be -log p(y,theta;hyperparams), a function with 
+	# input theta,length_scale,sigma_RBF,signal_var and scalar output
+
+	# gradneglogjointlkhd should be the gradient of neglogjointlkhd wrt theta and hyperparams with
+	# input theta,length_scale,sigma_RBF,signal_var and vector output of length equal to length(theta)+3
+
+	# initialise theta and loghyperparams
+	theta=init_theta; loghyperparams=[log(init_length_scale),log(init_sigma_RBF),log(init_signal_var)];
+	n=length(init_theta);
+
+	# define f which corresponds to neglogjointlkhd and gradneglogjointlkhd but with inputs loghyperparams instead of hyperparams (for optimisation's sake) and g its gradient - compute using chain rule
+	f(theta,loglength_scale,logsigma_RBF,logsignal_var)=neglogjointlkhd(theta,exp(loglength_scale),exp(logsigma_RBF),exp(logsignal_var));
+	g(theta,loglength_scale,logsigma_RBF,logsignal_var)=gradneglogjointlkhd(theta,exp(loglength_scale),exp(logsigma_RBF),exp(logsignal_var)).*[ones(n),exp(loglength_scale),exp(logsigma_RBF),exp(logsignal_var)];
+
+	# stochastic EM 
+
+	# initialise statistic for diagnosing convergence
+	absdiff=1; # |x - x'|
+	iter=1;
+	while absdiff>1e-7
+		println("iteration ",iter)
+		# E step - sample theta from posterior using SGLD - but then need to decide on step size
+		for i=1:10
+			theta-=epsilon*g(theta,loghyperparams...)[1:n]+sqrt(epsilon)*randn(n)
+		end
+		println("theta norm=",norm(theta))
+		# M step - maximisie joint log likelihood wrt hyperparams using no_cg_iter steps of cg/gd
+
+		f2(loghyperparameters::Vector)=f(theta,loghyperparameters...);
+		g2(loghyperparameters::Vector)=g(theta,loghyperparameters...)[end-length(loghyperparameters)+1:end];
+		function g2!(loghyperparameters::Vector,storage::Vector)
+			grad=g2(loghyperparameters)
+			for i=1:length(loghyperparameters)
+		    	storage[i]=grad[i]
+			end
+		end
+		l=optimize(f2,g2!,loghyperparams,method=:cg,show_trace = true, extended_trace = true, iterations=num_gd_iter)
+		new_loghyperparams=l.minimum
+
+		#update convergence statistics
+		absdiff=norm(exp(loghyperparams)-exp(new_loghyperparams));
+		println("|x-x'|: ",absdiff)
+		println()
+
+		#update hyperparams
+		loghyperparams=new_loghyperparams
+		iter+=1
+	end
+	
+	return exp(loghyperparams)
+#=
+	function g!(params::Vector,storage::Vector)
+		grad=g(params)
+		for i=1:length(params)
+		    storage[i]=grad[i]
+		end
+	end
+
+	# optimise posterior of theta wrt theta and hyperparams - simplification of stochastic EM below
+	l=optimize(f,g!,[init_theta,loghyperparams],method=:cg,show_trace = true, extended_trace = true)
+	return exp(l.minimum[end-2:end])
+=#	
+end	
 
 function GPT_SGLDERMw(phi::Array, y::Array, signal_var::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, burnin::Integer, maxepoch::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
@@ -915,14 +995,20 @@ function GPT_SGLDERM_RMSprop(phi::Array, y::Array, signal_var::Real, I::Array, r
             fhat=computefhat(V,w)
 
             # now can compute gradw, the unnormalised stochastic gradient of log lik wrt w
-            gradw=(N/batch_size)*V*(y_batch-fhat)/signal_var-w/(sigma_w^2)
+            gradw=(1/batch_size)*V*(y_batch-fhat)/signal_var
 
             # update gw and compute step size for w
             gw=alpha*gw+(1-alpha)*(gradw.^2) 
             epsw=epsilon./(sqrt(gw)+lambda)
-            println("norm of gw=",sqrt(sum(gw.^2)),";std of gw=",std(gw))
-            println("norm of epsw=",sqrt(sum(epsw.^2)),";std of epsw=",std(epsw))
-            
+			
+			#=
+			if batch==numbatches
+				println("epoch=",epoch)            
+				println("norm of gw=",sqrt(sum(gw.^2)),";std of gw=",std(gw))
+            	println("norm of epsw=",sqrt(sum(epsw.^2)),";std of epsw=",std(epsw))
+            end
+			=#
+
             # normalise stochastic grad and add grad of log prior to make grad of log post
             gradw=N*gradw-w/(sigma_w^2)
 
@@ -950,8 +1036,13 @@ function GPT_SGLDERM_RMSprop(phi::Array, y::Array, signal_var::Real, I::Array, r
             gU=alpha*gU+(1-alpha)*(gradU.^2)
             epsU=epsilon./(sqrt(gU)+lambda)
             meanepsU=vec(mean(epsU,[1,2]));
-            println("norm of gU=",sqrt(sum(gU.^2)),";std of gU=",std(gU))
-            println("norm of meanepsU=",sqrt(sum(meanepsU.^2)),";std of meanepsU=",std(meanepsU))
+
+			#=
+			if batch==numbatches
+            	println("norm of gU=",sqrt(sum(gU.^2)),";std of gU=",std(gU))
+            	println("norm of meanepsU=",sqrt(sum(meanepsU.^2)),";std of meanepsU=",std(meanepsU))
+			end
+			=#
 
             # normalise stochastic grad (note log prior of U is const since it is uniform)
             gradU*=N
@@ -964,10 +1055,10 @@ function GPT_SGLDERM_RMSprop(phi::Array, y::Array, signal_var::Real, I::Array, r
                     return zeros(Q,maxepoch*numbatches),zeros(n,r,D,maxepoch*numbatches)
                 end
             end
-	    if epoch>burnin
-	        w_store[:,((epoch-burnin)-1)*numbatches+batch]=w
-	        U_store[:,:,:,((epoch-burnin)-1)*numbatches+batch]=U
-	    end
+			if epoch>burnin
+			    w_store[:,((epoch-burnin)-1)*numbatches+batch]=w
+			    U_store[:,:,:,((epoch-burnin)-1)*numbatches+batch]=U
+			end
         end
     end
     return w_store,U_store
