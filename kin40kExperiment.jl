@@ -33,7 +33,7 @@
 @everywhere Xtest = (Xtest-repmat(XtrainMean,Ntest,1))./repmat(XtrainStd,Ntest,1);
 @everywhere ytest = (ytest-ytrainMean)/ytrainStd;
 @everywhere burnin=0;
-@everywhere maxepoch=200;
+@everywhere maxepoch=100;
 @everywhere Q=200;
 @everywhere m=50;
 @everywhere r=20;
@@ -42,7 +42,7 @@
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
 @everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
-@everywhere epsilon=7*1e-10;
+@everywhere epsilon=8*1e-10;
 @everywhere alpha=0.99;
 #@everywhere epsw=1e-5;
 #@everywhere epsU=1e-8;
@@ -56,25 +56,28 @@ for epoch=1:maxepoch
 	w_store_thin[:,epoch]=w_store[:,epoch*numbatches]
 	U_store_thin[:,:,:,epoch]=U_store[:,:,:,epoch*numbatches]
 end
+
+
 c=h5open("wU_store_kin40k.h5","w") do file
 	write(file,"w_store",w_store_thin);
 	write(file,"U_store",U_store_thin);
 end
-=#
+
 
 
 @everywhere file="wU_store_kin40k.h5";
 @everywhere w_store=h5read(file,"w_store");
 @everywhere U_store=h5read(file,"U_store");
+
 testRMSE=SharedArray(Float64,maxepoch);
 testpred=SharedArray(Float64,Ntest,maxepoch);
 @sync @parallel for epoch=1:maxepoch
-	testpredtemp=pred(w_store[:,epoch],U_store[:,:,:,epoch],I,phitest);
+	testpredtemp=pred(w_store_thin[:,epoch],U_store_thin[:,:,:,epoch],I,phitest);
     testpred[:,epoch]=testpredtemp
     testRMSE[epoch]=ytrainStd*norm(ytest-testpredtemp)/sqrt(Ntest)
 	println("epoch ",epoch," done")
 end
-
+=#
 
 #GPNT_hyperparameters(Xtrain,ytrain,n,length_scale,sigma_RBF,signal_var,seed)
 #=

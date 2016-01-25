@@ -773,8 +773,11 @@ function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Real,sigma_
     phi=featureNotensor(X,n,length_scale,sigma_RBF,seed);
     A=phi*phi'+signal_var*eye(n);
     b=phi*y;
-	B=\(A,b);
-    return (N-n)*log(signal_var)/2+log(det(A))/2+(sum(y.*y)-sum(b.*B))/(2*signal_var)
+	L=chol(A);
+	temp=\(L,b);
+	B=\(L',temp);
+	logdetA=2*sum(log(diag(L)));
+    return (N-n)*log(signal_var)/2+logdetA/2+(sum(y.*y)-sum(b.*B))/(2*signal_var)
 end
 
 # function to return the negative log marginal likelihood of No Tensor model with Gaussian likelihood and varying length_scale
@@ -786,8 +789,11 @@ function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Vector,sigm
     phi=featureNotensor(X,n,length_scale,sigma_RBF,seed);
     A=phi*phi'+signal_var*eye(n);
     b=phi*y;
-	B=\(A,b);
-    return (N-n)*log(signal_var)/2+log(det(A))/2+(sum(y.*y)-sum(b.*B))/(2*signal_var)
+	L=chol(A);
+	temp=\(L,b);
+	B=\(L',temp);
+	logdetA=2*sum(log(diag(L)));
+    return (N-n)*log(signal_var)/2+logdetA/2+(sum(y.*y)-sum(b.*B))/(2*signal_var)
 end
 
 # learning hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising Gaussian marginal likelihood for fixed length_scale
@@ -823,7 +829,7 @@ function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Ve
 end
 
 # function to learn hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising non-Gaussian marginal likelihood using the stochastic EM algorithm for fixed length_scale
-function GPNT_hyperparameters_ng(init_theta::Vector,init_length_scale::Union{Real,Vector},init_sigma_RBF::Real,init_signal_var::Real,
+function GPNT_hyperparameters_ng(init_theta::Vector,init_length_scale,init_sigma_RBF::Real,init_signal_var::Real,
 neglogjointlkhd::Function,gradneglogjointlkhd::Function,epsilon::Real=1e-5,num_cg_iter::Integer=10,num_sgld_iter::Integer=10)
 	# neglogjointlkhd should be -log p(y,theta;hyperparams), a function with 
 	# input theta,length_scale,sigma_RBF,signal_var and scalar output
