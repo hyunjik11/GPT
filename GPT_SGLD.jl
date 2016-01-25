@@ -773,10 +773,9 @@ function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Real,sigma_
     phi=featureNotensor(X,n,length_scale,sigma_RBF,seed);
     A=phi*phi'+signal_var*eye(n);
     b=phi*y;
-	L=chol(A);
-	temp=\(L,b);
-	B=\(L',temp);
-	logdetA=2*sum(log(diag(L)));
+	B=\(A,b);
+	lambda=eigvals(A);
+	logdetA=sum(log(lambda));
     return (N-n)*log(signal_var)/2+logdetA/2+(sum(y.*y)-sum(b.*B))/(2*signal_var)
 end
 
@@ -789,10 +788,9 @@ function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Vector,sigm
     phi=featureNotensor(X,n,length_scale,sigma_RBF,seed);
     A=phi*phi'+signal_var*eye(n);
     b=phi*y;
-	L=chol(A);
-	temp=\(L,b);
-	B=\(L',temp);
-	logdetA=2*sum(log(diag(L)));
+	B=\(A,b);
+	lambda=eigvals(A);
+	logdetA=sum(log(lambda));
     return (N-n)*log(signal_var)/2+logdetA/2+(sum(y.*y)-sum(b.*B))/(2*signal_var)
 end
 
