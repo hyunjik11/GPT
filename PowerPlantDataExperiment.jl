@@ -2,6 +2,7 @@
 
 @everywhere using GPT_SGLD
 @everywhere using DataFrames
+@everywhere using Distributions
 #@everywhere using GPkit
 #@everywhere using PyPlot
 #@everywhere using Iterators
@@ -54,7 +55,7 @@ gp=GPmodel(InfExact(), cov, lik, MeanZero(), Xtrain, ytrain);
 tic(); (post,nlZ,dnlZ)=inference(gp, with_dnlz=false); toc()
 tic(); (ymu,ys2,fmu,fs2,lp)=prediction(gp, post, Xtest); toc()
 println(ytrainStd*norm(ytest-ymu)/sqrt(Ntest))
-=#
+
 
 
 function neglogjointlkhd(theta::Vector,length_scale::Real,sigma_RBF::Real,signal_var::Real)
@@ -73,7 +74,18 @@ function gradneglogjointlkhd(theta::Vector,length_scale::Real,sigma_RBF::Real,si
 	gradsignal_var=Ntrain/(2*signal_var)-sum(res.^2)/(2*signal_var^2)
 	return [gradtheta,gradlength_scale,gradsigma_RBF,gradsignal_var]
 end
-	
+=#
+
+function neglogjointlkhd(theta::Vector,length_scale::Real,sigma_RBF::Real,signal_var::Real)
+	phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed)
+	lkhd=MvNormal(phi'theta,sqrt(signal_var))
+	theta_prior=MvNormal(n,1)
+	return -log(pdf(lkhd,ytrain))-log(pdf(theta_prior,theta))
+end
+
+neglogjointlkhd2(params::Vector)=neglogjointlkhd(params[1:n],params[end-2],params[end-1],params[end])
+gradneglogjointlkhd2=ForwardDiff.gradient(neglogjointlkhd2)
+gradneglogjointlkhd(theta::Vector,length_scale::Real,sigma_RBF::Real,signal_var::Real)=gradneglogjointlkhd2([theta,length_scale,sigma_RBF,signal_var])
 
 init_theta=randn(n);
 init_length_scale=1.0

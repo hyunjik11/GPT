@@ -33,7 +33,7 @@
 @everywhere Xtest = (Xtest-repmat(XtrainMean,Ntest,1))./repmat(XtrainStd,Ntest,1);
 @everywhere ytest = (ytest-ytrainMean)/ytrainStd;
 @everywhere burnin=0;
-@everywhere maxepoch=100;
+@everywhere maxepoch=200;
 @everywhere Q=200;
 @everywhere m=50;
 @everywhere r=20;
@@ -42,14 +42,16 @@
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
 @everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
-@everywhere epsilon=8*1e-10;
-@everywhere alpha=0.99;
-#@everywhere epsw=1e-5;
-#@everywhere epsU=1e-8;
+#@everywhere epsilon=7*1e-10;
+#@everywhere alpha=0.99;
+@everywhere epsw=1e-4;
+@everywhere epsU=1e-7;
 @everywhere numbatches=int(ceil(Ntrain/m))
 
+
+tic(); w_store,U_store=GPT_SGLDERM(phitrain,ytrain,signal_var,I,r,Q,m,epsw,epsU,burnin,maxepoch); toc();
+
 #=
-tic(); w_store,U_store=GPT_SGLDERM_RMSprop(phitrain, ytrain, signal_var, I, r, Q, m, epsilon, alpha, burnin, maxepoch); toc();
 w_store_thin=Array(Float64,Q,maxepoch);
 U_store_thin=Array(Float64,n,r,D,maxepoch);
 for epoch=1:maxepoch
@@ -68,16 +70,15 @@ end
 @everywhere file="wU_store_kin40k.h5";
 @everywhere w_store=h5read(file,"w_store");
 @everywhere U_store=h5read(file,"U_store");
-
+=#
 testRMSE=SharedArray(Float64,maxepoch);
 testpred=SharedArray(Float64,Ntest,maxepoch);
 @sync @parallel for epoch=1:maxepoch
-	testpredtemp=pred(w_store_thin[:,epoch],U_store_thin[:,:,:,epoch],I,phitest);
+	testpredtemp=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest);
     testpred[:,epoch]=testpredtemp
     testRMSE[epoch]=ytrainStd*norm(ytest-testpredtemp)/sqrt(Ntest)
 	println("epoch ",epoch," done")
 end
-=#
 
 #GPNT_hyperparameters(Xtrain,ytrain,n,length_scale,sigma_RBF,signal_var,seed)
 #=
@@ -89,8 +90,9 @@ tic(); (ymu,ys2,fmu,fs2,lp)=prediction(gp, post, Xtest); toc()
 println(ytrainStd*norm(ytest-ymu)/sqrt(Ntest))
 
 
-@everywhere t=Iterators.product(3:6,7:10)
-@everywhere myt=Array(Any,16);
+
+@everywhere t=Iterators.product(4:6,6:9)
+@everywhere myt=Array(Any,12);
 @everywhere it=1;
 @everywhere for prod in t
 	myt[it]=prod;
@@ -108,9 +110,10 @@ println(ytrainStd*norm(ytest-ymu)/sqrt(Ntest))
     for epoch=1:maxepoch
         testpred=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest)
         testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
-    end
-    plot(testRMSE); savefig(string("kin40ktestRMSE.epsw",epsw,"epsU",epsU));
-	println("minRMSE=",minimum(testRMSE),";minepoch=",indmin(testRMSE),";epsw=",epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
+    end    
+	println("epsw=",epsw,";epsU=",epsU," last 10 testRMSEs:",testRMSE[maxepoch-9:maxepoch])	
+	#plot(testRMSE); savefig(string("kin40ktestRMSE.epsw",epsw,"epsU",epsU));
+	#println("minRMSE=",minimum(testRMSE),";minepoch=",indmin(testRMSE),";epsw=",epsw,";epsU=",epsU,";burnin=",burnin,";maxepoch=",maxepoch);
 end
 =#
 
