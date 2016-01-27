@@ -193,9 +193,9 @@ function gradfeatureNotensor(X::Array,n::Integer,length_scale::Real,sigma_RBF::R
     Z=randn(n,D)/length_scale;
     b=2*pi*rand(n)
     for i=1:N
-	for j=1:n
-       	    features[j,i]=sum(X[i,:].*Z[j,:]) + b[j]
-	end
+		for j=1:n
+		   	features[j,i]=sum(X[i,:].*Z[j,:]) + b[j]
+		end
     end
     phisin=sqrt(2/n)*sigma_RBF*sin(features);
     return phisin.*(Z*X')/length_scale,sqrt(2/n)*cos(features)
@@ -206,15 +206,15 @@ function gradfeatureNotensor(X::Array,n::Integer,length_scale::Vector,sigma_RBF:
     features=Array(Float64,n,N)
     srand(seed);
     Z=Array(Float64,n,D)
-    gradl=Array(Float64,,n,N,D)
+    gradl=Array(Float64,n,N,D)
     for k=1:D
         Z[:,k]=randn(n)/length_scale[k]
     end
     b=2*pi*rand(n)
     for i=1:N
-	for j=1:n
-       	    features[j,i]=sum(X[i,:].*Z[j,:]) + b[j]
-	end
+		for j=1:n
+		   	features[j,i]=sum(X[i,:].*Z[j,:]) + b[j]
+		end
     end
     phisin=sqrt(2/n)*sigma_RBF*sin(features);
     for k=1:D
@@ -855,21 +855,22 @@ function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Ve
 end
 
 # function to learn hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising non-Gaussian marginal likelihood using the stochastic EM algorithm for fixed length_scale
-function GPNT_hyperparameters_ng(init_theta::Vector,init_length_scale,init_sigma_RBF::Real,init_signal_var::Real,
+function GPNT_hyperparameters_ng(init_theta::Vector,init_hyperparams::Vector,
 neglogjointlkhd::Function,gradneglogjointlkhd::Function,epsilon::Real=1e-5,num_cg_iter::Integer=10,num_sgld_iter::Integer=10)
 	# neglogjointlkhd should be -log p(y,theta;hyperparams), a function with 
 	# input theta,length_scale,sigma_RBF,signal_var and scalar output
-
 	# gradneglogjointlkhd should be the gradient of neglogjointlkhd wrt theta and hyperparams with
 	# input theta,length_scale,sigma_RBF,signal_var and vector output of length equal to length(theta)+3
+	
+	n=length(init_theta);
+	L=length(init_hyperparams);
 
 	# initialise theta and loghyperparams
-	theta=init_theta; loghyperparams=[log(init_length_scale),log(init_sigma_RBF),log(init_signal_var)];
-	n=length(init_theta);
+	theta=init_theta; loghyperparams=log(init_hyperparams)
 
 	# define f which corresponds to neglogjointlkhd and gradneglogjointlkhd but with inputs loghyperparams instead of hyperparams (for optimisation's sake) and g its gradient - compute using chain rule
-	f(theta,loglength_scale,logsigma_RBF,logsignal_var)=neglogjointlkhd(theta,exp(loglength_scale),exp(logsigma_RBF),exp(logsignal_var));
-	g(theta,loglength_scale,logsigma_RBF,logsignal_var)=gradneglogjointlkhd(theta,exp(loglength_scale),exp(logsigma_RBF),exp(logsignal_var)).*[ones(n),exp(loglength_scale),exp(logsigma_RBF),exp(logsignal_var)];
+	f(theta,loghyperparameters)=neglogjointlkhd(theta,exp(loghyperparameters));
+	g(theta,loghyperparameters)=gradneglogjointlkhd(theta,exp(loghyperparameters)).*[ones(n),exp(loghyperparameters)];
 
 	# stochastic EM 
 
@@ -880,13 +881,13 @@ neglogjointlkhd::Function,gradneglogjointlkhd::Function,epsilon::Real=1e-5,num_c
 		println("iteration ",iter)
 		# E step - sample theta from posterior using SGLD - but then need to decide on step size
 		for i=1:num_sgld_iter
-			theta-=epsilon*g(theta,loghyperparams...)[1:n]+sqrt(epsilon)*randn(n)
+			theta-=epsilon*g(theta,loghyperparams)[1:n]+sqrt(epsilon)*randn(n)
 		end
 		println("theta norm=",norm(theta))
 		# M step - maximisie joint log likelihood wrt hyperparams using no_cg_iter steps of cg/gd
 
-		f2(loghyperparameters::Vector)=f(theta,loghyperparameters...);
-		g2(loghyperparameters::Vector)=g(theta,loghyperparameters...)[end-length(loghyperparameters)+1:end];
+		f2(loghyperparameters::Vector)=f(theta,loghyperparameters);
+		g2(loghyperparameters::Vector)=g(theta,loghyperparameters)[end-L+1:end];
 		function g2!(loghyperparameters::Vector,storage::Vector)
 			grad=g2(loghyperparameters)
 			for i=1:length(loghyperparameters)
@@ -917,7 +918,7 @@ neglogjointlkhd::Function,gradneglogjointlkhd::Function,epsilon::Real=1e-5,num_c
 
 	# optimise posterior of theta wrt theta and hyperparams - simplification of stochastic EM below
 	l=optimize(f,g!,[init_theta,loghyperparams],method=:cg,show_trace = true, extended_trace = true)
-	return exp(l.minimum[end-2:end])
+	return exp(l.minimum[end-L+1:end])
 =#	
 end	
 
