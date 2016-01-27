@@ -173,7 +173,7 @@ function featureNotensor(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Rea
     srand(seed)
     Z=Array(Float64,n,D)
     for k=1:D
-		Z[:,k]=randn(n)/length_scale[k]
+	Z[:,k]=randn(n)/length_scale[k]
     end
     b=2*pi*rand(n)
     for i=1:N
@@ -184,15 +184,43 @@ function featureNotensor(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Rea
     return sqrt(2/n)*sigma_RBF*phi
 end
 
-# function to give grad of phi wrt length_scale and sigma_RBF. 
-# input phi=featureNotensor(X,n,length_scale,sigma_RBF,seed)
+# function to give grad of phi wrt length_scale and sigma_RBF.
 # Returns a tuple of two arrays, first is grad phi wrt length_scale, second is grad phi wrt sigma_RBF
-function gradfeatureNotensor(X::Array,length_scale::Real,sigma_RBF::Real,seed::Integer,phi::Array)
-	D=size(X,2);
-	n=size(phi,1);	
-	srand(seed)
-	Z=randn(n,D)
-	return phi.*(Z*X'),phi/sigma_RBF
+function gradfeatureNotensor(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer)
+    N,D=size(X);
+    features=Array(Float64,n,N)
+    srand(seed);
+    Z=randn(n,D)/length_scale;
+    b=2*pi*rand(n)
+    for i=1:N
+	for j=1:n
+       	    features[j,i]=sum(X[i,:].*Z[j,:]) + b[j]
+	end
+    end
+    phisin=sqrt(2/n)*sigma_RBF*sin(features);
+    return phisin.*(Z*X')/length_scale,sqrt(2/n)*cos(features)
+end
+
+function gradfeatureNotensor(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,seed::Integer)
+    N,D=size(X);
+    features=Array(Float64,n,N)
+    srand(seed);
+    Z=Array(Float64,n,D)
+    gradl=Array(Float64,,n,N,D)
+    for k=1:D
+        Z[:,k]=randn(n)/length_scale[k]
+    end
+    b=2*pi*rand(n)
+    for i=1:N
+	for j=1:n
+       	    features[j,i]=sum(X[i,:].*Z[j,:]) + b[j]
+	end
+    end
+    phisin=sqrt(2/n)*sigma_RBF*sin(features);
+    for k=1:D
+        gradl[:,:,k]=phisin.*(Z[:,k]*X[:,k]')/length_scale[k]
+    end
+    return gradl,sqrt(2/n)*cos(features)
 end
 
 # alternative fourier feature embedding for the no tensor model (full-theta) using fixed length_scales
