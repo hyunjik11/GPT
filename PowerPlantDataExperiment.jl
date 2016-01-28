@@ -2,8 +2,8 @@
 
 @everywhere using GPT_SGLD
 @everywhere using DataFrames
-@everywhere using Distributions
-#@everywhere using GPkit
+#@everywhere using Distributions
+@everywhere using GPkit
 #@everywhere using PyPlot
 #@everywhere using Iterators
 
@@ -48,7 +48,7 @@
 @everywhere param_seed=234;
 #tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L,param_seed);toc()
 
-#=
+
 cov=CovSEiso(length_scale,sigma_RBF);
 lik=LikGauss(signal_var);
 gp=GPmodel(InfExact(), cov, lik, MeanZero(), Xtrain, ytrain);
@@ -57,24 +57,25 @@ tic(); (ymu,ys2,fmu,fs2,lp)=prediction(gp, post, Xtest); toc()
 println(ytrainStd*norm(ytest-ymu)/sqrt(Ntest))
 
 
-
-function neglogjointlkhd(theta::Vector,length_scale::Real,sigma_RBF::Real,signal_var::Real)
+#=
+function neglogjointlkhd(theta::Vector,hyperparams::Vector)
+	length_scale,sigma_RBF,signal_var=hyperparams
 	phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed)
 	res=ytrain-phi'*theta
 	return sum(res.^2)/(2*signal_var)+Ntrain*log(signal_var)/2+sum(theta.^2)/2
 end
 
-function gradneglogjointlkhd(theta::Vector,length_scale::Real,sigma_RBF::Real,signal_var::Real)
+function gradneglogjointlkhd(theta::Vector,hyperparams::Vector)
+	length_scale,sigma_RBF,signal_var=hyperparams
 	phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed)
 	res=ytrain-phi'*theta
 	gradtheta=theta-phi*res/signal_var
-	gradfeature=gradfeatureNotensor(Xtrain,length_scale,sigma_RBF,seed,phi)
+	gradfeature=gradfeatureNotensor(Xtrain,n,length_scale,sigma_RBF,seed)
 	gradlength_scale=-theta'*gradfeature[1]*res
 	gradsigma_RBF=-theta'*gradfeature[2]*res
 	gradsignal_var=Ntrain/(2*signal_var)-sum(res.^2)/(2*signal_var^2)
 	return [gradtheta,gradlength_scale,gradsigma_RBF,gradsignal_var]
 end
-=#
 
 function neglogjointlkhd(theta::Vector,length_scale::Real,sigma_RBF::Real,signal_var::Real)
 	phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed)
@@ -87,13 +88,14 @@ neglogjointlkhd2(params::Vector)=neglogjointlkhd(params[1:n],params[end-2],param
 gradneglogjointlkhd2=ForwardDiff.gradient(neglogjointlkhd2)
 gradneglogjointlkhd(theta::Vector,length_scale::Real,sigma_RBF::Real,signal_var::Real)=gradneglogjointlkhd2([theta,length_scale,sigma_RBF,signal_var])
 
+
 init_theta=randn(n);
 init_length_scale=1.0
 init_sigma_RBF=1.0
 init_signal_var=0.04
 
-myhyperparams=GPNT_hyperparameters_ng(init_theta,init_length_scale,init_sigma_RBF,init_signal_var,neglogjointlkhd,gradneglogjointlkhd)
-
+myhyperparams=GPNT_hyperparameters_ng(init_theta,[init_length_scale,init_sigma_RBF,init_signal_var],neglogjointlkhd,gradneglogjointlkhd)
+=#
 
 #=
 tic(); w_store,U_store=GPT_SGLDERM(phitrain, ytrain, signal_var, I, r, Q, m, epsw, epsU, burnin, maxepoch); toc();

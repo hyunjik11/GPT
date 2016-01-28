@@ -16,9 +16,9 @@
 
 @everywhere D=8;
 @everywhere seed=17;
-@everywhere length_scale=2.57;
-@everywhere sigma_RBF=3.11;
-@everywhere signal_var=0.65^2;
+@everywhere length_scale=1.5905;
+@everywhere sigma_RBF=1.1812;
+@everywhere signal_var=0.065;
 @everywhere XtrainMean=mean(Xtrain,1); 
 @everywhere XtrainStd=zeros(1,D);
 @everywhere for i=1:D
@@ -48,10 +48,21 @@
 @everywhere epsU=1e-7;
 @everywhere numbatches=int(ceil(Ntrain/m))
 
+cov=CovSEiso(length_scale,sigma_RBF);
+lik=LikGauss(signal_var);
+gp=GPmodel(InfExact(), cov, lik, MeanZero(), Xtrain, ytrain);
+tic(); (post,nlZ,dnlZ)=inference(gp, with_dnlz=false); toc()
+tic(); (ymu,ys2,fmu,fs2,lp)=prediction(gp, post, Xtest); toc()
+println(ytrainStd*norm(ytest-ymu)/sqrt(Ntest))
+
+#=
+
+#(optf,optx,ret) = optinf(gp, 200, algo=:LD_LBFGS, with_dnlz=true); # optf has new hypers
+
 
 tic(); w_store,U_store=GPT_SGLDERM(phitrain,ytrain,signal_var,I,r,Q,m,epsw,epsU,burnin,maxepoch); toc();
 
-#=
+
 w_store_thin=Array(Float64,Q,maxepoch);
 U_store_thin=Array(Float64,n,r,D,maxepoch);
 for epoch=1:maxepoch
@@ -70,16 +81,16 @@ end
 @everywhere file="wU_store_kin40k.h5";
 @everywhere w_store=h5read(file,"w_store");
 @everywhere U_store=h5read(file,"U_store");
-=#
+
 testRMSE=SharedArray(Float64,maxepoch);
 testpred=SharedArray(Float64,Ntest,maxepoch);
 @sync @parallel for epoch=1:maxepoch
-	testpredtemp=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest);
+	testpredtemp=pred(w_store[:,epoch],U_store[:,:,:,epoch],I,phitest);
     testpred[:,epoch]=testpredtemp
     testRMSE[epoch]=ytrainStd*norm(ytest-testpredtemp)/sqrt(Ntest)
 	println("epoch ",epoch," done")
 end
-
+=#
 #GPNT_hyperparameters(Xtrain,ytrain,n,length_scale,sigma_RBF,signal_var,seed)
 #=
 cov=CovSEiso(length_scale,sigma_RBF);
@@ -89,6 +100,9 @@ tic(); (post,nlZ,dnlZ)=inference(gp, with_dnlz=false); toc()
 tic(); (ymu,ys2,fmu,fs2,lp)=prediction(gp, post, Xtest); toc()
 println(ytrainStd*norm(ytest-ymu)/sqrt(Ntest))
 
+(optf,optx,ret) = optinf(gp, 200, algo=:LD_LBFGS, with_dnlz=true); # optf has new hypers
+
+(ymu,ys2,fmu,fs2,lp)=prediction(gp, post, xs);  # optimised hypers were "left" in gp.covfn and gp.likfn
 
 
 @everywhere t=Iterators.product(4:6,6:9)

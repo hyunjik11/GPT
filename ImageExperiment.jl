@@ -31,7 +31,7 @@
 @everywhere Q=200;
 @everywhere m=50;
 @everywhere r=10;
-@everywhere n=50;
+@everywhere n=150;
 @everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);

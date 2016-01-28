@@ -894,7 +894,7 @@ neglogjointlkhd::Function,gradneglogjointlkhd::Function,epsilon::Real=1e-5,num_c
 		    	storage[i]=grad[i]
 			end
 		end
-		l=optimize(f2,g2!,loghyperparams,method=:cg,show_trace = true, extended_trace = true, iterations=num_cg_iter)
+		l=optimize(f2,g2!,loghyperparams,method=:gradient_descent,show_trace = true, extended_trace = true, iterations=num_cg_iter)
 		new_loghyperparams=l.minimum
 
 		#update convergence statistics

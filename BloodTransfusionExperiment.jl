@@ -1,27 +1,48 @@
-for i=1:10
-    subplot(2,5,i)
-    ax=gca()
-    plot(vec(theta_store[10*i,:]))
-    plot(vec(theta_store2[10*i,:]))
-    ylim(-5,5)
-    xlabel("num_iterations(no burnin)")
-    setp(ax[:get_xticklabels](),fontsize=8)
-end
+#include("GPkit.jl-master/src/GPkit.jl")
 
-function gradfeatureNotensor(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer)
-    N,D=size(X);
-    features=Array(Float64,n,N)
-    srand(seed);
-    Z=randn(n,D)/length_scale;
-    b=2*pi*rand(n)
-    for i=1:N
-		for j=1:n
-		   	features[j,i]=sum(X[i,:].*Z[j,:]) + b[j]
-		end
-    end
-    phisin=sqrt(2/n)*sigma_RBF*sin(features);
-    return phisin.*(Z*X')/length_scale,sqrt(2/n)*cos(features)
-end
+@everywhere using GPT_SGLD
+@everywhere using DataFrames: readtable
+#@everywhere using GPkit
+#@everywhere using PyPlot
+#@everywhere using Iterators: product
+
+data=readtable("transfusion.data",header=true);
+data=convert(Array,data);
+data=float(data);
+N=size(data,1);
+@everywhere D=4;
+@everywhere C=2;
+@everywhere Ntrain=500;
+@everywhere Ntest=N-Ntrain;
+@everywhere seed=17;
+@everywhere length_scale=1.4332;
+@everywhere sigma_RBF=1;
+@everywhere Xtrain = data[1:Ntrain,1:D];
+@everywhere ytrain = int(data[1:Ntrain,D+1])+1;
+@everywhere XtrainMean=mean(Xtrain,1); 
+@everywhere XtrainStd=zeros(1,D);
+@everywhere for i=1:D
+	    XtrainStd[1,i]=std(Xtrain[:,i]);
+	    end
+Xtrain = datawhitening(Xtrain);
+@everywhere Xtest = (data[Ntrain+1:Ntrain+Ntest,1:D]-repmat(XtrainMean,Ntest,1))./repmat(XtrainStd,Ntest,1);
+@everywhere ytest = int(data[Ntrain+1:Ntrain+Ntest,D+1])+1
+@everywhere burnin=0;
+@everywhere maxepoch=200;
+@everywhere Q=200;
+@everywhere m=50;
+@everywhere r=10;
+@everywhere n=50;
+@everywhere I=samplenz(r,D,Q,seed);
+@everywhere scale=sqrt(n/(Q^(1/D)));
+@everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
+@everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
+@everywhere epsw=1e-4; 
+@everywhere epsU=1e-7;
+@everywhere epsilon=1e-8;
+@everywhere alpha=0.99;
+@everywhere L=30;
+@everywhere param_seed=234;
 
 #input theta_vector is a vector of length n*C - converted to n by C array within function
 function neglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
@@ -96,4 +117,12 @@ function gradneglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
 	end
 	return [vec(gradtheta),gradlength_scale,gradsigma_RBF]
 end
+
+init_length_scale=3;
+init_sigma_RBF=3;
+init_theta=randn(n*C);
+GPNT_hyperparameters_ng(init_theta,[init_length_scale,init_sigma_RBF], neglogjointlkhd,gradneglogjointlkhd)
+
+
+
 
