@@ -43,6 +43,12 @@
 @everywhere L=30;
 @everywhere param_seed=234;
 
+# computes log(sum(exp(x))) in a robust manner
+function logsumexp(x::Vector)
+    a=maximum(x);
+    return a+log(sum(exp(x-a)))
+end
+
 #input theta_vector is a vector of length n*C - converted to n by C array within function
 function neglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
 	if length(hyperparams)==2 # if length_scale is a scalar	
@@ -53,10 +59,9 @@ function neglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
 	theta=reshape(theta_vec,n,C) # n by C matrix
     phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed) # n by Ntrain matrix
     phi_theta=phi'*theta # Ntrain by C matrix
-    exp_phi_theta=exp(phi_theta) 
     L=0;
     for i=1:Ntrain
-        L+=log(sum(exp_phi_theta[i,:]))-phi_theta[i,ytrain[i]]
+        L+=logsumexp(phi_theta[i,:])-phi_theta[i,ytrain[i]]
     end
     L+=sum(abs2(theta))/2
     return L 
@@ -67,52 +72,51 @@ function gradneglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
 	sigma_RBF=hyperparams[end]	
 
 	if length(hyperparams)==2 # if length_scale is a scalar
-		length_scale=hyperparams[1]	
-		phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed) # n by Ntrain matrix
-		exp_phi_theta=exp(phi'*theta)	# Ntrain by C matrix
-		sum_exp_phi_theta=sum(exp_phi_theta,2) # Vector length Ntrain
-		gradtheta=zeros(n,C)
-		for c=1:C
-			for i=1:Ntrain
-				gradtheta[:,c]+=exp_phi_theta[i,c]*phi[:,i]/sum_exp_phi_theta[i]
-			end
-		end
+	    length_scale=hyperparams[1]	
+	    phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed) # n by Ntrain matrix
+	    phi_theta=theta'*phi	# C by Ntrain matrix
+	    gradtheta=zeros(n,C)
+	    for c=1:C
 		for i=1:Ntrain
-			gradtheta[:,ytrain[i]]-=phi[:,i]
+		    gradtheta[:,c]+=exp(phi_theta[c,i]-logsumexp(phi_theta[:,i]))*phi[:,i]
 		end
-		gradtheta+=theta
-
-		gradfeature=gradfeatureNotensor(Xtrain,n,length_scale,sigma_RBF,seed)
-		gradlength_scale=0;
-		gradsigma_RBF=0;
-		for i=1:Ntrain
-			gradlength_scale+=sum(vec(exp_phi_theta[i,:]).*(theta'*gradfeature[1][:,i]))/sum_exp_phi_theta[i]-sum(theta[:,ytrain[i]].*gradfeature[1][:,i])
-			gradsigma_RBF+=sum(vec(exp_phi_theta[i,:]).*(theta'*gradfeature[2][:,i]))/sum_exp_phi_theta[i]-sum(theta[:,ytrain[i]].*gradfeature[2][:,i])
-		end
+	    end
+	    for i=1:Ntrain
+		gradtheta[:,ytrain[i]]-=phi[:,i]
+	    end
+	    gradtheta+=theta
+            
+	    gradfeature=gradfeatureNotensor(Xtrain,n,length_scale,sigma_RBF,seed)
+	    gradlength_scale=0;
+	    gradsigma_RBF=0;
+	    for i=1:Ntrain
+                gradlength_scale+=sum(exp(phi_theta[:,i]-logsumexp(phi_theta[:,i])).*(theta'*gradfeature[1][:,i]))-sum(theta[:,ytrain[i]].*gradfeature[1][:,i])
+		gradsigma_RBF+=sum(exp(phi_theta[:,i]-logsumexp(phi_theta[:,i])).*(theta'*gradfeature[2][:,i]))-sum(theta[:,ytrain[i]].*gradfeature[2][:,i])
+	    end
 	else # length_scale is a vector - varying length scales across input dimensions
-		length_scale=hyperparams[1:end-1] 
-		phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed) # n by Ntrain matrix
-		exp_phi_theta=exp(phi'*theta)	# Ntrain by C matrix
-		sum_exp_phi_theta=sum(exp_phi_theta,2) # Vector length Ntrain
-		gradtheta=zeros(n,C)
-		for c=1:C
-			for i=1:Ntrain
-				gradtheta[:,c]+=exp_phi_theta[i,c]*phi[:,i]/sum_exp_phi_theta[i]
-			end
+            length_scale=hyperparams[1:end-1] 
+	    phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed) # n by Ntrain matrix
+	    phi_theta=theta'*phi	# C by Ntrain matrix
+	    gradtheta=zeros(n,C)
+            for c=1:C
+                for i=1:Ntrain
+		    gradtheta[:,c]+=exp(phi_theta[c,i]-logsumexp(phi_theta[:,i]))*phi[:,i]
 		end
-		for i=1:Ntrain
-			gradtheta[:,ytrain[i]]-=phi[:,i]
-		end
-		gradtheta+=theta
-	
-		gradfeature=gradfeatureNotensor(Xtrain,n,length_scale,sigma_RBF,seed)
-		gradlength_scale=zeros(D);
-		gradsigma_RBF=0;
-		for i=1:Ntrain
-			dphi_xibydl=squeeze(gradfeature[1][:,i,:],2)
-			gradlength_scale+=vec(exp_phi_theta[i,:]*theta'*dphi_xibydl/sum_exp_phi_theta[i]-theta[:,ytrain[i]]'*dphi_xibydl)
-			gradsigma_RBF+=sum(vec(exp_phi_theta[i,:]).*(theta'*gradfeature[2][:,i]))/sum_exp_phi_theta[i]-sum(theta[:,ytrain[i]].*gradfeature[2][:,i])
-		end
+	    end
+	    for i=1:Ntrain
+		gradtheta[:,ytrain[i]]-=phi[:,i]
+	    end
+	    gradtheta+=theta
+
+	    gradfeature=gradfeatureNotensor(Xtrain,n,length_scale,sigma_RBF,seed)
+	    gradlength_scale=zeros(D);
+	    gradsigma_RBF=0;
+	    for i=1:Ntrain
+                for k=1:D
+                    gradlength_scale[k]+=sum(exp(phi_theta[:,i]-logsumexp(phi_theta[:,i])).*(theta'*gradfeature[1][:,i,k]))-sum(theta[:,ytrain[i]].*gradfeature[1][:,i,k])
+                end
+                gradsigma_RBF+=sum(exp(phi_theta[:,i]-logsumexp(phi_theta[:,i])).*(theta'*gradfeature[2][:,i]))-sum(theta[:,ytrain[i]].*gradfeature[2][:,i])
+	    end
 	end
 	return [vec(gradtheta),gradlength_scale,gradsigma_RBF]
 end
@@ -120,8 +124,7 @@ end
 init_length_scale=1;
 init_sigma_RBF=1;
 init_theta=randn(n*C);
-GPNT_hyperparameters_ng(init_theta,[init_length_scale,init_sigma_RBF],
-neglogjointlkhd,gradneglogjointlkhd)
+#GPNT_hyperparameters_ng(init_theta,[init_length_scale,init_sigma_RBF],neglogjointlkhd,gradneglogjointlkhd)
 
 
 
