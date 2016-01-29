@@ -2,8 +2,8 @@
 
 @everywhere using GPT_SGLD
 @everywhere using DataFrames
-#@everywhere using GPkit
-@everywhere using HDF5
+@everywhere using GPkit
+#@everywhere using HDF5
 #@everywhere using PyPlot
 #@everywhere using Iterators
 
