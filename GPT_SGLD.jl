@@ -2,8 +2,14 @@ module GPT_SGLD
 
 using Distributions,Optim,ForwardDiff
 
-export proj, geod, datawhitening, feature, feature2, featureNotensor, gradfeatureNotensor, samplenz, pred, RMSE, parallelRMSE, createmesh,fhatdraw, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD,GPNT_logmarginal,GPNT_hyperparameters,GPT_GMC,GPT_SGLDERMw,GPT_SGLDERM_RMSprop,GPNT_hyperparameters_ng
-    
+export logsumexp,proj, geod, datawhitening, feature, feature2, featureNotensor, gradfeatureNotensor, samplenz, pred, RMSE, parallelRMSE, createmesh,fhatdraw, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD,GPNT_SGLDclass,GPNT_logmarginal,GPNT_hyperparameters,GPT_GMC,GPT_SGLDERMw,GPT_SGLDERM_RMSprop,GPNT_hyperparameters_ng
+
+# computes log(sum(exp(x))) in a robust manner
+function logsumexp(x::Vector)
+    a=maximum(x);
+    return a+log(sum(exp(x-a)))
+end
+
 # define proj for Stiefel manifold
 function proj(U::Array,V::Array)
     return V-U*(U'*V+V'*U)/2
@@ -751,7 +757,7 @@ function GPT_GMC(phi::Array, y::Array, signal_var::Real, I::Array, r::Integer, Q
 end
     
 
-#SGLD on No Tensor Model
+#SGLD on No Tensor Model for regression
 function GPNT_SGLD(phi::Array, y::Array, signal_var::Real, sigma_theta::Real, m::Integer, eps_theta::Real, decay_rate::Real, burnin::Integer, maxepoch::Integer, theta_seed::Integer)
     n,N=size(phi);
     numbatches=int(ceil(N/m))
@@ -761,10 +767,8 @@ function GPNT_SGLD(phi::Array, y::Array, signal_var::Real, sigma_theta::Real, m:
     theta=sigma_theta*randn(n);
     epsilon=eps_theta;
     theta_store=Array(Float64,n,(maxepoch+burnin)*numbatches)
-    meangrad=zeros(n);
 
     t=0; #iteration number
-    g=0;
     for epoch=1:(maxepoch+burnin)
         #randomly permute training data and divide into mini_batches of size m
         perm=randperm(N)
@@ -772,7 +776,7 @@ function GPNT_SGLD(phi::Array, y::Array, signal_var::Real, sigma_theta::Real, m:
         
         # run SGLD on w and SGLDERM on U
         for batch=1:numbatches
-	    t+=1;
+	    	t+=1;
             # random samples for the stochastic gradient
             idx=(m*(batch-1)+1):min(m*batch,N)
             phi_batch=phi[:,idx]; y_batch=y[idx];
@@ -784,15 +788,60 @@ function GPNT_SGLD(phi::Array, y::Array, signal_var::Real, sigma_theta::Real, m:
             noise=sqrt(epsilon)*randn(n);
            
             theta[:]+=grad+noise;
-	    theta_store[:,t]=theta;
-	    if epoch>burnin && batch<numbatches
-		g+=1;
-            	meangrad+=phi_batch*(y_batch-phi_batch'*theta)/signal_var;
-	    end
+	    	theta_store[:,t]=theta;
         end
     end
-    meangrad=meangrad/g;
-    return theta_store,meangrad
+    return theta_store
+end
+
+# SGLD on No Tensor Model for classification
+# y must be a vector of integer labels in {1,...,C}
+function GPNT_SGLDclass(phi::Array, y::Array, sigma_theta::Real, m::Integer, eps_theta::Real, decay_rate::Real, burnin::Integer, maxepoch::Integer, theta_seed::Integer)
+    n,N=size(phi);
+    numbatches=int(ceil(N/m))
+    C=int(maximum(y)-minimum(y)+1)
+
+    #initialise theta
+    srand(theta_seed)
+    theta=sigma_theta*randn(n,C);
+    epsilon=eps_theta;
+    theta_store=Array(Float64,n,C,(maxepoch+burnin)*numbatches)
+
+    t=0; #iteration number
+    for epoch=1:(maxepoch+burnin)
+        #randomly permute training data and divide into mini_batches of size m
+        perm=randperm(N)
+        phi=phi[:,perm]; y=y[perm];
+        
+        # run SGLD on w and SGLDERM on U
+        for batch=1:numbatches
+	    	t+=1;
+            # random samples for the stochastic gradient
+            idx=(m*(batch-1)+1):min(m*batch,N)
+            phi_batch=phi[:,idx]; y_batch=y[idx];
+            batch_size=length(idx) #this is m except for last batch
+
+            epsilon=eps_theta*t^(-decay_rate)
+            phi_theta=theta'*phi_batch	# C by batch_size matrix
+			gradtheta=zeros(n,C)
+			for c=1:C
+				for i=1:batch_size
+					gradtheta[:,c]+=exp(phi_theta[c,i]-logsumexp(phi_theta[:,i]))*phi_batch[:,i]
+				end
+			end
+			for i=1:batch_size
+				gradtheta[:,y_batch[i]]-=phi_batch[:,i]
+			end
+			gradtheta*=N/batch_size
+			gradtheta+=theta
+			grad=epsilon*gradtheta/2;
+            noise=sqrt(epsilon)*randn(n,C);
+           
+            theta-=grad+noise;
+	    	theta_store[:,:,t]=theta;
+        end
+    end
+    return theta_store
 end
 
 # function to return the negative log marginal likelihood of No Tensor model with Gaussian likelihood and fixed length_scale
@@ -894,7 +943,7 @@ neglogjointlkhd::Function,gradneglogjointlkhd::Function,epsilon::Real=1e-5,num_c
 		    	storage[i]=grad[i]
 			end
 		end
-		l=optimize(f2,g2!,loghyperparams,method=:gradient_descent,show_trace = true, extended_trace = true, iterations=num_cg_iter)
+		l=optimize(f2,g2!,loghyperparams,method=:cg,show_trace = true, extended_trace = true, iterations=num_cg_iter)
 		new_loghyperparams=l.minimum
 
 		#update convergence statistics
@@ -908,18 +957,7 @@ neglogjointlkhd::Function,gradneglogjointlkhd::Function,epsilon::Real=1e-5,num_c
 	end
 	
 	return exp(loghyperparams)
-#=
-	function g!(params::Vector,storage::Vector)
-		grad=g(params)
-		for i=1:length(params)
-		    storage[i]=grad[i]
-		end
-	end
 
-	# optimise posterior of theta wrt theta and hyperparams - simplification of stochastic EM below
-	l=optimize(f,g!,[init_theta,loghyperparams],method=:cg,show_trace = true, extended_trace = true)
-	return exp(l.minimum[end-L+1:end])
-=#	
 end	
 
 function GPT_SGLDERMw(phi::Array, y::Array, signal_var::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, burnin::Integer, maxepoch::Integer)

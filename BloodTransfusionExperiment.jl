@@ -32,7 +32,7 @@ Xtrain = datawhitening(Xtrain);
 @everywhere Q=200;
 @everywhere m=50;
 @everywhere r=10;
-@everywhere n=50;
+@everywhere n=150;
 @everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
@@ -59,10 +59,10 @@ function neglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
 	sigma_RBF=hyperparams[end]
 	theta=reshape(theta_vec,n,C) # n by C matrix
     phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed) # n by Ntrain matrix
-    phi_theta=phi'*theta # Ntrain by C matrix
+    phi_theta=theta'*phi # Ntrain by C matrix
     L=0;
     for i=1:Ntrain
-        L+=logsumexp(phi_theta[i,:])-phi_theta[i,ytrain[i]]
+        L+=logsumexp(phi_theta[:,i])-phi_theta[ytrain[i],i]
     end
     L+=sum(abs2(theta))/2
     return L 
@@ -122,7 +122,7 @@ function gradneglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
 	return [vec(gradtheta),gradlength_scale,gradsigma_RBF]
 end
 
-init_length_scale=0.1;
+init_length_scale=0.5*ones(D);
 init_sigma_RBF=1;
 init_theta=randn(n*C);
 GPNT_hyperparameters_ng(init_theta,[init_length_scale,init_sigma_RBF],neglogjointlkhd,gradneglogjointlkhd)

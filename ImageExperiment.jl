@@ -3,7 +3,7 @@
 @everywhere using GPT_SGLD
 @everywhere using DataFrames: readdlm
 #@everywhere using GPkit
-#@everywhere using PyPlot
+@everywhere using PyPlot
 #@everywhere using Iterators: product
 
 @everywhere data=readdlm("segment.dat",Float64);
@@ -14,8 +14,7 @@
 @everywhere Ntrain=1300;
 @everywhere Ntest=N-Ntrain;
 @everywhere seed=17;
-@everywhere length_scale=1.4332;
-@everywhere sigma_RBF=1;
+@everywhere length_scale=[5.1212,1.4029,7.9958,9.0194,5.0614,5.8121,6.1082,4.7774,1.7421,1.6444,1.8365,1.7417,1.8233,2.8132,1.2788,1.8477,2.0961,1.1489]; @everywhere sigma_RBF=11.4468
 @everywhere Xtrain = data[1:Ntrain,1:D];
 @everywhere ytrain = int(data[1:Ntrain,D+1]);
 @everywhere XtrainMean=mean(Xtrain,1); 
@@ -58,10 +57,10 @@ function neglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
 	sigma_RBF=hyperparams[end]
 	theta=reshape(theta_vec,n,C) # n by C matrix
     phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed) # n by Ntrain matrix
-    phi_theta=phi'*theta # Ntrain by C matrix
+    phi_theta=theta'*phi # C by Ntrain matrix
     L=0;
     for i=1:Ntrain
-        L+=logsumexp(phi_theta[i,:])-phi_theta[i,ytrain[i]]
+        L+=logsumexp(phi_theta[:,i])-phi_theta[ytrain[i],i]
     end
     L+=sum(abs2(theta))/2
     return L 
@@ -124,7 +123,7 @@ end
 init_length_scale=1;
 init_sigma_RBF=1;
 init_theta=randn(n*C);
-#GPNT_hyperparameters_ng(init_theta,[init_length_scale,init_sigma_RBF],neglogjointlkhd,gradneglogjointlkhd)
+GPNT_hyperparameters_ng(init_theta,[init_length_scale,init_sigma_RBF],neglogjointlkhd,gradneglogjointlkhd)
 
 
 
