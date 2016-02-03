@@ -2,19 +2,18 @@
 
 @everywhere using GPT_SGLD
 @everywhere using DataFrames: readdlm
-#@everywhere using GPkit
 @everywhere using PyPlot
-#@everywhere using Iterators: product
+@everywhere using Iterators: product
 
 @everywhere data=readdlm("segment.dat",Float64);
-@everywhere data=data[:,[1,2,4:20]] #3rd column is constant - remove
+@everywhere data=data[:,[1,2,6:20]] #3rd column is constant,4th&5th columns are not useful - remove
 @everywhere N=size(data,1);
-@everywhere D=18;
+@everywhere D=16;
 @everywhere C=7;
 @everywhere Ntrain=1300;
 @everywhere Ntest=N-Ntrain;
 @everywhere seed=17;
-@everywhere length_scale=[5.1212,1.4029,7.9958,9.0194,5.0614,5.8121,6.1082,4.7774,1.7421,1.6444,1.8365,1.7417,1.8233,2.8132,1.2788,1.8477,2.0961,1.1489]; @everywhere sigma_RBF=11.4468
+@everywhere length_scale=[5.1212,1.4029,5.0614,5.8121,6.1082,4.7774,1.7421,1.6444,1.8365,1.7417,1.8233,2.8132,1.2788,1.8477,2.0961,1.1489]; @everywhere sigma_RBF=11.4468
 @everywhere Xtrain = data[1:Ntrain,1:D];
 @everywhere ytrain = int(data[1:Ntrain,D+1]);
 @everywhere XtrainMean=mean(Xtrain,1); 
@@ -26,28 +25,79 @@
 @everywhere Xtest = (data[Ntrain+1:Ntrain+Ntest,1:D]-repmat(XtrainMean,Ntest,1))./repmat(XtrainStd,Ntest,1);
 @everywhere ytest = int(data[Ntrain+1:Ntrain+Ntest,D+1])
 @everywhere burnin=0;
-@everywhere maxepoch=200;
+@everywhere maxepoch=5;
 @everywhere Q=200;
 @everywhere m=50;
 @everywhere r=10;
 @everywhere n=150;
+@everywhere numbatches=int(ceil(Ntrain/m))
 @everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
 @everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
-@everywhere epsw=1e-4; 
-@everywhere epsU=1e-7;
+@everywhere epsw=1e-6; 
+@everywhere epsU=1e-9;
 @everywhere epsilon=1e-8;
 @everywhere alpha=0.99;
 @everywhere L=30;
 @everywhere param_seed=234;
+tic();w_store,U_store=GPT_SGLDERMclass(phitrain, ytrain, I, r, Q, m, epsw, epsU, burnin, maxepoch); toc();
+#=
+@everywhere t=Iterators.product(4:8,7:10)
+@everywhere myt=Array(Any,20);
+@everywhere it=1;
+@everywhere for prod in t
+	myt[it]=prod;
+        it+=1;
+        end
+#myRMSE=SharedArray(Float64,70);
+@sync @parallel for  Tuple in myt
+    i,j=Tuple;
+    epsw=float(string("1e-",i)); epsU=float(string("1e-",j));
 
-# computes log(sum(exp(x))) in a robust manner
-function logsumexp(x::Vector)
-    a=maximum(x);
-    return a+log(sum(exp(x-a)))
+	println("n=",n," m=",m," r=",r," Q=",Q," maxepoch=",maxepoch," epsw=",epsw," epsU=",epsU)
+	tic();w_store,U_store=GPT_SGLDERMclass(phitrain, ytrain, I, r, Q, m, epsw, epsU, burnin, maxepoch); toc();
+	prop_missed=Array(Float64,maxepoch);
+	nlp=Array(Float64,Ntest);
+	mean_nlp=Array(Float64,maxepoch);
+	fhat_test=Array(Float64,Ntest,C,maxepoch);
+	prediction=Array(Integer,Ntest);
+	for epoch=1:maxepoch
+		    #fhat_train[:,i]=phitrain'*theta_store[:,2.5*n_samples+(i-1)*low];
+		    #fhat_test[:,i]=phitest'*theta_store[:,2.5*n_samples+(i-1)*low];
+		    #fhat_train[:,epoch]=phitrain'*theta_store[:,numbatches*epoch];
+		    #trainRMSE[epoch]=ytrainStd*sqrt(sum((fhat_train[:,epoch]-ytrain).^2)/Ntrain)
+		for c=1:C
+			fhat_test[:,c,epoch]=pred(w_store[:,c,numbatches*epoch],U_store[:,:,:,c,numbatches*epoch],I,phitest);
+		end
+		for i=1:Ntest
+			prediction[i]=indmax(fhat_test[i,:,epoch])
+			nlp[i]=logsumexp(fhat_test[i,:,epoch])-fhat_test[i,ytest[i],epoch]
+		end
+		prop_missed[epoch]=1-sum(prediction.==ytest)/Ntest
+		mean_nlp[epoch]=mean(nlp)
+	end
+	println("last epoch: prop_missed=",prop_missed[maxepoch]," mean_nlp=",mean_nlp[maxepoch])
+	#figure()
+	#plot(trainRMSE)
+	#subplot(2,1,1); plot(prop_missed,label=string("n=",n))
+	#subplot(2,1,2); plot(mean_nlp,label=string("n=",n))
+	
 end
+=#
+#=
+mean_fhat=squeeze(mean(fhat_test[:,:,60:100],3),3);
+for i=1:Ntest
+	prediction[i]=indmax(mean_fhat[i,:])
+	nlp[i]=logsumexp(mean_fhat[i,:])-mean_fhat[i,ytest[i]]
+end
+prop_missed=1-sum(prediction.==ytest)/Ntest
+mean_nlp=mean(nlp)
+println("prop_missed with averaged pred=",prop_missed);
+println("mean_nlp with averaged pred=",mean_nlp);
+=#
 
+#=
 #input theta_vector is a vector of length n*C - converted to n by C array within function
 function neglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
 	if length(hyperparams)==2 # if length_scale is a scalar	
@@ -124,7 +174,5 @@ init_length_scale=1;
 init_sigma_RBF=1;
 init_theta=randn(n*C);
 GPNT_hyperparameters_ng(init_theta,[init_length_scale,init_sigma_RBF],neglogjointlkhd,gradneglogjointlkhd)
-
-
-
+=#
 

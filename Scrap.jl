@@ -8,92 +8,140 @@ for i=1:10
     setp(ax[:get_xticklabels](),fontsize=8)
 end
 
-function gradfeatureNotensor(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer)
-    N,D=size(X);
-    features=Array(Float64,n,N)
-    srand(seed);
-    Z=randn(n,D)/length_scale;
-    b=2*pi*rand(n)
-    for i=1:N
-		for j=1:n
-		   	features[j,i]=sum(X[i,:].*Z[j,:]) + b[j]
+# SGLD for multi-class classification on Tucker Model with Stiefel Manifold
+# y must be a vector of integer labels in {1,...,C}
+function GPT_SGLDERMclass(phi::Array, y::Array, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer)
+    # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
+    # epsw,epsU are the epsilons for w and U resp.
+    # maxepoch is the number of sweeps through whole dataset
+    
+    n,D,N=size(phi)
+    numbatches=int(ceil(N/m))
+    sigma_w=1;
+	C=int(maximum(y)-minimum(y)+1)
+    
+    # initialise w,U^(k)
+    w_store=Array(Float64,Q,C,maxepoch*numbatches)
+    U_store=Array(Float64,n,r,D,C,maxepoch*numbatches)
+    w=sigma_w*randn(Q,C)
+
+    U=Array(Float64,n,r,D,C)
+    for k=1:D
+		for c=1:C
+        	Z=randn(r,n)
+        	U[:,:,k,c]=transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from V_{n,r}
 		end
     end
-    phisin=sqrt(2/n)*sigma_RBF*sin(features);
-    return phisin.*(Z*X')/length_scale,sqrt(2/n)*cos(features)
-end
 
-#input theta_vector is a vector of length n*C - converted to n by C array within function
-function neglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
-	if length(hyperparams)==2 # if length_scale is a scalar	
-		length_scale=hyperparams[1]
-	else length_scale=hyperparams[1:end-1]
-	end
-	sigma_RBF=hyperparams[end]
-	theta=reshape(theta_vec,n,C) # n by C matrix
-    phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed) # n by Ntrain matrix
-    phi_theta=phi'*theta # Ntrain by C matrix
-    exp_phi_theta=exp(phi_theta) 
-    L=0;
-    for i=1:Ntrain
-        L+=log(sum(exp_phi_theta[i,:]))-phi_theta[i,ytrain[i]]
+
+    for epoch=1:(burnin+maxepoch)
+        #randomly permute training data and divide into mini_batches of size m
+        perm=randperm(N)
+        phi=phi[:,:,perm]; y=y[perm];
+        
+        # run SGLD on w and SGLDERM on U
+        for batch=1:numbatches
+            # random samples for the stochastic gradient
+            idx=(m*(batch-1)+1):min(m*batch,N)
+            phi_batch=phi[:,:,idx]; y_batch=y[idx];
+            batch_size=length(idx) #this is m except for last batch
+
+            # compute <phi^(k)(x_i),U^(c,k)_{.l}> for all k,l,batch,c and store in temp
+			temp=Array(Float64,D,r,batch_size,C)            
+			for c=1:C
+				temp[:,:,:,c]=phidotU(U[:,:,:,c],phi_batch)
+			end
+
+	    	# compute V st V[q,i,c]=prod_{k=1 to D}(temp[k,I[q,k],i,c])
+			V=Array(Float64,Q,batch_size,C)
+			for c=1:C
+	            V[:,:,c]=computeV(temp[:,:,:,c],I)
+			end
+				    
+            # compute fhat where fhat[i,c]=V[:,i,c]'w[:,c]
+			fhat=Array(Float64,batch_size,C)
+			for c=1:C
+            	fhat[:,c]=computefhat(V[:,:,c],w[:,c])
+			end
+			
+			#compute logsumexp(fhat[i,:]) and store as tmp[i]
+			tmp=Array(Float64,batch_size)
+			for i=1:batch_size
+				tmp[i]=logsumexp(fhat[i,:])
+			end
+
+			# compute gradwlogsumexpfhat_c[:,i]=gradw(log(sum_c(fhat[i,c])))
+			gradwlogsumexpfhat_c=zeros(Q,batch_size)
+			for i=1:batch_size
+				for c=1:C
+					gradwlogsumexpfhat_c[:,i]+=exp(fhat[i,c]-tmp[i])*V[:,i,c]
+				end
+			end
+
+            # now can compute gradw, the stochastic gradient of log post wrt w
+			gradw=Array(Float64,Q,C)
+			for c=1:C
+            	gradw[:,c]=vec(sum(V[:,:,c]-gradwlogsumexpfhat_c,2))
+			end
+			gradw*=N/batch_size
+			gradw-=w/(sigma_w^2)
+
+            # compute U_phi[q,i,k,c]=expression in big brackets in (11)
+			U_phi=Array(Float64,Q,batch_size,D,C)
+			for c=1:C
+            	U_phi[:,:,:,c]=computeU_phi(V[:,:,c],temp[:,:,:,c],I)
+			end
+            
+            # compute a_l^(k)(x_i) for l=1,...,r k=1,..,D and store in A
+			A=Array(Float64,r,D,batch_size,C)            
+			for c=1:C
+				A[:,:,:,c]=computeA(U_phi[:,:,:,c],w[:,c],I,r)
+			end
+            
+            # compute Psi as in (12)
+			Psi=Array(Float64,n*r,batch_size,D,C)
+			for c=1:C            
+				Psi[:,:,:,c]=computePsi(A[:,:,:,c],phi_batch)
+			end
+
+			# compute gradUlogsumexpfhat_c[:,i]=gradU(log(sum_c(fhat[i,c])))
+			gradUlogsumexpfhat_c=zeros(n*r,D,batch_size)
+			for i=1:batch_size
+				for c=1:C
+					gradUlogsumexpfhat_c[:,k,i]+=exp(fhat[i,c]-tmp[i])*Psi[:,i,k,c]
+				end
+			end
+
+            # can now compute gradU where gradU[:,:,k]=stochastic gradient of log post wrt U^(k)
+            gradU=Array(Float64,n,r,D,C)
+            for k=1:D
+				for c=1:C
+                	gradU[:,:,k,c]=reshape(squeeze(sum(Psi[:,:,k,c],2),[2,3,4])-squeeze(sum(gradUlogsumexpfhat_c[:,k,:],3),[2,3]),n,r)
+				end
+            end
+			gradU*=N/batch_size
+	    
+            # SGLD step on w
+            w+=epsw*gradw/2 +sqrt(epsw)*randn(Q,C)
+	    #if batch==1
+	    #	println("mean epsgradw_half=",mean(epsw*gradw/2)," std =",std(epsw*gradw/2))
+	    #	println("meansqrtepsgradU_half=",mean(sqrt(epsU)*gradU/2), " std=",std(sqrt(epsU)*gradU/2))
+	    #end
+            # SGLDERM step on U
+            for k=1:D
+				for c=1:C
+                	mom=proj(U[:,:,k,c],sqrt(epsU)*gradU[:,:,k,c]/2+randn(n,r))
+                	U[:,:,k,c]=geod(U[:,:,k,c],mom,sqrt(epsU));
+                	if U[:,:,k,c]==zeros(n,r) #if NaN appears while evaluating G
+                    	return zeros(Q,C,maxepoch*numbatches),zeros(n,r,D,C,maxepoch*numbatches)
+                	end
+            	end
+			end
+	    	if epoch>burnin
+	        		w_store[:,:,((epoch-burnin)-1)*numbatches+batch]=w
+	        		U_store[:,:,:,:,((epoch-burnin)-1)*numbatches+batch]=U
+	    	end
+        end
     end
-    L+=sum(abs2(theta))/2
-    return L 
+    return w_store,U_store
 end
-
-function gradneglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
-	theta=reshape(theta_vec,n,C) # n by C matrix
-	sigma_RBF=hyperparams[end]	
-
-	if length(hyperparams)==2 # if length_scale is a scalar
-		length_scale=hyperparams[1]	
-		phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed) # n by Ntrain matrix
-		exp_phi_theta=exp(phi'*theta)	# Ntrain by C matrix
-		sum_exp_phi_theta=sum(exp_phi_theta,2) # Vector length Ntrain
-		gradtheta=zeros(n,C)
-		for c=1:C
-			for i=1:Ntrain
-				gradtheta[:,c]+=exp_phi_theta[i,c]*phi[:,i]/sum_exp_phi_theta[i]
-			end
-		end
-		for i=1:Ntrain
-			gradtheta[:,ytrain[i]]-=phi[:,i]
-		end
-		gradtheta+=theta
-
-		gradfeature=gradfeatureNotensor(Xtrain,n,length_scale,sigma_RBF,seed)
-		gradlength_scale=0;
-		gradsigma_RBF=0;
-		for i=1:Ntrain
-			gradlength_scale+=sum(vec(exp_phi_theta[i,:]).*(theta'*gradfeature[1][:,i]))/sum_exp_phi_theta[i]-sum(theta[:,ytrain[i]].*gradfeature[1][:,i])
-			gradsigma_RBF+=sum(vec(exp_phi_theta[i,:]).*(theta'*gradfeature[2][:,i]))/sum_exp_phi_theta[i]-sum(theta[:,ytrain[i]].*gradfeature[2][:,i])
-		end
-	else # length_scale is a vector - varying length scales across input dimensions
-		length_scale=hyperparams[1:end-1] 
-		phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed) # n by Ntrain matrix
-		exp_phi_theta=exp(phi'*theta)	# Ntrain by C matrix
-		sum_exp_phi_theta=sum(exp_phi_theta,2) # Vector length Ntrain
-		gradtheta=zeros(n,C)
-		for c=1:C
-			for i=1:Ntrain
-				gradtheta[:,c]+=exp_phi_theta[i,c]*phi[:,i]/sum_exp_phi_theta[i]
-			end
-		end
-		for i=1:Ntrain
-			gradtheta[:,ytrain[i]]-=phi[:,i]
-		end
-		gradtheta+=theta
-	
-		gradfeature=gradfeatureNotensor(Xtrain,n,length_scale,sigma_RBF,seed)
-		gradlength_scale=zeros(D);
-		gradsigma_RBF=0;
-		for i=1:Ntrain
-			dphi_xibydl=squeeze(gradfeature[1][:,i,:],2)
-			gradlength_scale+=vec(exp_phi_theta[i,:]*theta'*dphi_xibydl/sum_exp_phi_theta[i]-theta[:,ytrain[i]]'*dphi_xibydl)
-			gradsigma_RBF+=sum(vec(exp_phi_theta[i,:]).*(theta'*gradfeature[2][:,i]))/sum_exp_phi_theta[i]-sum(theta[:,ytrain[i]].*gradfeature[2][:,i])
-		end
-	end
-	return [vec(gradtheta),gradlength_scale,gradsigma_RBF]
-end
-

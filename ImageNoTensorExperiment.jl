@@ -46,7 +46,7 @@ numbatches=int(ceil(Ntrain/m))
 	mean_nlp=Array(Float64,maxepoch);
     #fhat_train=Array(Float64,Ntrain,maxepoch);
     fhat_test=Array(Float64,Ntest,C,maxepoch);
-	pred=Array(Integer,Ntest);
+	prediction=Array(Integer,Ntest);
     for epoch=1:maxepoch
         #fhat_train[:,i]=phitrain'*theta_store[:,2.5*n_samples+(i-1)*low];
         #fhat_test[:,i]=phitest'*theta_store[:,2.5*n_samples+(i-1)*low];
@@ -54,10 +54,10 @@ numbatches=int(ceil(Ntrain/m))
         #trainRMSE[epoch]=ytrainStd*sqrt(sum((fhat_train[:,epoch]-ytrain).^2)/Ntrain)
         fhat_test[:,:,epoch]=phitest'*theta_store[:,:,numbatches*epoch];
 		for i=1:Ntest
-			pred[i]=indmax(fhat_test[i,:,epoch])
+			prediction[i]=indmax(fhat_test[i,:,epoch])
 			nlp[i]=logsumexp(vec(fhat_test[i,:,epoch]))-fhat_test[i,ytest[i],epoch]
 		end
-        prop_missed[epoch]=1-sum(pred.==ytest)/Ntest
+        prop_missed[epoch]=1-sum(prediction.==ytest)/Ntest
 		mean_nlp[epoch]=mean(nlp)
     end
     #figure()
@@ -66,10 +66,10 @@ numbatches=int(ceil(Ntrain/m))
 	subplot(2,1,2); plot(mean_nlp,label=string("n=",n))
 	mean_fhat=mean(fhat_test[:,:,60:100],3);
 	for i=1:Ntest
-		pred[i]=indmax(mean_fhat[i,:])
+		prediction[i]=indmax(mean_fhat[i,:])
 		nlp[i]=logsumexp(vec(mean_fhat[i,:]))-mean_fhat[i,ytest[i]]
 	end
-    prop_missed=1-sum(pred.==ytest)/Ntest
+    prop_missed=1-sum(prediction.==ytest)/Ntest
 	mean_nlp=mean(nlp)
 	println("prop_missed with averaged pred=",prop_missed);
 	println("mean_nlp with averaged pred=",mean_nlp);

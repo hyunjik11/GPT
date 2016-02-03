@@ -2,10 +2,10 @@ module GPT_SGLD
 
 using Distributions,Optim,ForwardDiff
 
-export logsumexp,proj, geod, datawhitening, feature, feature2, featureNotensor, gradfeatureNotensor, samplenz, pred, RMSE, parallelRMSE, createmesh,fhatdraw, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD,GPNT_SGLDclass,GPNT_logmarginal,GPNT_hyperparameters,GPT_GMC,GPT_SGLDERMw,GPT_SGLDERM_RMSprop,GPNT_hyperparameters_ng
+export logsumexp,proj, geod, datawhitening, feature, feature2, featureNotensor, gradfeatureNotensor, samplenz, pred, RMSE, parallelRMSE, createmesh,fhatdraw, GPT_SGLDERM, GPT_SGDERM, GPNT_SGLD,GPNT_SGLDclass,GPNT_logmarginal,GPNT_hyperparameters,GPT_GMC,GPT_SGLDERMw,GPT_SGLDERM_RMSprop,GPNT_hyperparameters_ng, GPT_SGLDERMclass
 
 # computes log(sum(exp(x))) in a robust manner
-function logsumexp(x::Vector)
+function logsumexp(x::Array)
     a=maximum(x);
     return a+log(sum(exp(x-a)))
 end
@@ -296,8 +296,8 @@ function phidotU(U::Array,phi::Array)
     for i=1:data_size
         for l=1:r
             for k=1:D
-		temp[k,l,i]=dot(phi[:,k,i],U[:,l,k])
-	    end
+				temp[k,l,i]=dot(phi[:,k,i],U[:,l,k])
+	    	end
         end
     end
     return temp
@@ -310,9 +310,9 @@ function computeV(temp::Array,I::Array)
     V=ones(Q,data_size)
     for i=1:data_size
         for q=1:Q
-	    for k=1:D
-		V[q,i]*=temp[k,I[q,k],i];
-	    end
+			for k=1:D
+				V[q,i]*=temp[k,I[q,k],i];
+			end
         end
     end
     return V
@@ -463,7 +463,7 @@ function fhatdraw(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,r::In
 end
 
     
-#SGLD on Tucker Model with Stiefel Manifold
+#SGLD for regression on Tucker Model with Stiefel Manifold
 function GPT_SGLDERM(phi::Array, y::Array, signal_var::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # signal_var is the variance of the observed values
@@ -526,7 +526,7 @@ function GPT_SGLDERM(phi::Array, y::Array, signal_var::Real, I::Array, r::Intege
             end
 	    
             # SGLD step on w
-            w[:]+=epsw*gradw/2 +sqrt(epsw)*randn(Q)
+            w+=epsw*gradw/2 +sqrt(epsw)*randn(Q)
 	    #if batch==1
 	    #	println("mean epsgradw_half=",mean(epsw*gradw/2)," std =",std(epsw*gradw/2))
 	    #	println("meansqrtepsgradU_half=",mean(sqrt(epsU)*gradU/2), " std=",std(sqrt(epsU)*gradU/2))
@@ -539,10 +539,10 @@ function GPT_SGLDERM(phi::Array, y::Array, signal_var::Real, I::Array, r::Intege
                     return zeros(Q,maxepoch*numbatches),zeros(n,r,D,maxepoch*numbatches)
                 end
             end
-	    if epoch>burnin
-	        w_store[:,((epoch-burnin)-1)*numbatches+batch]=w
-	        U_store[:,:,:,((epoch-burnin)-1)*numbatches+batch]=U
-	    end
+			if epoch>burnin
+			    w_store[:,((epoch-burnin)-1)*numbatches+batch]=w
+			    U_store[:,:,:,((epoch-burnin)-1)*numbatches+batch]=U
+			end
         end
     end
     return w_store,U_store
@@ -623,10 +623,10 @@ function GPT_SGDERM(phi::Array, y::Array, signal_var::Real, I::Array, r::Integer
                     return zeros(Q,maxepoch*numbatches),zeros(n,r,D,maxepoch*numbatches)
                 end
             end
-	    if epoch>burnin
-	        w_store[:,((epoch-burnin)-1)*numbatches+batch]=w
-	        U_store[:,:,:,((epoch-burnin)-1)*numbatches+batch]=U
-	    end
+			if epoch>burnin
+			    w_store[:,((epoch-burnin)-1)*numbatches+batch]=w
+			    U_store[:,:,:,((epoch-burnin)-1)*numbatches+batch]=U
+			end
         end
     end
     return w_store,U_store
@@ -794,7 +794,7 @@ function GPNT_SGLD(phi::Array, y::Array, signal_var::Real, sigma_theta::Real, m:
     return theta_store
 end
 
-# SGLD on No Tensor Model for classification
+# SGLD on No Tensor Model for mulit-class classification
 # y must be a vector of integer labels in {1,...,C}
 function GPNT_SGLDclass(phi::Array, y::Array, sigma_theta::Real, m::Integer, eps_theta::Real, decay_rate::Real, burnin::Integer, maxepoch::Integer, theta_seed::Integer)
     n,N=size(phi);
@@ -1135,6 +1135,198 @@ function GPT_SGLDERM_RMSprop(phi::Array, y::Array, signal_var::Real, I::Array, r
     return w_store,U_store
 end
 
+# SGLD for multi-class classification on Tucker Model with Stiefel Manifold
+# y must be a vector of integer labels in {1,...,C}
+function GPT_SGLDERMclass(phi::Array, y::Array, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer)
+    # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
+    # epsw,epsU are the epsilons for w and U resp.
+    # maxepoch is the number of sweeps through whole dataset
+    
+    n,D,N=size(phi)
+    numbatches=int(ceil(N/m))
+    sigma_w=1;
+	C=int(maximum(y)-minimum(y)+1)
+    
+    # initialise w,U^(k)
+    w_store=Array(Float64,Q,C,maxepoch*numbatches)
+    U_store=Array(Float64,n,r,D,C,maxepoch*numbatches)
+    w=sigma_w*randn(Q,C)
+
+    U=Array(Float64,n,r,D,C)
+    for k=1:D
+		for c=1:C
+        	Z=randn(r,n)
+        	U[:,:,k,c]=transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from V_{n,r}
+		end
+    end
+
+    for epoch=1:(burnin+maxepoch)
+        #randomly permute training data and divide into mini_batches of size m
+        perm=randperm(N)
+        phi=phi[:,:,perm]; y=y[perm];
+        
+        # run SGLD on w and SGLDERM on U
+        for batch=1:numbatches
+            # random samples for the stochastic gradient
+            idx=(m*(batch-1)+1):min(m*batch,N)
+            phi_batch=phi[:,:,idx]; y_batch=y[idx];
+            batch_size=length(idx) #this is m except for last batch
+			
+            # compute <phi^(k)(x_i),U^(c,k)_{.l}> for all k,l,batch,c and store in temp
+			temp=Array(Float64,D,r,batch_size,C)            
+			for c=1:C
+				temp[:,:,:,c]=phidotU(U[:,:,:,c],phi_batch)
+			end
+
+	    	# compute V st V[q,i,c]=prod_{k=1 to D}(temp[k,I[q,k],i,c])
+			V=Array(Float64,Q,batch_size,C)
+			for c=1:C
+	            V[:,:,c]=computeV(temp[:,:,:,c],I)
+			end
+				    
+            # compute fhat where fhat[i,c]=V[:,i,c]'w[:,c]
+			fhat=Array(Float64,batch_size,C)
+			for c=1:C
+            	fhat[:,c]=computefhat(V[:,:,c],w[:,c])
+			end
+			
+			#compute logsumexp(fhat[i,:]) and store as tmp[i]
+			tmp=Array(Float64,batch_size)
+			for i=1:batch_size
+				tmp[i]=logsumexp(fhat[i,:])
+			end
+
+			# compute gradwlogsumexpfhat_c[:,i]=gradw(log(sum_c(fhat[i,c])))
+			gradwlogsumexpfhat_c=Array(Float64,Q,batch_size,C)
+			for i=1:batch_size
+				for c=1:C
+					gradwlogsumexpfhat_c[:,i,c]=exp(fhat[i,c]-tmp[i])*V[:,i,c]
+				end
+			end
+
+            # now can compute gradw, the stochastic gradient of log post wrt w
+			gradw=-squeeze(sum(gradwlogsumexpfhat_c,2),2)
+			for i=1:batch_size
+            		gradw[:,y_batch[i]]+=V[:,i,y_batch[i]]
+			end
+			gradw*=N/batch_size
+			gradw-=w/(sigma_w^2)
+
+            # compute U_phi[q,i,k,c]=expression in big brackets in (11)
+			U_phi=Array(Float64,Q,batch_size,D,C)
+			for c=1:C
+            	U_phi[:,:,:,c]=computeU_phi(V[:,:,c],temp[:,:,:,c],I)
+			end
+            
+            # compute a_l^(k)(x_i) for l=1,...,r k=1,..,D and store in A
+			A=Array(Float64,r,D,batch_size,C)            
+			for c=1:C
+				A[:,:,:,c]=computeA(U_phi[:,:,:,c],w[:,c],I,r)
+			end
+            
+            # compute Psi as in (12)
+			Psi=Array(Float64,n*r,batch_size,D,C)
+			for c=1:C            
+				Psi[:,:,:,c]=computePsi(A[:,:,:,c],phi_batch)
+			end
+
+			# compute gradUlogsumexpfhat_c[:,i]=gradU(log(sum_c(fhat[i,c])))
+			gradUlogsumexpfhat_c=Array(Float64,n*r,batch_size,D,C)
+			for i=1:batch_size
+				for k=1:D
+					for c=1:C
+						gradUlogsumexpfhat_c[:,i,k,c]=exp(fhat[i,c]-tmp[i])*Psi[:,i,k,c]
+					end
+				end
+			end
+
+            # can now compute gradU where gradU[:,:,k]=stochastic gradient of log post wrt U^(k)
+            gradU=-squeeze(sum(gradUlogsumexpfhat_c,2),2)
+            for i=1:batch_size
+                gradU[:,:,y_batch[i]]+=squeeze(Psi[:,i,:,y_batch[i]],2)
+            end
+			gradU=N/batch_size*reshape(gradU,n,r,D,C);
+
+			#check gradients
+			if batch==1
+				#sample random entry of w
+				myq=sample(1:Q,1); myc=sample(1:C,1);
+				pt=zeros(Q,C); pt[myq,myc]+=1e-2;
+				wperturbed=w+pt;
+			
+				# compute fhat where fhat[i,c]=V[:,i,c]'w[:,c]
+				fhatw=Array(Float64,batch_size,C)
+				for c=1:C
+		        	fhatw[:,c]=computefhat(V[:,:,c],wperturbed[:,c])
+				end
+			
+				#compute logsumexp(fhat[i,:]) and store as tmp[i]
+				tmpw=Array(Float64,batch_size)
+				for i=1:batch_size
+					tmpw[i]=logsumexp(fhatw[i,:])
+				end
+			
+				myn=sample(1:n,1); myr=sample(1:r,1); myk=sample(1:D,1); 
+				pt=zeros(n,r,D,C); pt[myn,myr,myk,myc]+=1e-3;
+				Uperturbed=U+pt
+				# compute <phi^(k)(x_i),U^(c,k)_{.l}> for all k,l,batch,c and store in temp
+				tempU=Array(Float64,D,r,batch_size,C)            
+				for c=1:C
+					tempU[:,:,:,c]=phidotU(Uperturbed[:,:,:,c],phi_batch)
+				end
+
+				# compute V st V[q,i,c]=prod_{k=1 to D}(temp[k,I[q,k],i,c])
+				VU=Array(Float64,Q,batch_size,C)
+				for c=1:C
+			        VU[:,:,c]=computeV(tempU[:,:,:,c],I)
+				end
+						
+		        # compute fhat where fhat[i,c]=V[:,i,c]'w[:,c]
+				fhatU=Array(Float64,batch_size,C)
+				for c=1:C
+		        	fhatU[:,c]=computefhat(VU[:,:,c],w[:,c])
+				end
+			
+				#compute logsumexp(fhat[i,:]) and store as tmp[i]
+				tmpU=Array(Float64,batch_size)
+				for i=1:batch_size
+					tmpU[i]=logsumexp(fhatU[i,:])
+				end
+
+				l=0;lw=0;lU=0;
+				for i=1:batch_size
+					l+=fhat[i,y_batch[i]]-tmp[i]
+					lw+=fhatw[i,y_batch[i]]-tmpw[i]
+					lU+=fhatU[i,y_batch[i]]-tmpU[i]
+				end
+			
+				println("gradwentry=",gradw[myq,myc]," errw=",gradw[myq,myc]-(lw-l)/1e-2)
+				println("gradUentry=",gradU[myn,myr,myk,myc]," errU=",gradU[myn,myr,myk,myc]-(lU-l)/1e-3)
+				#println("mean epsgradw_half=",mean(epsw*gradw/2)," std =",std(epsw*gradw/2))
+				#println("meansqrtepsgradU_half=",mean(sqrt(epsU)*gradU/2), " std=",std(sqrt(epsU)*gradU/2))
+			end
+			
+            # SGLD step on w
+            w+=epsw*gradw/2 +sqrt(epsw)*randn(Q,C)
+
+            # SGLDERM step on U
+            for k=1:D
+				for c=1:C
+                	mom=proj(U[:,:,k,c],sqrt(epsU)*gradU[:,:,k,c]/2+randn(n,r))
+                	U[:,:,k,c]=geod(U[:,:,k,c],mom,sqrt(epsU));
+                	if U[:,:,k,c]==zeros(n,r) #if NaN appears while evaluating G
+                    	return zeros(Q,C,maxepoch*numbatches),zeros(n,r,D,C,maxepoch*numbatches)
+                	end
+            	end
+			end
+	    	if epoch>burnin
+	        		w_store[:,:,((epoch-burnin)-1)*numbatches+batch]=w
+	        		U_store[:,:,:,:,((epoch-burnin)-1)*numbatches+batch]=U
+	    	end
+        end
+    end
+    return w_store,U_store
+end
 
 end
     
