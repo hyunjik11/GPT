@@ -3,7 +3,7 @@
 @everywhere using GPT_SGLD
 @everywhere using DataFrames: readdlm
 @everywhere using PyPlot
-@everywhere using Iterators: product
+#@everywhere using Iterators: product
 
 @everywhere data=readdlm("segment.dat",Float64);
 @everywhere data=data[:,[1,2,6:20]] #3rd column is constant,4th&5th columns are not useful - remove
@@ -25,7 +25,7 @@
 @everywhere Xtest = (data[Ntrain+1:Ntrain+Ntest,1:D]-repmat(XtrainMean,Ntest,1))./repmat(XtrainStd,Ntest,1);
 @everywhere ytest = int(data[Ntrain+1:Ntrain+Ntest,D+1])
 @everywhere burnin=0;
-@everywhere maxepoch=5;
+@everywhere maxepoch=100;
 @everywhere Q=200;
 @everywhere m=50;
 @everywhere r=10;
@@ -35,15 +35,41 @@
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
 @everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
-@everywhere epsw=1e-6; 
-@everywhere epsU=1e-9;
-@everywhere epsilon=1e-8;
-@everywhere alpha=0.99;
-@everywhere L=30;
-@everywhere param_seed=234;
-tic();w_store,U_store=GPT_SGLDERMclass(phitrain, ytrain, I, r, Q, m, epsw, epsU, burnin, maxepoch); toc();
+@everywhere epsw=1e-2; 
+@everywhere epsU=1e-6;
+println("n=",n," m=",m," r=",r," Q=",Q," maxepoch=",maxepoch," epsw=",epsw," epsU=",epsU)
+tic();w_store,U_store=GPT_SGLDEclass(phitrain, ytrain, I, r, Q, m, epsw, epsU, burnin, maxepoch); toc();
+prop_missed=Array(Float64,maxepoch);
+nlp=Array(Float64,Ntest);
+mean_nlp=Array(Float64,maxepoch);
+fhat_test=Array(Float64,Ntest,C,maxepoch);
+prediction=Array(Integer,Ntest);
+for epoch=1:maxepoch
+	for c=1:C
+		fhat_test[:,c,epoch]=pred(w_store[:,c,numbatches*epoch],U_store[:,:,:,c,numbatches*epoch],I,phitest);
+	end
+	for i=1:Ntest
+		prediction[i]=indmax(fhat_test[i,:,epoch])
+		nlp[i]=logsumexp(fhat_test[i,:,epoch])-fhat_test[i,ytest[i],epoch]
+	end
+	prop_missed[epoch]=1-sum(prediction.==ytest)/Ntest
+	mean_nlp[epoch]=mean(nlp)
+end
+subplot(2,1,1); plot(prop_missed,label=string("n=",n))
+subplot(2,1,2); plot(mean_nlp,label=string("n=",n))
+
+mean_fhat=squeeze(mean(fhat_test[:,:,51:100],3),3);
+for i=1:Ntest
+	prediction[i]=indmax(mean_fhat[i,:])
+	nlp[i]=logsumexp(mean_fhat[i,:])-mean_fhat[i,ytest[i]]
+end
+final_prop_missed=1-sum(prediction.==ytest)/Ntest
+final_mean_nlp=mean(nlp)
+println("prop_missed with averaged pred=",final_prop_missed);
+println("mean_nlp with averaged pred=",final_mean_nlp);
+
 #=
-@everywhere t=Iterators.product(4:8,7:10)
+@everywhere t=Iterators.product(1:4,3:7)
 @everywhere myt=Array(Any,20);
 @everywhere it=1;
 @everywhere for prod in t
@@ -63,10 +89,6 @@ tic();w_store,U_store=GPT_SGLDERMclass(phitrain, ytrain, I, r, Q, m, epsw, epsU,
 	fhat_test=Array(Float64,Ntest,C,maxepoch);
 	prediction=Array(Integer,Ntest);
 	for epoch=1:maxepoch
-		    #fhat_train[:,i]=phitrain'*theta_store[:,2.5*n_samples+(i-1)*low];
-		    #fhat_test[:,i]=phitest'*theta_store[:,2.5*n_samples+(i-1)*low];
-		    #fhat_train[:,epoch]=phitrain'*theta_store[:,numbatches*epoch];
-		    #trainRMSE[epoch]=ytrainStd*sqrt(sum((fhat_train[:,epoch]-ytrain).^2)/Ntrain)
 		for c=1:C
 			fhat_test[:,c,epoch]=pred(w_store[:,c,numbatches*epoch],U_store[:,:,:,c,numbatches*epoch],I,phitest);
 		end
@@ -84,17 +106,17 @@ tic();w_store,U_store=GPT_SGLDERMclass(phitrain, ytrain, I, r, Q, m, epsw, epsU,
 	#subplot(2,1,2); plot(mean_nlp,label=string("n=",n))
 	
 end
-=#
-#=
-mean_fhat=squeeze(mean(fhat_test[:,:,60:100],3),3);
+
+
+mean_fhat=squeeze(mean(fhat_test[:,:,51:100],3),3);
 for i=1:Ntest
 	prediction[i]=indmax(mean_fhat[i,:])
 	nlp[i]=logsumexp(mean_fhat[i,:])-mean_fhat[i,ytest[i]]
 end
-prop_missed=1-sum(prediction.==ytest)/Ntest
-mean_nlp=mean(nlp)
-println("prop_missed with averaged pred=",prop_missed);
-println("mean_nlp with averaged pred=",mean_nlp);
+final_prop_missed=1-sum(prediction.==ytest)/Ntest
+final_mean_nlp=mean(nlp)
+println("prop_missed with averaged pred=",final_prop_missed);
+println("mean_nlp with averaged pred=",final_mean_nlp);
 =#
 
 #=

@@ -2,9 +2,9 @@
 
 @everywhere using GPT_SGLD
 @everywhere using DataFrames
-@everywhere using GPkit
+#@everywhere using GPkit
 #@everywhere using HDF5
-#@everywhere using PyPlot
+@everywhere using PyPlot
 #@everywhere using Iterators
 
 
@@ -16,9 +16,12 @@
 
 @everywhere D=8;
 @everywhere seed=17;
-@everywhere length_scale=1.5905;
-@everywhere sigma_RBF=1.1812;
-@everywhere signal_var=0.065;
+#@everywhere length_scale=1.5905;
+#@everywhere sigma_RBF=1.1812;
+#@everywhere signal_var=0.065;
+@everywhere length_scale=[2.5242,2.3376,1.3630,1.4949,1.6022,1.1366,1.1964,1.7028];
+@everywhere sigma_RBF=1.0420
+@everywhere signal_var=0.0476;
 @everywhere XtrainMean=mean(Xtrain,1); 
 @everywhere XtrainStd=zeros(1,D);
 @everywhere for i=1:D
@@ -48,6 +51,7 @@
 @everywhere epsU=1e-7;
 @everywhere numbatches=int(ceil(Ntrain/m))
 
+#=
 cov=CovSEiso(length_scale,sigma_RBF);
 lik=LikGauss(signal_var);
 gp=GPmodel(InfExact(), cov, lik, MeanZero(), Xtrain, ytrain);
@@ -55,14 +59,27 @@ tic(); (post,nlZ,dnlZ)=inference(gp, with_dnlz=false); toc()
 tic(); (ymu,ys2,fmu,fs2,lp)=prediction(gp, post, Xtest); toc()
 println(ytrainStd*norm(ytest-ymu)/sqrt(Ntest))
 
-#=
+
 
 #(optf,optx,ret) = optinf(gp, 200, algo=:LD_LBFGS, with_dnlz=true); # optf has new hypers
-
+=#
 
 tic(); w_store,U_store=GPT_SGLDERM(phitrain,ytrain,signal_var,I,r,Q,m,epsw,epsU,burnin,maxepoch); toc();
+testRMSE=Array(Float64,maxepoch)
+finalpred=zeros(Ntest)
+numbatches=int(ceil(Ntrain/m))
+for epoch=1:maxepoch
+    testpred=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest)
+	if (maxepoch-epoch)<50
+		finalpred+=testpred
+	end
+    testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
+end
+plot(testRMSE)
+finalpred/=50
+println("vanilla SGLD RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
 
-
+#=
 w_store_thin=Array(Float64,Q,maxepoch);
 U_store_thin=Array(Float64,n,r,D,maxepoch);
 for epoch=1:maxepoch
@@ -75,9 +92,6 @@ c=h5open("wU_store_kin40k.h5","w") do file
 	write(file,"w_store",w_store_thin);
 	write(file,"U_store",U_store_thin);
 end
-
-
-
 @everywhere file="wU_store_kin40k.h5";
 @everywhere w_store=h5read(file,"w_store");
 @everywhere U_store=h5read(file,"U_store");

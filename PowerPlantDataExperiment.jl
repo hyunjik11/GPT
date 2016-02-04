@@ -3,8 +3,8 @@
 @everywhere using GPT_SGLD
 @everywhere using DataFrames
 #@everywhere using Distributions
-@everywhere using GPkit
-#@everywhere using PyPlot
+#@everywhere using GPkit
+@everywhere using PyPlot
 #@everywhere using Iterators
 
 @everywhere data=DataFrames.readtable("Folds5x2_pp.csv", header = true);
@@ -16,6 +16,9 @@
 @everywhere seed=18;
 @everywhere length_scale=1.4332;
 @everywhere sigma_RBF=1;
+#@everywhere srand(1)
+#@everywhere length_scale=1+0.2*randn(1)[1];
+#@everywhere sigma_RBF=1+0.2*randn(1)[1];
 @everywhere signal_var=0.2299^2;
 @everywhere Xtrain = data[1:Ntrain,1:D];
 @everywhere ytrain = data[1:Ntrain,D+1];
@@ -31,7 +34,7 @@
 @everywhere Xtest = (data[Ntrain+1:Ntrain+Ntest,1:D]-repmat(XtrainMean,Ntest,1))./repmat(XtrainStd,Ntest,1);
 @everywhere ytest = (data[Ntrain+1:Ntrain+Ntest,D+1]-ytrainMean)/ytrainStd;
 @everywhere burnin=0;
-@everywhere maxepoch=200;
+@everywhere maxepoch=100;
 @everywhere Q=200;
 @everywhere m=50;
 @everywhere r=20;
@@ -48,7 +51,7 @@
 @everywhere param_seed=234;
 #tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L,param_seed);toc()
 
-
+#=
 cov=CovSEiso(length_scale,sigma_RBF);
 lik=LikGauss(signal_var);
 gp=GPmodel(InfExact(), cov, lik, MeanZero(), Xtrain, ytrain);
@@ -57,7 +60,6 @@ tic(); (ymu,ys2,fmu,fs2,lp)=prediction(gp, post, Xtest); toc()
 println(ytrainStd*norm(ytest-ymu)/sqrt(Ntest))
 
 
-#=
 function neglogjointlkhd(theta::Vector,hyperparams::Vector)
 	length_scale,sigma_RBF,signal_var=hyperparams
 	phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed)
@@ -97,34 +99,33 @@ init_signal_var=0.04
 myhyperparams=GPNT_hyperparameters_ng(init_theta,[init_length_scale,init_sigma_RBF,init_signal_var],neglogjointlkhd,gradneglogjointlkhd)
 =#
 
-#=
-tic(); w_store,U_store=GPT_SGLDERM(phitrain, ytrain, signal_var, I, r, Q, m, epsw, epsU, burnin, maxepoch); toc();
+tic(); w_store,U_store=GPT_SGDERM(phitrain, ytrain, signal_var, I, r, Q, m, epsw, epsU, burnin, maxepoch); toc();
 testRMSE=Array(Float64,maxepoch)
 finalpred=zeros(Ntest)
 numbatches=int(ceil(Ntrain/m))
 for epoch=1:maxepoch
     testpred=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest)
-	if (maxepoch-epoch)<100
+	if (maxepoch-epoch)<50
 		finalpred+=testpred
 	end
     testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
 end
-
-finalpred/=100
-println("vanilla SGLD RMSE over last 100 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
-
+plot(testRMSE)
+finalpred/=50
+println("vanilla SGLD RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
+#=
 tic(); w_store,U_store=GPT_SGLDERM_RMSprop(phitrain, ytrain, signal_var, I, r, Q, m, epsilon, alpha, burnin, maxepoch); toc();
 testRMSE2=Array(Float64,maxepoch)
 finalpred=zeros(Ntest)
 numbatches=int(ceil(Ntrain/m))
 for epoch=1:maxepoch
     testpred=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest)
-	if (maxepoch-epoch)<100
+	if (maxepoch-epoch)<50
 		finalpred+=testpred
 	end
     testRMSE2[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
 end
-finalpred/=100
+finalpred/=50
 println("RMSprop SGLD RMSE over last 100 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
 
 plot(testRMSE,label="vanilla SGLD"); title("PowerPlant testRMSE. SGLD vs SGLD_RMSprop");
