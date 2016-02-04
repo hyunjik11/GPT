@@ -99,7 +99,7 @@ init_signal_var=0.04
 myhyperparams=GPNT_hyperparameters_ng(init_theta,[init_length_scale,init_sigma_RBF,init_signal_var],neglogjointlkhd,gradneglogjointlkhd)
 =#
 
-tic(); w_store,U_store=GPT_SGDERM(phitrain, ytrain, signal_var, I, r, Q, m, epsw, epsU, burnin, maxepoch); toc();
+tic(); w_store,U_store=GPT_SGDE(phitrain, ytrain, signal_var, I, r, Q, m, epsw, epsU, burnin, maxepoch); toc();
 testRMSE=Array(Float64,maxepoch)
 finalpred=zeros(Ntest)
 numbatches=int(ceil(Ntrain/m))

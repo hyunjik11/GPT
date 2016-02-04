@@ -64,7 +64,7 @@ println(ytrainStd*norm(ytest-ymu)/sqrt(Ntest))
 #(optf,optx,ret) = optinf(gp, 200, algo=:LD_LBFGS, with_dnlz=true); # optf has new hypers
 =#
 
-tic(); w_store,U_store=GPT_SGLDERM(phitrain,ytrain,signal_var,I,r,Q,m,epsw,epsU,burnin,maxepoch); toc();
+tic(); w_store,U_store=GPT_SGDERM(phitrain,ytrain,signal_var,I,r,Q,m,epsw,epsU,burnin,maxepoch); toc();
 testRMSE=Array(Float64,maxepoch)
 finalpred=zeros(Ntest)
 numbatches=int(ceil(Ntrain/m))
@@ -75,9 +75,40 @@ for epoch=1:maxepoch
 	end
     testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
 end
-plot(testRMSE)
+plot(testRMSE,label="SGDERM")
 finalpred/=50
-println("vanilla SGLD RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
+println("SGDERM RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
+
+tic(); w_store,U_store=GPT_SGDE(phitrain,ytrain,signal_var,I,r,Q,m,epsw,epsU,burnin,maxepoch); toc();
+testRMSE=Array(Float64,maxepoch)
+finalpred=zeros(Ntest)
+numbatches=int(ceil(Ntrain/m))
+for epoch=1:maxepoch
+    testpred=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest)
+	if (maxepoch-epoch)<50
+		finalpred+=testpred
+	end
+    testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
+end
+plot(testRMSE,label="SGDE")
+finalpred/=50
+println("SGDE RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
+
+tic(); w_store,U_store=GPT_SGLDE(phitrain,ytrain,signal_var,I,r,Q,m,epsw,epsU,burnin,maxepoch); toc();
+testRMSE=Array(Float64,maxepoch)
+finalpred=zeros(Ntest)
+numbatches=int(ceil(Ntrain/m))
+for epoch=1:maxepoch
+    testpred=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest)
+	if (maxepoch-epoch)<50
+		finalpred+=testpred
+	end
+    testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
+end
+plot(testRMSE,label="SGLDE")
+finalpred/=50
+println("SGLDE RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
+legend()
 
 #=
 w_store_thin=Array(Float64,Q,maxepoch);

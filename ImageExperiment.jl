@@ -38,7 +38,7 @@
 @everywhere epsw=1e-2; 
 @everywhere epsU=1e-6;
 println("n=",n," m=",m," r=",r," Q=",Q," maxepoch=",maxepoch," epsw=",epsw," epsU=",epsU)
-tic();w_store,U_store=GPT_SGLDEclass(phitrain, ytrain, I, r, Q, m, epsw, epsU, burnin, maxepoch); toc();
+tic();w_store,U_store=GPT_SGDEclass(phitrain, ytrain, I, r, Q, m, epsw, epsU, burnin, maxepoch); toc();
 prop_missed=Array(Float64,maxepoch);
 nlp=Array(Float64,Ntest);
 mean_nlp=Array(Float64,maxepoch);
