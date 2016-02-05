@@ -3,8 +3,8 @@
 @everywhere using GPT_SGLD
 @everywhere using DataFrames
 #@everywhere using GPkit
-#@everywhere using HDF5
-@everywhere using PyPlot
+@everywhere using HDF5
+#@everywhere using PyPlot
 #@everywhere using Iterators
 
 
@@ -59,12 +59,19 @@ tic(); (post,nlZ,dnlZ)=inference(gp, with_dnlz=false); toc()
 tic(); (ymu,ys2,fmu,fs2,lp)=prediction(gp, post, Xtest); toc()
 println(ytrainStd*norm(ytest-ymu)/sqrt(Ntest))
 
+=#
 
 
 #(optf,optx,ret) = optinf(gp, 200, algo=:LD_LBFGS, with_dnlz=true); # optf has new hypers
-=#
 
-tic(); w_store,U_store=GPT_SGDERM(phitrain,ytrain,signal_var,I,r,Q,m,epsw,epsU,burnin,maxepoch); toc();
+@parallel for j=1:10
+srand(j)
+length_scale=ones(8)+0.2*randn(8);
+sigma_RBF=1+0.2*randn(1)[1];
+phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale);
+phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
+println("random length_scales and sigma_RBF",j)
+tic(); w_store,U_store=GPTregression(phitrain,ytrain,signal_var,I,r,Q,m,epsw,epsU,burnin,maxepoch); toc();
 testRMSE=Array(Float64,maxepoch)
 finalpred=zeros(Ntest)
 numbatches=int(ceil(Ntrain/m))
@@ -75,41 +82,13 @@ for epoch=1:maxepoch
 	end
     testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
 end
-plot(testRMSE,label="SGDERM")
+#plot(testRMSE)
 finalpred/=50
-println("SGDERM RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
-
-tic(); w_store,U_store=GPT_SGDE(phitrain,ytrain,signal_var,I,r,Q,m,epsw,epsU,burnin,maxepoch); toc();
-testRMSE=Array(Float64,maxepoch)
-finalpred=zeros(Ntest)
-numbatches=int(ceil(Ntrain/m))
-for epoch=1:maxepoch
-    testpred=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest)
-	if (maxepoch-epoch)<50
-		finalpred+=testpred
-	end
-    testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
+println("RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
+c=h5open(string("testRMSE_kin40k",j,".h5"),"w") do file
+write(file,"testRMSE",testRMSE);
 end
-plot(testRMSE,label="SGDE")
-finalpred/=50
-println("SGDE RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
-
-tic(); w_store,U_store=GPT_SGLDE(phitrain,ytrain,signal_var,I,r,Q,m,epsw,epsU,burnin,maxepoch); toc();
-testRMSE=Array(Float64,maxepoch)
-finalpred=zeros(Ntest)
-numbatches=int(ceil(Ntrain/m))
-for epoch=1:maxepoch
-    testpred=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest)
-	if (maxepoch-epoch)<50
-		finalpred+=testpred
-	end
-    testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
 end
-plot(testRMSE,label="SGLDE")
-finalpred/=50
-println("SGLDE RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
-legend()
-
 #=
 w_store_thin=Array(Float64,Q,maxepoch);
 U_store_thin=Array(Float64,n,r,D,maxepoch);
