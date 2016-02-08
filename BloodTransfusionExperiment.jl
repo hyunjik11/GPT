@@ -196,19 +196,29 @@ end
 
 init_length_scale=[2.1594,1.3297,1.3283,2.1715];
 init_sigma_RBF=1.2459;
+hyperparams=[init_length_scale,init_sigma_RBF];
 init_theta=randn(n*C);
 theta=init_theta;
-epst=1e-2;
+epsilont=1e-2;
 nlp=Array(Float64,Ntest);
 prediction=Array(Integer,Ntest);
+gtheta=zeros(n*C);
 for i=1:1000
-	theta-=epst*gradneglogjointlkhd(theta,[init_length_scale,init_sigma_RBF])[1:n*C]/2+sqrt(epst)*randn(n*C)
-	fhat_test=phitest'*reshape(theta,n,C);
-	for i=1:Ntest
-		prediction[i]=indmax(fhat_test[i,:])
-		nlp[i]=logsumexp(fhat_test[i,:])-fhat_test[i,ytest[i]]
-	end
-	println("prop_missed=",1-sum(prediction.==ytest)/Ntest,"mean_nlp=",mean(nlp),"theta norm=",norm(theta))
+    gradtheta=gradneglogjointlkhd(theta,hyperparams)[1:n*C];
+    gtheta=alpha*gtheta+(1-alpha)*(gradtheta.^2);
+    epstheta=epsilont./(sqrt(gtheta)+1e-5);
+    #println("epstheta norm=",norm(epstheta));
+    theta-=epstheta.*gradtheta/2+sqrt(epstheta).*randn(n*C)
+    #println("theta norm=",norm(theta))
+    #theta-=epsilon*gradneglogjointlkhd(theta,[init_length_scale,init_sigma_RBF])[1:n*C]/2#+sqrt(epsilon)*randn(n*C)
+    fhat_test=phitest'*reshape(theta,n,C);
+    for j=1:Ntest
+	prediction[j]=indmax(fhat_test[j,:])
+	nlp[j]=logsumexp(fhat_test[j,:])-fhat_test[j,ytest[j]]
+    end
+    if i%10==0
+        println("prop_missed=",1-sum(prediction.==ytest)/Ntest," mean_nlp=",mean(nlp)," theta norm=",norm(theta)," theta gradient norm=",norm(gradtheta))
+    end
 end
 #testng(init_theta,[init_length_scale,init_sigma_RBF],neglogjointlkhd,gradneglogjointlkhd,num_sgld_iter=1000)
 
