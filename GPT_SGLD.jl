@@ -414,7 +414,7 @@ function fhatdraw(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,r::Inte
     end
     I=samplenz(r,D,Q,seed)
     
-    return pred(w,U,I,phi)
+    return pred(w,U,I,phi),w,U,I,phi
 end
 
 #draw fhat from Tensor model for GPT_demo for varying length_scale
@@ -435,11 +435,11 @@ function fhatdraw(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,r::In
     end
     I=samplenz(r,D,Q,seed)
     
-    return pred(w,U,I,phi)
+    return pred(w,U,I,phi),w,U,I,phi
 end
 
 # Tensor Regression Model
-function GPTregression(phi::Array, y::Array, signal_var::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer;langevin=true,stiefel=true)
+function GPTregression(phi::Array, y::Array, signal_var::Real, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer,param_seed::Integer;langevin=true,stiefel=true)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
 	# phi should have been constructed using scale sqrt(n/(Q^(1/D)))
     # signal_var is the variance of the observed values
@@ -451,6 +451,7 @@ function GPTregression(phi::Array, y::Array, signal_var::Real, I::Array, r::Inte
     sigma_w=1;
     
     # initialise w,U^(k)
+	srand(param_seed);
     w_store=Array(Float64,Q,maxepoch*numbatches)
     U_store=Array(Float64,n,r,D,maxepoch*numbatches)
     w=sigma_w*randn(Q)
@@ -545,7 +546,7 @@ end
 
 # Tensor multi-class classification Model
 # y must be a vector of integer labels in {1,...,C}
-function GPTclassification(phi::Array, y::Array, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer;langevin=true,stiefel=true)
+function GPTclassification(phi::Array, y::Array, I::Array, r::Integer, Q::Integer, m::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer,param_seed::Integer;langevin=true,stiefel=true)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # epsw,epsU are the epsilons for w and U resp.
     # maxepoch is the number of sweeps through whole dataset
@@ -556,6 +557,7 @@ function GPTclassification(phi::Array, y::Array, I::Array, r::Integer, Q::Intege
 	C=int(maximum(y)-minimum(y)+1)
     
     # initialise w,U^(k)
+	srand(param_seed);
     w_store=Array(Float64,Q,C,maxepoch*numbatches)
     U_store=Array(Float64,n,r,D,C,maxepoch*numbatches)
     w=sigma_w*randn(Q,C)

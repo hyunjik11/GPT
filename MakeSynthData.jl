@@ -1,8 +1,31 @@
-using GaussianProcess
+#using GaussianProcess
 using GPT_SGLD
-using Distributions
+#using Distributions
 using HDF5
 
+n=150;r=20;Q=200;D=5;
+sigma_RBF=1;length_scale=[1-2/D,1-1/D,1,1+1/D,1+2/D];
+N=32000;
+X=randn(N,D);
+y,w,U,I,phi=fhatdraw(X,n,length_scale,sigma_RBF,r,Q);
+y1=y+sqrt(0.1)*randn(N);
+y2=y+sqrt(0.01)*randn(N);
+y3=y+sqrt(0.001)*randn(N);
+
+c=h5open(string("TensorSynthData",N,"N.h5"),"w") do file
+	write(file,"X",X);
+	write(file,"w",w);
+	write(file,"U",U);
+	write(file,"I",I);
+	write(file,"phi",phi);	
+	write(file,"y1",y1);
+	write(file,"y2",y2);
+	write(file,"y3",y3);
+end
+
+
+
+#=
 sigmaRBF=1.4; sigma=0.2;
 f=SECov(sigmaRBF,1)
 gp=GP(0,f,4)
@@ -32,3 +55,4 @@ c=h5open("SynthData1000.h5","w") do file
 	write(file,"Xtest",Xtest);
 	write(file,"ytest",ytest);
 end
+=#
