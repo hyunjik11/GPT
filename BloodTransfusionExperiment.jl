@@ -32,7 +32,7 @@
 @everywhere Q=200;
 @everywhere m=50;
 @everywhere r=10;
-@everywhere n=300;
+@everywhere n=5;
 @everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed);
@@ -198,26 +198,30 @@ init_length_scale=[2.1594,1.3297,1.3283,2.1715];
 init_sigma_RBF=1.2459;
 hyperparams=[init_length_scale,init_sigma_RBF];
 init_theta=randn(n*C);
-theta=init_theta;
+theta=mytheta;
+#mytheta=Array(Float64,n*C);
+#myepstheta=Array(Float64,n*C);
+#mygtheta=Array(Float64,n*C);
 epsilont=1e-2;
 nlp=Array(Float64,Ntest);
 prediction=Array(Integer,Ntest);
 gtheta=zeros(n*C);
+epsilon=1e-10;
 for i=1:1000
     gradtheta=gradneglogjointlkhd(theta,hyperparams)[1:n*C];
-    gtheta=alpha*gtheta+(1-alpha)*(gradtheta.^2);
-    epstheta=epsilont./(sqrt(gtheta)+1e-5);
-    #println("epstheta norm=",norm(epstheta));
-    theta-=epstheta.*gradtheta/2+sqrt(epstheta).*randn(n*C)
-    #println("theta norm=",norm(theta))
-    #theta-=epsilon*gradneglogjointlkhd(theta,[init_length_scale,init_sigma_RBF])[1:n*C]/2#+sqrt(epsilon)*randn(n*C)
+    #gtheta=alpha*gtheta+(1-alpha)*(gradtheta.^2);
+    #epstheta=epsilont./(sqrt(gtheta)+1e-5);
+    #theta-=epstheta.*gradtheta/2#+sqrt(epstheta).*randn(n*C);
+    #mytheta=theta; myepstheta=epstheta; mygtheta=gtheta;  
+    theta-=epsilon*gradtheta/2+sqrt(epsilon)*randn(n*C)
     fhat_test=phitest'*reshape(theta,n,C);
     for j=1:Ntest
 	prediction[j]=indmax(fhat_test[j,:])
 	nlp[j]=logsumexp(fhat_test[j,:])-fhat_test[j,ytest[j]]
     end
     if i%10==0
-        println("prop_missed=",1-sum(prediction.==ytest)/Ntest," mean_nlp=",mean(nlp)," theta norm=",norm(theta)," theta gradient norm=",norm(gradtheta))
+        println("iter=",i," prop_missed=",1-sum(prediction.==ytest)/Ntest," mean_nlp=",mean(nlp)," theta norm=",norm(theta)," theta gradient norm=",norm(gradtheta))
+        #println("epstheta norm=",norm(epstheta));
     end
 end
 #testng(init_theta,[init_length_scale,init_sigma_RBF],neglogjointlkhd,gradneglogjointlkhd,num_sgld_iter=1000)

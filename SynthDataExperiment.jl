@@ -3,7 +3,7 @@
 @everywhere using HDF5
 #@everywhere using Iterators
 
-@everywhere file="TensorSynthData8000N.h5";
+@everywhere file="TensorSynthData2000N.h5";
 @everywhere X=h5read(file,"X");
 @everywhere y=h5read(file,"y3"); @everywhere signal_var=1e-3;
 @everywhere w=h5read(file,"w");
@@ -19,17 +19,8 @@
 @everywhere sigma_RBF=1;
 @everywhere Xtrain = X[1:Ntrain,:];
 @everywhere ytrain = y[1:Ntrain];
-@everywhere XtrainMean=mean(Xtrain,1); 
-@everywhere XtrainStd=zeros(1,D);
-@everywhere for i=1:D
-	    XtrainStd[1,i]=std(Xtrain[:,i]);
-	    end
-@everywhere ytrainMean=mean(ytrain);
-@everywhere ytrainStd=std(ytrain);
-@everywhere Xtrain = datawhitening(Xtrain);
-@everywhere ytrain=datawhitening(ytrain);
-@everywhere Xtest = (X[Ntrain+1:N,:]-repmat(XtrainMean,Ntest,1))./repmat(XtrainStd,Ntest,1);
-@everywhere ytest = (y[Ntrain+1:N]-ytrainMean)/ytrainStd;
+@everywhere Xtest = X[Ntrain+1:N,:];
+@everywhere ytest = y[Ntrain+1:N];
 @everywhere burnin=0;
 @everywhere maxepoch=100;
 @everywhere Q=200;
@@ -60,11 +51,11 @@ for epoch=1:maxepoch
 	if (maxepoch-epoch)<50
 		finalpred+=testpred
 	end
-    testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
+    testRMSE[epoch]=norm(ytest-testpred)/sqrt(Ntest)
 end
 #plot(testRMSE,label=string("n=",n))
 finalpred/=50
-println("n=",n,";epsilon=",epsilon,";vanilla SGLD RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
+println("n=",n,";epsilon=",epsilon,";vanilla SGLD RMSE over last 50 epochs=",norm(ytest-finalpred)/sqrt(Ntest))
 =#
 #=
 #for param_seed=4:5
@@ -77,12 +68,12 @@ for epoch=1:maxepoch
 	if (maxepoch-epoch)<50
 		finalpred+=testpred
 	end
-    testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
+    testRMSE[epoch]=norm(ytest-testpred)/sqrt(Ntest)
 end
 plot(testRMSE)
 finalpred/=50
-println("vanilla SGLD RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
+println("vanilla SGLD RMSE over last 50 epochs=",norm(ytest-finalpred)/sqrt(Ntest))
 #end
 =#
-testpred=pred(w,U,I,phitest);
-println(ytrainStd*norm(ytest-testpred)/sqrt(Ntest))
+testpred=pred(w,U,I,phitest)
+println(norm(ytest-testpred)/sqrt(Ntest))
