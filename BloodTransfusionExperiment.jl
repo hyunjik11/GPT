@@ -2,6 +2,7 @@
 
 @everywhere using GPT_SGLD
 @everywhere using DataFrames: readtable
+@everywhere using Mamba
 #@everywhere using GPkit
 #@everywhere using PyPlot
 #@everywhere using Iterators: product
@@ -15,8 +16,8 @@
 @everywhere Ntrain=500;
 @everywhere Ntest=N-Ntrain;
 @everywhere seed=17;
-@everywhere length_scale=1.4332;
-@everywhere sigma_RBF=1;
+@everywhere length_scale=[2.1594,1.3297,1.3283,2.1715];
+@everywhere sigma_RBF=1.2459;
 @everywhere Xtrain = data[1:Ntrain,1:D];
 @everywhere ytrain = int(data[1:Ntrain,D+1])+1;
 @everywhere XtrainMean=mean(Xtrain,1); 
@@ -194,6 +195,7 @@ neglogjointlkhd::Function,gradneglogjointlkhd::Function;epsilont::Real=1e-2,epsi
 
 end	
 
+#=
 init_length_scale=[2.1594,1.3297,1.3283,2.1715];
 init_sigma_RBF=1.2459;
 hyperparams=[init_length_scale,init_sigma_RBF];
@@ -225,6 +227,60 @@ for i=1:1000
     end
 end
 #testng(init_theta,[init_length_scale,init_sigma_RBF],neglogjointlkhd,gradneglogjointlkhd,num_sgld_iter=1000)
+=#
+
+model=Model(
+	y=Stochastic(1,
+		@modelexpr(p,N,
+		Distribution[Categorical(p[:,i]) for i=1:N]
+		),
+	false
+	),
+	
+	theta=Stochastic(2,
+		@modelexpr(n,C, Distribution[Normal(0,1) for i in 1:n, j in 1:C])
+	),
+
+
+	fhat=Logical(2,
+		@modelexpr(theta,phi,phi'*theta),
+		false
+	),
+	
+	p=Logical(2,
+		@modelexpr(fhat,N,C,
+		[exp(fhat[i,c]-maximum(fhat[i,:])-log(sum(exp(fhat[i,:]-maximum(fhat[i,:]))))) for c=1:C,i=1:N]),
+		false
+	),
+	fhat_test=Logical(2,
+		@modelexpr(theta,phitest,phitest'*theta),
+		false
+	),
+	prediction=Logical(1,
+		@modelexpr(fhat,Ntest,[indmax(fhat[i,:]) for i=1:Ntest]),
+		false
+	),
+	prop_missed=Logical(@modelexpr(prediction,ytest,Ntest,1-sum(prediction.==ytest)/Ntest))
+
+)
+
+mydata=(Symbol=>Any)[
+	:phi => phitrain,
+	:phitest => phitest,
+	:y => ytrain,
+	:ytest => ytest,
+	:n => n,
+	:C => C,
+	:N => Ntrain,
+	:Ntest => Ntest
+]
+
+inits=[[:phi=>mydata[:phi], :y=> mydata[:y], :theta => randn(n,C)]]
+scheme=[NUTS([:theta])]
+setsamplers!(model,scheme)
+sim=mcmc(model,mydata,inits,10,burnin=5,thin=1,chains=1,verbose=false);
+samples=sim.values; #prop_missed is first col
+		
 
 
 

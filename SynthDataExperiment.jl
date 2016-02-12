@@ -3,7 +3,7 @@
 @everywhere using HDF5
 #@everywhere using Iterators
 
-@everywhere file="TensorSynthData2000N.h5";
+@everywhere file="TensorSynthData8000N.h5";
 @everywhere X=h5read(file,"X");
 @everywhere y=h5read(file,"y3"); @everywhere signal_var=1e-3;
 @everywhere w=h5read(file,"w");
@@ -28,11 +28,11 @@
 @everywhere r=20;
 @everywhere n=150;
 @everywhere scale=sqrt(n/(Q^(1/D)));
-#@everywhere phitrain=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed); @everywhere phitest=featureNotensor(Xtest,n,length_scale,sigma_RBF,seed);
+#@everywhere ytrainMean=mean(ytrain); ytrainStd=std(ytrain); ytrain=(ytrain-ytrainMean)/ytrainStd; ytest=(ytest-ytrainMean)/ytrainStd; phitrain=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed); phitest=featureNotensor(Xtest,n,length_scale,sigma_RBF,seed);
 #@everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale); @everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
 @everywhere phitrain=phi[:,:,1:Ntrain]; @everywhere phitest=phi[:,:,Ntrain+1:end];
 @everywhere epsw=1e-5; 
-@everywhere epsU=1e-8;
+@everywhere epsU=1e-8; 
 @everywhere epsilon=1e-5;
 @everywhere decay_rate=0;
 @everywhere alpha=0.99;
@@ -51,14 +51,14 @@ for epoch=1:maxepoch
 	if (maxepoch-epoch)<50
 		finalpred+=testpred
 	end
-    testRMSE[epoch]=norm(ytest-testpred)/sqrt(Ntest)
+    testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
 end
-#plot(testRMSE,label=string("n=",n))
+plot(testRMSE,label=string("n=",n))
 finalpred/=50
-println("n=",n,";epsilon=",epsilon,";vanilla SGLD RMSE over last 50 epochs=",norm(ytest-finalpred)/sqrt(Ntest))
+println("n=",n,";epsilon=",epsilon,";vanilla SGLD RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
 =#
-#=
-#for param_seed=4:5
+
+#for param_seed=[1,4,6,8,9]
 tic(); w_store,U_store=GPTregression(phitrain, ytrain, signal_var, I, r, Q, m, epsw, epsU, burnin, maxepoch,param_seed); toc();
 testRMSE=Array(Float64,maxepoch)
 finalpred=zeros(Ntest)
@@ -70,10 +70,10 @@ for epoch=1:maxepoch
 	end
     testRMSE[epoch]=norm(ytest-testpred)/sqrt(Ntest)
 end
-plot(testRMSE)
+#plot(testRMSE)
 finalpred/=50
-println("vanilla SGLD RMSE over last 50 epochs=",norm(ytest-finalpred)/sqrt(Ntest))
+println("n=",n,";epsw=",epsw,";epsU=",epsU,";vanilla SGLD RMSE over last 50 epochs=",norm(ytest-finalpred)/sqrt(Ntest))
 #end
-=#
-testpred=pred(w,U,I,phitest)
-println(norm(ytest-testpred)/sqrt(Ntest))
+
+#testpred=pred(w,U,I,phitest)
+#println(norm(ytest-testpred)/sqrt(Ntest))
