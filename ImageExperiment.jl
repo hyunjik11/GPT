@@ -2,7 +2,9 @@
 
 @everywhere using GPT_SGLD
 @everywhere using DataFrames: readdlm
-@everywhere using PyPlot
+@everywhere using Mamba
+@everywhere using Optim
+#@everywhere using PyPlot
 #@everywhere using Iterators: product
 
 @everywhere data=readdlm("segment.dat",Float64);
@@ -29,7 +31,7 @@
 @everywhere Q=200;
 @everywhere m=50;
 @everywhere r=10;
-@everywhere n=150;
+@everywhere n=5;
 @everywhere numbatches=int(ceil(Ntrain/m))
 @everywhere I=samplenz(r,D,Q,seed);
 @everywhere scale=sqrt(n/(Q^(1/D)));
@@ -37,6 +39,7 @@
 @everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
 @everywhere epsw=1e-2; 
 @everywhere epsU=1e-6;
+#=
 println("n=",n," m=",m," r=",r," Q=",Q," maxepoch=",maxepoch," epsw=",epsw," epsU=",epsU)
 tic();w_store,U_store=GPT_SGDEclass(phitrain, ytrain, I, r, Q, m, epsw, epsU, burnin, maxepoch); toc();
 prop_missed=Array(Float64,maxepoch);
@@ -67,6 +70,7 @@ final_prop_missed=1-sum(prediction.==ytest)/Ntest
 final_mean_nlp=mean(nlp)
 println("prop_missed with averaged pred=",final_prop_missed);
 println("mean_nlp with averaged pred=",final_mean_nlp);
+=#
 
 #=
 @everywhere t=Iterators.product(1:4,3:7)
@@ -119,7 +123,14 @@ println("prop_missed with averaged pred=",final_prop_missed);
 println("mean_nlp with averaged pred=",final_mean_nlp);
 =#
 
-#=
+
+
+# computes log(sum(exp(x))) in a robust manner
+function logsumexp(x::Array)
+    a=maximum(x);
+    return a+log(sum(exp(x-a)))
+end
+
 #input theta_vector is a vector of length n*C - converted to n by C array within function
 function neglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
 	if length(hyperparams)==2 # if length_scale is a scalar	
@@ -165,7 +176,7 @@ function gradneglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
 		gradsigma_RBF+=sum(exp(phi_theta[:,i]-logsumexp(phi_theta[:,i])).*(theta'*gradfeature[2][:,i]))-sum(theta[:,ytrain[i]].*gradfeature[2][:,i])
 	    end
 	else # length_scale is a vector - varying length scales across input dimensions
-            length_scale=hyperparams[1:end-1] 
+        length_scale=hyperparams[1:end-1] 
 	    phi=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed) # n by Ntrain matrix
 	    phi_theta=theta'*phi	# C by Ntrain matrix
 	    gradtheta=zeros(n,C)
@@ -192,9 +203,132 @@ function gradneglogjointlkhd(theta_vec::Vector,hyperparams::Vector)
 	return [vec(gradtheta),gradlength_scale,gradsigma_RBF]
 end
 
-init_length_scale=1;
-init_sigma_RBF=1;
+function testng(init_theta::Vector,init_hyperparams::Vector,
+neglogjointlkhd::Function,gradneglogjointlkhd::Function;epsilont::Real=1e-2,epsilonh::Real=1e-5,num_hmc_iter::Integer=10,num_cg_iter::Integer=10,alpha::Real=0.9)
+	# neglogjointlkhd should be -log p(y,theta;hyperparams), a function with 
+	# input theta,length_scale,sigma_RBF,signal_var and scalar output
+	# gradneglogjointlkhd should be the gradient of neglogjointlkhd wrt theta and hyperparams with
+	# input theta,length_scale,sigma_RBF,signal_var and vector output of length equal to length(theta)+3
+	
+	nc=length(init_theta);
+	Lh=length(init_hyperparams);
+
+	# initialise theta and loghyperparams
+	theta=init_theta; loghyperparams=log(init_hyperparams)
+
+	# define f which corresponds to neglogjointlkhd and gradneglogjointlkhd but with inputs loghyperparams instead of hyperparams (for optimisation's sake) and g its gradient - compute using chain rule
+	f(theta,loghyperparameters)=neglogjointlkhd(theta,exp(loghyperparameters));
+	g(theta,loghyperparameters)=gradneglogjointlkhd(theta,exp(loghyperparameters)).*[ones(nc),exp(loghyperparameters)];
+
+    model=Model(
+	
+	theta=Stochastic(2,
+		@modelexpr(n,C, Distribution[Normal(0,1) for i in 1:n, j in 1:C])
+	),
+
+
+	fhat=Logical(2,
+		@modelexpr(theta,phi,phi'*theta),
+		false
+	),
+	
+	p=Logical(2,
+		@modelexpr(fhat,N,C,
+		[exp(fhat[i,c]-maximum(fhat[i,:])-log(sum(exp(fhat[i,:]-maximum(fhat[i,:]))))) for c=1:C,i=1:N]),
+		false
+	),
+	y=Stochastic(1,
+		@modelexpr(p,N,
+		Distribution[Categorical(p[:,i]) for i=1:N]
+		),
+	false
+	)
+
+    )
+	# stochastic EM 
+	gtheta=zeros(nc); # moving average of theta gradients
+	gh=zeros(Lh); # moving average of loghyperparam gradients
+	# initialise statistic for diagnosing convergence
+	absdiff=1; # |x - x'|
+	iter=1;
+	while absdiff>1e-7
+	    println("iteration ",iter)
+	    # E step - sample theta from posterior using SGLD with RMS_prop - but then need to decide on step size
+	    
+            length_scale=exp(loghyperparams[1:Lh-1]);sigma_RBF=exp(loghyperparams[Lh]);
+	    phitrain=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed);
+            phitest=featureNotensor(Xtest,n,length_scale,sigma_RBF,seed);
+            nlp=Array(Float64,Ntest);
+            prediction=Array(Integer,Ntest);
+            fhat_test=phitest'*reshape(theta,n,C);
+            for j=1:Ntest
+	        prediction[j]=indmax(fhat_test[j,:])
+	        nlp[j]=logsumexp(fhat_test[j,:])-fhat_test[j,ytest[j]]
+            end
+            println("prop_missed=",1-sum(prediction.==ytest)/Ntest," mean_nlp=",mean(nlp)," theta norm=",norm(theta))
+            
+            mydata=(Symbol=>Any)[
+	    :phi => phitrain,
+	    :y => ytrain,
+	    :n => n,
+	    :C => C,
+	    :N => Ntrain
+            ]
+
+            inits=[[:phi=>mydata[:phi], :y=> mydata[:y], :theta => reshape(theta,n,C)]]
+            scheme=[NUTS([:theta])]
+            setsamplers!(model,scheme)
+            sim=mcmc(model,mydata,inits,10,burnin=9,thin=1,chains=1,verbose=false);
+            samples=sim.value;
+            theta=vec(samples[1,:,1]);
+            
+            
+	    # M step - maximise joint log likelihood wrt hyperparams using no_cg_iter steps of cg/gd	
+	    println("function_value_before:",f(theta,loghyperparams))
+	    
+            f2(loghyperparameters::Vector)=f(theta,loghyperparameters);
+	    g2(loghyperparameters::Vector)=g(theta,loghyperparameters)[end-Lh+1:end];
+	    function g2!(loghyperparameters::Vector,storage::Vector)
+		grad=g2(loghyperparameters)
+		for i=1:length(loghyperparameters)
+	    	storage[i]=grad[i]
+		end
+	    end
+	    l=Optim.optimize(f2,g2!,loghyperparams,method=:cg,show_trace = false, extended_trace = false, iterations=num_cg_iter)
+	    new_loghyperparams=l.minimum
+            #=
+            new_loghyperparams=loghyperparams;
+            for i=1:num_sg_iter
+		loghypergrad=g(theta,new_loghyperparams)[end-Lh+1:end];
+		gh=alpha*gh+(1-alpha)*(loghypergrad.^2)
+		epsh=epsilonh./(sqrt(gh)+1e-5);
+		println("epsh norm=",norm(epsh));
+		new_loghyperparams-=epsh.*loghypergrad
+		println("loghyperparam gradients:",loghypergrad);
+	    end
+            =#
+		println("function_value_after:",f(theta,new_loghyperparams))
+		println("hyperparams:",exp(new_loghyperparams))
+
+		#update convergence statistics
+		absdiff=norm(exp(loghyperparams)-exp(new_loghyperparams));
+		println("|x-x'|: ",absdiff)
+		println()
+
+		#update hyperparams
+		loghyperparams=new_loghyperparams
+		iter+=1
+	end
+	
+	return exp(loghyperparams)
+
+end	
+init_length_scale=ones(D)+0.2*randn(D);
+init_sigma_RBF=1+0.2*randn(1)[1];
+hyperparams=[init_length_scale,init_sigma_RBF];
 init_theta=randn(n*C);
-GPNT_hyperparameters_ng(init_theta,[init_length_scale,init_sigma_RBF],neglogjointlkhd,gradneglogjointlkhd)
-=#
+testng(init_theta,[init_length_scale,init_sigma_RBF],neglogjointlkhd,gradneglogjointlkhd)
+
+
+
 
