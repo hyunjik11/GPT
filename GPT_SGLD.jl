@@ -66,218 +66,116 @@ function datawhitening(X::Array)
     return X
 end
 
-# extract features from tensor decomp of each row of X using same length scale for each dimension
-function feature(X::Array,n::Integer,length_scale::Real, sigma_RBF::Real,seed::Integer,scale::Real)    
-    N,D=size(X)
+# extract features from tensor decomp of each row of X
+# use Z=randn(n,D) and b=2*pi*rand(n,D) as inputs
+function feature(X::Array,length_scale, sigma_RBF::Real,phi_scale::Real,Z::Array,b::Array)    
+    N,D=size(X);
+	n=size(Z,1);
     phi=Array(Float64,n,D,N)
-    srand(seed)
-    Z=randn(n,D)/length_scale
-    b=rand(n,D)*2*pi
+    Zt=scale(Z,1./length_scale)
     for i=1:N
 		for k=1:D
 			for j=1:n
-				phi[j,k,i]=cos(X[i,k]*Z[j,k]+b[j,k])
+				phi[j,k,i]=cos(X[i,k]*Zt[j,k]+b[j,k])
 			end
 		end
     end
-    return scale*(sigma_RBF)^(1/D)*sqrt(2/n)*phi
+    return phi_scale*(sigma_RBF)^(1/D)*sqrt(2/n)*phi
 end
 
-# extract features from tensor decomp of each row of X using varying length scales for different dimensions
-function feature(X::Array,n::Integer,length_scale::Vector, sigma_RBF::Real,seed::Integer,scale::Real)    
+# alternative Fourier feature embedding
+# use Z=randn(half_n,D) as input
+function feature2(X::Array,length_scale,sigma_RBF::Real,phi_scale::Real,Z::Array)    
+	half_n=size(Z,1);
+	N,D=size(X)
+	phi=Array(Float64,2*half_n,D,N)
+	Zt=scale(Z,1./length_scale)
+	for i=1:N
+		for k=1:D
+			for j=1:half_n
+				phi[2*j-1,k,i]=sin(X[i,k]*Zt[j,k])
+				phi[2*j,k,i]=cos(X[i,k]*Zt[j,k])
+			end
+		end
+	end
+	return phi_scale*(sigma_RBF)^(1/D)*phi/sqrt(half_n)
+end
+
+# fourier feature embedding for the no tensor model (full-theta)
+# use Z=randn(n,D) and b=2*pi*rand(n) as input
+function featureNotensor(X::Array,length_scale,sigma_RBF::Real,Z::Array,b::Array)    
     N,D=size(X)
-    if length(length_scale)!=D
+	n=size(Z,1)
+    phi=Array(Float64,n,N)
+    Zt=scale(Z,1./length_scale)
+    for i=1:N
+		for j=1:n
+        	phi[j,i]=cos(sum(X[i,:].*Zt[j,:]) + b[j])
+		end
+    end
+    return sqrt(2/n)*sigma_RBF*phi
+end
+
+# alternative fourier feature embedding for the no tensor model (full-theta)
+# use Z=randn(half_n,D) as input
+function featureNotensor2(X::Array,length_scale,sigma_RBF::Real,Z::Array) 
+	half_n=size(Z,1)
+	N,D=size(X)
+	phi=Array(Float64,n,N)
+	Zt=scale(Z,1./length_scale)
+	for i=1:N
+	    for j=1:half_n
+	        temp=sum(X[i,:].*Zt[j,:])
+	        phi[2*j-1,i]=sin(temp)
+	        phi[2*j,i]=cos(temp)
+	    end                    
+	end
+	return sigma_RBF*phi/sqrt(half_n)
+end
+
+# function to give grad of phi wrt length_scale and sigma_RBF
+# use Z=randn(n,D) and b=2*pi*rand(n) as input
+# returns a tuple of two arrays, first is grad phi wrt length_scale, second is grad phi wrt sigma_RBF
+function gradfeatureNotensor(X::Array,length_scale::Real,sigma_RBF::Real,Z::Array,b::Array)
+    N,D=size(X);
+	n=size(Z,1)
+    features=Array(Float64,n,N)
+    Zt=scale(Z,1./length_scale)
+    for i=1:N
+		for j=1:n
+		   	features[j,i]=sum(X[i,:].*Zt[j,:]) + b[j]
+		end
+    end
+    phisin=sqrt(2/n)*sigma_RBF*sin(features);
+    return phisin.*(Zt*X')/length_scale,sqrt(2/n)*cos(features)
+end
+
+# function to give grad of phi wrt length_scale and sigma_RBF where length_scale varies across dims
+# use Z=randn(n,D) and b=2*pi*rand(n) as input
+function gradfeatureNotensor(X::Array,length_scale::Vector,sigma_RBF::Real,Z::Array,b::Array) 
+    N,D=size(X);
+	n=size(Z,1)
+	if length(length_scale)!=D
 		error("dimensions of X and length_scale do not match")
 	end
-    phi=Array(Float64,n,D,N)
-    srand(seed)
-    Z=Array(Float64,n,D)
-    for k=1:D
-		Z[:,k]=randn(n)/length_scale[k]
-    end
-    b=rand(n,D)*2*pi
-    for i=1:N
-		for k=1:D
-			for j=1:n
-				phi[j,k,i]=cos(X[i,k]*Z[j,k]+b[j,k])
-			end
-		end
-    end
-    return scale*(sigma_RBF)^(1/D)*sqrt(2/n)*phi
-end
-
-# alternative Fourier feature embedding for same length_scale
-function feature2(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer,scale::Real)    
-    if n%2==0
-		half_n=int(n/2)
-		N,D=size(X)
-		phi=Array(Float64,n,D,N)
-		srand(seed)
-		Z=randn(half_n,D)/length_scale
-		for i=1:N
-			for k=1:D
-				for j=1:half_n
-					phi[2*j-1,k,i]=sin(X[i,k]*Z[j,k])
-					phi[2*j,k,i]=cos(X[i,k]*Z[j,k])
-				end
-			end
-		end
-		return scale*(sigma_RBF)^(1/D)*sqrt(2/n)*phi
-    else error("n is not even")
-    end
-end
-
-# alternative Fourier feature embedding for varying length_scales
-function feature2(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,seed::Integer,scale::Real)    
-    if n%2==0
-		half_n=int(n/2)
-		N,D=size(X)
-		if length(length_scale)!=D
-			error("dimensions of X and length_scale do not match")
-		end
-		phi=Array(Float64,n,D,N)
-		srand(seed)
-		Z=Array(Float64,half_n,D)
-		for k=1:D
-			Z[:,k]=randn(half_n)/length_scale[k]
-		end
-		    for i=1:N
-				for k=1:D
-					for j=1:half_n
-						phi[2*j-1,k,i]=sin(X[i,k]*Z[j,k])
-						phi[2*j,k,i]=cos(X[i,k]*Z[j,k])
-					end
-				end
-		end
-		return scale*(sigma_RBF)^(1/D)*sqrt(2/n)*phi
-    else error("n is not even")
-    end
-end
-
-# fourier feature embedding for the no tensor model (full-theta) using same length_scale
-function featureNotensor(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer)    
-    N,D=size(X)
-    phi=Array(Float64,n,N)
-    srand(seed)
-    Z=randn(n,D)/length_scale
-    b=2*pi*rand(n)
-    for i=1:N
-		for j=1:n
-        	phi[j,i]=cos(sum(X[i,:].*Z[j,:]) + b[j])
-		end
-    end
-    return sqrt(2/n)*sigma_RBF*phi
-end
-
-# fourier feature embedding for the no tensor model (full-theta) using varying length_scales
-function featureNotensor(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,seed::Integer)    
-    N,D=size(X)
-	if length(length_scale)!=D
-			error("dimensions of X and length_scale do not match")
-	end
-    phi=Array(Float64,n,N)
-    srand(seed)
-    Z=Array(Float64,n,D)
-    for k=1:D
-	Z[:,k]=randn(n)/length_scale[k]
-    end
-    b=2*pi*rand(n)
-    for i=1:N
-		for j=1:n
-        	phi[j,i]=cos(sum(X[i,:].*Z[j,:]) + b[j])
-		end
-    end
-    return sqrt(2/n)*sigma_RBF*phi
-end
-
-# function to give grad of phi wrt length_scale and sigma_RBF.
-# Returns a tuple of two arrays, first is grad phi wrt length_scale, second is grad phi wrt sigma_RBF
-function gradfeatureNotensor(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer)
-    N,D=size(X);
     features=Array(Float64,n,N)
-    srand(seed);
-    Z=randn(n,D)/length_scale;
-    b=2*pi*rand(n)
-    for i=1:N
-		for j=1:n
-		   	features[j,i]=sum(X[i,:].*Z[j,:]) + b[j]
-		end
-    end
-    phisin=sqrt(2/n)*sigma_RBF*sin(features);
-    return phisin.*(Z*X')/length_scale,sqrt(2/n)*cos(features)
-end
-
-function gradfeatureNotensor(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,seed::Integer)
-    N,D=size(X);
-    features=Array(Float64,n,N)
-    srand(seed);
-    Z=Array(Float64,n,D)
     gradl=Array(Float64,n,N,D)
-    for k=1:D
-        Z[:,k]=randn(n)/length_scale[k]
-    end
-    b=2*pi*rand(n)
+    Zt=scale(Z,1./length_scale)
     for i=1:N
 		for j=1:n
-		   	features[j,i]=sum(X[i,:].*Z[j,:]) + b[j]
+		   	features[j,i]=sum(X[i,:].*Zt[j,:]) + b[j]
 		end
     end
     phisin=sqrt(2/n)*sigma_RBF*sin(features);
     for k=1:D
-        gradl[:,:,k]=phisin.*(Z[:,k]*X[:,k]')/length_scale[k]
+        gradl[:,:,k]=phisin.*(Zt[:,k]*X[:,k]')/length_scale[k]
     end
     return gradl,sqrt(2/n)*cos(features)
 end
 
-# alternative fourier feature embedding for the no tensor model (full-theta) using fixed length_scales
-function featureNotensor2(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,seed::Integer)
-	if n%2==0
-		half_n=int(n/2)
-		N,D=size(X)
-		phi=Array(Float64,n,N)
-		srand(seed)
-		Z=randn(half_n,D)/length_scale
-		for i=1:N
-		    for j=1:half_n
-		        temp=sum(X[i,:].*Z[j,:])
-		        phi[2*j-1,i]=sin(temp)
-		        phi[2*j,i]=cos(temp)
-		    end                    
-		end
-		return sqrt(2/n)*sigma_RBF*phi
-    else error("n is not even")
-    end
-end
-
-# alternative fourier feature embedding for the no tensor model (full-theta) using varying length_scales
-function featureNotensor2(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,seed::Integer)
-	if n%2==0
-		half_n=int(n/2)
-		N,D=size(X)
-		if length(length_scale)!=D
-			error("dimensions of X and length_scale do not match")
-		end
-		phi=Array(Float64,n,N)
-		srand(seed)
-		Z=Array(Float64,half_n,D)
-		for k=1:D
-			Z[:,k]=randn(half_n)/length_scale[k]
-		end
-		for i=1:N
-		    for j=1:half_n
-		        temp=sum(X[i,:].*Z[j,:])
-		        phi[2*j-1,i]=sin(temp)
-		        phi[2*j,i]=cos(temp)
-		    end                    
-		end
-		return sqrt(2/n)*sigma_RBF*phi
-    else error("n is not even")
-    end
-end
-
 # sample the Q random non-zero locations of w
-function samplenz(r::Integer,D::Integer,Q::Integer,seed::Integer)
-    srand(seed)
+# set seed before function to get same locations I
+function samplenz(r::Integer,D::Integer,Q::Integer)
     L=sample(0:(r^D-1),Q,replace=false)
     I=Array(Int32,Q,D)
     for q in 1:Q
@@ -402,9 +300,10 @@ end
 #draw fhat from Tensor model for GPT_demo for same length_scale across dimensions
 function fhatdraw(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,r::Integer,Q::Integer)
     N,D=size(X)
-    scale=sqrt(n/(Q^(1/D)));
-    seed=17;
-    phi=feature(X,n,length_scale,sigma_RBF,seed,scale)
+    phi_scale=sqrt(n/(Q^(1/D)));
+	Z=randn(n,D);
+	b=2*pi*rand(n,D);
+    phi=feature(X,length_scale,sigma_RBF,phi_scale,Z,b)
     sigma_w=1;
     w=sigma_w*randn(Q)
     U=Array(Float64,n,r,D)
@@ -412,7 +311,7 @@ function fhatdraw(X::Array,n::Integer,length_scale::Real,sigma_RBF::Real,r::Inte
         Z=randn(r,n)
         U[:,:,k]=transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from V_{n,r}
     end
-    I=samplenz(r,D,Q,seed)
+    I=samplenz(r,D,Q)
     
     return pred(w,U,I,phi),w,U,I,phi
 end
@@ -423,9 +322,10 @@ function fhatdraw(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,r::In
 	if length(length_scale)!=D
 			error("dimensions of X and length_scale do not match")
 	end
-    scale=sqrt(n/(Q^(1/D)));
-    seed=17;
-    phi=feature(X,n,length_scale,sigma_RBF,seed,scale)
+    phi_scale=sqrt(n/(Q^(1/D)));
+	Z=randn(n,D);
+	b=2*pi*rand(n,D);
+    phi=feature(X,n,length_scale,sigma_RBF,phi_scale,Z,b)
     sigma_w=1;
     w=sigma_w*randn(Q)
     U=Array(Float64,n,r,D)
@@ -433,7 +333,7 @@ function fhatdraw(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,r::In
         Z=randn(r,n)
         U[:,:,k]=transpose(\(sqrtm(Z*Z'),Z)) #sample uniformly from V_{n,r}
     end
-    I=samplenz(r,D,Q,seed)
+    I=samplenz(r,D,Q)
     
     return pred(w,U,I,phi),w,U,I,phi
 end
@@ -777,7 +677,7 @@ function GPTclassification(phi::Array, y::Array, I::Array, r::Integer, Q::Intege
 end
 
     
-#GMC on Tucker Model with Stiefel Manifold
+# GMC on Tucker Model with Stiefel Manifold
 function GPT_GMC(phi::Array, y::Array, signal_var::Real, I::Array, r::Integer, Q::Integer, epsw::Real, epsU::Real, burnin::Integer, maxepoch::Integer, L::Integer,param_seed::Integer)
     # phi is the D by n by N array of features where phi[k,:,i]=phi^(k)(x_i)
     # signal_var is the variance of the observed values
@@ -902,13 +802,13 @@ function GPT_GMC(phi::Array, y::Array, signal_var::Real, I::Array, r::Integer, Q
 end
     
 
-#SGLD on No Tensor Model for regression
-function GPNT_SGLD(phi::Array, y::Array, signal_var::Real, sigma_theta::Real, m::Integer, eps_theta::Real, decay_rate::Real, burnin::Integer, maxepoch::Integer, theta_seed::Integer)
+# SGLD on No Tensor Model for regression
+function GPNT_SGLD(phi::Array, y::Array, signal_var::Real, sigma_theta::Real, m::Integer, eps_theta::Real, decay_rate::Real, burnin::Integer, maxepoch::Integer, param_seed::Integer)
     n,N=size(phi);
     numbatches=int(ceil(N/m))
     
     #initialise theta
-    srand(theta_seed)
+    srand(param_seed)
     theta=sigma_theta*randn(n);
     epsilon=eps_theta;
     theta_store=Array(Float64,n,(maxepoch+burnin)*numbatches)
@@ -934,6 +834,10 @@ function GPNT_SGLD(phi::Array, y::Array, signal_var::Real, sigma_theta::Real, m:
            
             theta[:]+=grad+noise;
 	    	theta_store[:,t]=theta;
+			if sum(isnan(theta))>0
+        		println("Get NaN in theta. Try smaller epsilon") 
+        		return zeros(n)
+			end
         end
     end
     return theta_store
@@ -941,13 +845,13 @@ end
 
 # SGLD on No Tensor Model for mulit-class classification
 # y must be a vector of integer labels in {1,...,C}
-function GPNT_SGLDclass(phi::Array, y::Array, sigma_theta::Real, m::Integer, eps_theta::Real, decay_rate::Real, burnin::Integer, maxepoch::Integer, theta_seed::Integer)
+function GPNT_SGLDclass(phi::Array, y::Array, sigma_theta::Real, m::Integer, eps_theta::Real, decay_rate::Real, burnin::Integer, maxepoch::Integer, param_seed::Integer)
     n,N=size(phi);
     numbatches=int(ceil(N/m))
     C=int(maximum(y)-minimum(y)+1)
 
     #initialise theta
-    srand(theta_seed)
+    srand(param_seed)
     theta=sigma_theta*randn(n,C);
     epsilon=eps_theta;
     theta_store=Array(Float64,n,C,(maxepoch+burnin)*numbatches)
@@ -984,30 +888,20 @@ function GPNT_SGLDclass(phi::Array, y::Array, sigma_theta::Real, m::Integer, eps
            
             theta-=grad+noise;
 	    	theta_store[:,:,t]=theta;
+			if sum(isnan(theta))>0
+        		println("Get NaN in theta. Try smaller epsilon") 
+        		return zeros(n)
+			end
         end
     end
     return theta_store
 end
 
-# function to return the negative log marginal likelihood of No Tensor model with Gaussian likelihood and fixed length_scale
-function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Real,sigma_RBF::Real,signal_var::Real,seed::Integer)
+# function to return the negative log marginal likelihood of No Tensor model with Gaussian likelihood
+# use the Z and b that was used to compute features
+function GPNT_logmarginal(X::Array,y::Array,length_scale,sigma_RBF::Real,signal_var::Real,Z::Array, b::Array)
     N,D=size(X);
-    phi=featureNotensor(X,n,length_scale,sigma_RBF,seed);
-    A=phi*phi'+signal_var*eye(n);
-    b=phi*y;
-	B=\(A,b);
-	lambda=eigvals(A);
-	logdetA=sum(log(lambda));
-    return (N-n)*log(signal_var)/2+logdetA/2+(sum(y.*y)-sum(b.*B))/(2*signal_var)
-end
-
-# function to return the negative log marginal likelihood of No Tensor model with Gaussian likelihood and varying length_scale
-function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,signal_var::Real,seed::Integer)
-    N,D=size(X);
-	if length(length_scale)!=D
-			error("dimensions of X and length_scale do not match")
-	end
-    phi=featureNotensor(X,n,length_scale,sigma_RBF,seed);
+    phi=featureNotensor(X,length_scale,sigma_RBF,Z,b);
     A=phi*phi'+signal_var*eye(n);
     b=phi*y;
 	B=\(A,b);
@@ -1017,9 +911,9 @@ function GPNT_logmarginal(X::Array,y::Array,n::Integer,length_scale::Vector,sigm
 end
 
 # learning hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising Gaussian marginal likelihood for fixed length_scale
-function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Real,init_sigma_RBF::Real,init_signal_var::Real,seed::Integer)
+function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Real,init_sigma_RBF::Real,init_signal_var::Real,Z::Array, b::Array)
 	D=size(X,2);
-    logmarginal(hyperparams::Vector)=GPNT_logmarginal(X,y,n,exp(hyperparams[1]),exp(hyperparams[2]),exp(hyperparams[3]),seed); # log marginal likelihood as a fn of hyperparams=log([length_scale,sigma_RBF,signal_var]) only.
+    logmarginal(hyperparams::Vector)=GPNT_logmarginal(X,y,n,exp(hyperparams[1]),exp(hyperparams[2]),exp(hyperparams[3]),Z,b); # log marginal likelihood as a fn of hyperparams=log([length_scale,sigma_RBF,signal_var]) only.
     # exp needed to enable unconstrained optimisation, since length_scale,sigmaRBF,signal_var must be positive
     g=ForwardDiff.gradient(logmarginal)
     function g!(hyperparams::Vector,storage::Vector)
@@ -1033,9 +927,9 @@ function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Re
 end
 
 #learning hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising Gaussian marginal likelihood for varying length_scale
-function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Vector,init_sigma_RBF::Real,init_signal_var::Real,seed::Integer)
+function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Vector,init_sigma_RBF::Real,init_signal_var::Real,Z::Array, b::Array)
 	D=size(X,2);
-    logmarginal(hyperparams::Vector)=GPNT_logmarginal(X,y,n,exp(hyperparams[1:D]),exp(hyperparams[D+1]),exp(hyperparams[D+2]),seed); # log marginal likelihood as a fn of hyperparams=log([length_scale,sigma_RBF,signal_var]) only.
+    logmarginal(hyperparams::Vector)=GPNT_logmarginal(X,y,n,exp(hyperparams[1:D]),exp(hyperparams[D+1]),exp(hyperparams[D+2]),Z::Array, b::Array); # log marginal likelihood as a fn of hyperparams=log([length_scale,sigma_RBF,signal_var]) only.
     # exp needed to enable unconstrained optimisation, since length_scale,sigmaRBF,signal_var must be positive
     g=ForwardDiff.gradient(logmarginal)
     function g!(hyperparams::Vector,storage::Vector)
@@ -1050,12 +944,13 @@ end
 
 # function to learn hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising non-Gaussian marginal likelihood using the stochastic EM algorithm for fixed length_scale
 function GPNT_hyperparameters_ng(init_theta::Vector,init_hyperparams::Vector,
-neglogjointlkhd::Function,gradneglogjointlkhd::Function;epsilon::Real=1e-5,num_cg_iter::Integer=10,num_sgld_iter::Integer=10)
+neglogjointlkhd::Function,gradneglogjointlkhd::Function,Z::Array,b::Array;epsilon::Real=1e-2,num_sgld_iter::Integer=10,num_cg_iter::Integer=10)
 	# neglogjointlkhd should be -log p(y,theta;hyperparams), a function with 
 	# input theta,length_scale,sigma_RBF,signal_var and scalar output
 	# gradneglogjointlkhd should be the gradient of neglogjointlkhd wrt theta and hyperparams with
 	# input theta,length_scale,sigma_RBF,signal_var and vector output of length equal to length(theta)+3
-	
+	# use the Z and b that was used to compute features
+
 	n=length(init_theta);
 	L=length(init_hyperparams);
 
@@ -1063,8 +958,8 @@ neglogjointlkhd::Function,gradneglogjointlkhd::Function;epsilon::Real=1e-5,num_c
 	theta=init_theta; loghyperparams=log(init_hyperparams)
 
 	# define f which corresponds to neglogjointlkhd and gradneglogjointlkhd but with inputs loghyperparams instead of hyperparams (for optimisation's sake) and g its gradient - compute using chain rule
-	f(theta,loghyperparameters)=neglogjointlkhd(theta,exp(loghyperparameters));
-	g(theta,loghyperparameters)=gradneglogjointlkhd(theta,exp(loghyperparameters)).*[ones(n),exp(loghyperparameters)];
+	f(theta,loghyperparameters)=neglogjointlkhd(theta,exp(loghyperparameters),Z,b);
+	g(theta,loghyperparameters)=gradneglogjointlkhd(theta,exp(loghyperparameters),Z,b).*[ones(n),exp(loghyperparameters)];
 
 	# stochastic EM 
 
@@ -1079,17 +974,20 @@ neglogjointlkhd::Function,gradneglogjointlkhd::Function;epsilon::Real=1e-5,num_c
 		end
 		println("theta norm=",norm(theta))
 		# M step - maximisie joint log likelihood wrt hyperparams using no_cg_iter steps of cg/gd
+		println("function_value_before:",f(theta,loghyperparams))
 
 		f2(loghyperparameters::Vector)=f(theta,loghyperparameters);
 		g2(loghyperparameters::Vector)=g(theta,loghyperparameters)[end-L+1:end];
 		function g2!(loghyperparameters::Vector,storage::Vector)
 			grad=g2(loghyperparameters)
-			for i=1:length(loghyperparameters)
+			for i=1:L
 		    	storage[i]=grad[i]
 			end
 		end
-		l=optimize(f2,g2!,loghyperparams,method=:cg,show_trace = true, extended_trace = true, iterations=num_cg_iter)
+		l=optimize(f2,g2!,loghyperparams,method=:cg,show_trace = false, extended_trace = false, iterations=num_cg_iter)
 		new_loghyperparams=l.minimum
+		println("function_value_after:",f(theta,new_loghyperparams))
+		println("hyperparams:",exp(new_loghyperparams))
 
 		#update convergence statistics
 		absdiff=norm(exp(loghyperparams)-exp(new_loghyperparams));

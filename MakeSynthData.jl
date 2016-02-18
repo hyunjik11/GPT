@@ -3,21 +3,24 @@ using GPT_SGLD
 #using Distributions
 using HDF5
 
-n=150;r=20;Q=200;D=5;
-sigma_RBF=1;length_scale=[1-2/D,1-1/D,1,1+1/D,1+2/D];
-N=32000;
+n=500;r=5;Q=500;D=20;
+sigma_RBF=1;length_scale=1+0.2*randn(D)
+N=1000;
 X=randn(N,D);
 y,w,U,I,phi=fhatdraw(X,n,length_scale,sigma_RBF,r,Q);
 y1=y+sqrt(0.1)*randn(N);
 y2=y+sqrt(0.01)*randn(N);
 y3=y+sqrt(0.001)*randn(N);
 
-c=h5open(string("TensorSynthData",N,"N.h5"),"w") do file
+
+#cd("/data/chiffchaff/hkim/")
+c=h5open(string("TensorSynthData30D",N,"N.h5"),"w") do file
 	write(file,"X",X);
 	write(file,"w",w);
 	write(file,"U",U);
 	write(file,"I",I);
-	write(file,"phi",phi);	
+	write(file,"phi",phi);
+	write(file,"length_scale",length_scale);	
 	write(file,"y1",y1);
 	write(file,"y2",y2);
 	write(file,"y3",y3);
