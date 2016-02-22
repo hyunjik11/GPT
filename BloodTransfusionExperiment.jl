@@ -18,7 +18,6 @@
 @everywhere Ntest=N-Ntrain;
 @everywhere seed=20;
 @everywhere length_scale=[2.1594,1.3297,1.3283,2.1715];
-#@everywhere length_scale=[1.3297,1.3283,2.1715];
 @everywhere sigma_RBF=1.2459;
 @everywhere Xtrain = data[1:Ntrain,1:D];
 @everywhere ytrain = int(data[1:Ntrain,D+1])+1;
@@ -35,12 +34,12 @@
 @everywhere Q=200;
 @everywhere m=500;
 @everywhere r=10;
-@everywhere n=5;
+@everywhere n=500;
 @everywhere srand(seed)
 @everywhere I=samplenz(r,D,Q);
 @everywhere Z=randn(n,D)
 @everywhere b=2*pi*rand(n)
-@everywhere scale=sqrt(n/(Q^(1/D)));
+@everywhere phi_scale=sqrt(n/(Q^(1/D)));
 @everywhere phitrain=featureNotensor(Xtrain,length_scale,sigma_RBF,Z,b);
 @everywhere phitest=featureNotensor(Xtest,length_scale,sigma_RBF,Z,b);
 @everywhere epsw=1e-4; 
@@ -117,7 +116,7 @@ function gradneglogjointlkhd(theta_vec::Vector,hyperparams::Vector,Z::Array, b::
 end
 
 function testng(init_theta::Vector,init_hyperparams::Vector,
-neglogjointlkhd::Function,gradneglogjointlkhd::Function,Z::Array,b::Array;num_cg_iter::Integer=10)
+neglogjointlkhd::Function,gradneglogjointlkhd::Function,Z::Array,b::Array;epsilon::Real=1e-2)
 	# neglogjointlkhd should be -log p(y,theta;hyperparams), a function with 
 	# input theta,length_scale,sigma_RBF,signal_var and scalar output
 	# gradneglogjointlkhd should be the gradient of neglogjointlkhd wrt theta and hyperparams with
@@ -198,8 +197,8 @@ neglogjointlkhd::Function,gradneglogjointlkhd::Function,Z::Array,b::Array;num_cg
             
 	    # M step - maximise joint log likelihood wrt hyperparams using no_cg_iter steps of cg/gd	
 	    println("function_value_before:",f(theta,loghyperparams))
-	    
-        f2(loghyperparameters::Vector)=f(theta,loghyperparameters);
+	    #=
+            f2(loghyperparameters::Vector)=f(theta,loghyperparameters);
 	    g2(loghyperparameters::Vector)=g(theta,loghyperparameters)[end-Lh+1:end];
 	    function g2!(loghyperparameters::Vector,storage::Vector)
 		grad=g2(loghyperparameters)
@@ -207,19 +206,14 @@ neglogjointlkhd::Function,gradneglogjointlkhd::Function,Z::Array,b::Array;num_cg
 	    	storage[i]=grad[i]
 		end
 	    end
-	    l=Optim.optimize(f2,g2!,loghyperparams,method=:cg,show_trace = false, extended_trace = false, iterations=num_cg_iter)
+	    l=Optim.optimize(f2,g2!,loghyperparams,method=:gradient_descent,show_trace = true, extended_trace = true, iterations=num_cg_iter)
 	    new_loghyperparams=l.minimum
-            #=
-            new_loghyperparams=loghyperparams;
-            for i=1:num_sg_iter
-				loghypergrad=g(theta,new_loghyperparams)[end-Lh+1:end];
-				gh=alpha*gh+(1-alpha)*(loghypergrad.^2)
-				epsh=epsilonh./(sqrt(gh)+1e-5);
-				println("epsh norm=",norm(epsh));
-				new_loghyperparams-=epsh.*loghypergrad
-				println("loghyperparam gradients:",loghypergrad);
-			end
             =#
+            new_loghyperparams=loghyperparams;
+	    loghypergrad=g(theta,new_loghyperparams)[end-Lh+1:end];
+	    new_loghyperparams-=epsilon*loghypergrad
+	    println("loghyperparam gradients:",loghypergrad);
+            
 		println("function_value_after:",f(theta,new_loghyperparams))
 		println("hyperparams:",exp(new_loghyperparams))
 
@@ -234,18 +228,17 @@ neglogjointlkhd::Function,gradneglogjointlkhd::Function,Z::Array,b::Array;num_cg
 	end
 	
 	return exp(loghyperparams)
-
 end	
 
-if 1==0
+if 1==1
 init_length_scale=ones(D)+0.2*randn(D);
 init_sigma_RBF=1+0.2*randn();
 hyperparams=[init_length_scale,init_sigma_RBF];
 init_theta=randn(n*C);
-GPNT_hyperparameters_ng(init_theta,[init_length_scale,init_sigma_RBF],neglogjointlkhd,gradneglogjointlkhd,Z,b)
+testng(init_theta,[init_length_scale,init_sigma_RBF],neglogjointlkhd,gradneglogjointlkhd,Z,b)
 end
 
-if 1==1
+if 1==0
 init_length_scale=[2.1594,1.3297,1.3283,2.1715];
 init_sigma_RBF=1.2459;
 hyperparams=[init_length_scale,init_sigma_RBF];
@@ -339,9 +332,8 @@ end
             ]
 
             inits=[[:phi=>mydata[:phi], :y=> mydata[:y], :theta => randn(n,C)]]
-            scheme=[Slice([:theta],ones(n*C))]
+            scheme=[NUTS([:theta])]
             setsamplers!(model,scheme)
             sim=mcmc(model,mydata,inits,100,burnin=0,thin=1,chains=1,verbose=true);
             samples=sim.value;
 =#
-
