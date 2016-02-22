@@ -901,6 +901,7 @@ end
 # use the Z and b that was used to compute features
 function GPNT_logmarginal(X::Array,y::Array,length_scale,sigma_RBF::Real,signal_var::Real,Z::Array, b::Array)
     N,D=size(X);
+	n=size(Z,1);
     phi=featureNotensor(X,length_scale,sigma_RBF,Z,b);
     A=phi*phi'+signal_var*eye(n);
     b=phi*y;
