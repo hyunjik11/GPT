@@ -325,7 +325,7 @@ function fhatdraw(X::Array,n::Integer,length_scale::Vector,sigma_RBF::Real,r::In
     phi_scale=sqrt(n/(Q^(1/D)));
 	Z=randn(n,D);
 	b=2*pi*rand(n,D);
-    phi=feature(X,n,length_scale,sigma_RBF,phi_scale,Z,b)
+    phi=feature(X,length_scale,sigma_RBF,phi_scale,Z,b)
     sigma_w=1;
     w=sigma_w*randn(Q)
     U=Array(Float64,n,r,D)
