@@ -9,93 +9,202 @@ for i=1:10
     setp(ax[:get_xticklabels](),fontsize=8)
 end
 =#
-@everywhere using GPT_SGLD
-@everywhere using PyPlot
-@everywhere using HDF5
-@everywhere using Iterators
 
-@everywhere file="TensorSynthData32000N.h5";
-@everywhere X=h5read(file,"X");
-@everywhere y=h5read(file,"y3"); @everywhere signal_var=1e-3;
-@everywhere w=h5read(file,"w");
-@everywhere U=h5read(file,"U");
-@everywhere I=h5read(file,"I");
-@everywhere phi=h5read(file,"phi");
-@everywhere length_scale=[1-2/D,1-1/D,1,1+1/D,1+2/D]
-@everywhere N=size(X,1);
-@everywhere D=5;
-@everywhere Ntrain=int(N/2);
-@everywhere Ntest=N-Ntrain;
-@everywhere seed=18;
-@everywhere sigma_RBF=1;
-@everywhere Xtrain = X[1:Ntrain,:];
-@everywhere ytrain = y[1:Ntrain];
-@everywhere Xtest = X[Ntrain+1:N,:];
-@everywhere ytest = y[Ntrain+1:N];
-@everywhere burnin=0;
-@everywhere maxepoch=100;
-@everywhere Q=200;
-@everywhere m=50;
-@everywhere r=20;
-@everywhere n=150;
-@everywhere scale=sqrt(n/(Q^(1/D)));
-#@everywhere ytrainMean=mean(ytrain); ytrainStd=std(ytrain); ytrain=(ytrain-ytrainMean)/ytrainStd; ytest=(ytest-ytrainMean)/ytrainStd; phitrain=featureNotensor(Xtrain,n,length_scale,sigma_RBF,seed); phitest=featureNotensor(Xtest,n,length_scale,sigma_RBF,seed);
-#@everywhere phitrain=feature(Xtrain,n,length_scale,sigma_RBF,seed,scale); @everywhere phitest=feature(Xtest,n,length_scale,sigma_RBF,seed,scale);
-@everywhere phitrain=phi[:,:,1:Ntrain]; @everywhere phitest=phi[:,:,Ntrain+1:end];
-@everywhere epsw=5e-6; 
-@everywhere epsU=5e-9; 
-@everywhere epsilon=3e-6;
-@everywhere decay_rate=0;
-@everywhere alpha=0.99;
-@everywhere L=30;
-@everywhere param_seed=1;
-@everywhere sigma_theta=1;
-
-#=
-tic(); theta_store=GPNT_SGLD(phitrain, ytrain, signal_var, sigma_theta, m, epsilon,decay_rate, burnin, maxepoch, param_seed); toc();
-testRMSE=Array(Float64,maxepoch)
-finalpred=zeros(Ntest)
-numbatches=int(ceil(Ntrain/m))
-for epoch=1:maxepoch
-	testpred=phitest'*theta_store[:,epoch*numbatches];
-    #testpred=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest)
-	if (maxepoch-epoch)<50
-		finalpred+=testpred
-	end
-    testRMSE[epoch]=ytrainStd*norm(ytest-testpred)/sqrt(Ntest)
+# function to return the negative log marginal likelihood of No Tensor model with Gaussian observations
+# hyperparams include signal_var, which should always be hyperparams[end]
+# randfeature is the function with arg hyperparams generating random features for the No Tensor model. It should ignore signal_var=hyperparams[end]
+# random_numbers are the random numbers used to generate features in randfeature. This can be an array or a Tuple
+function GPNT_nlogmarginal(y::Array,n::Integer,hyperparams::Vector,randfeature::Function)
+	N=length(y);
+    phi=randfeature(hyperparams);
+	signal_var=hyperparams[end];
+    A=phi*phi'+signal_var*eye(n);
+	Chol=cholfact(A);L=Chol[:L]; U=Chol[:U] # L*U=A
+    b=phi*y;
+	l=\(U,\(L,b)); #inv(A)*phi*y
+	logdetA=2*sum(log(diag(L)));
+    return (N-n)*log(signal_var)/2+logdetA/2+(sum(y.*y)-sum(b.*l))/(2*signal_var)
 end
-plot(testRMSE,label=string("n=",n))
-finalpred/=50
-println("n=",n,";epsilon=",epsilon,";vanilla SGLD RMSE over last 50 epochs=",ytrainStd*norm(ytest-finalpred)/sqrt(Ntest))
+
+# function to return the gradient of negative log marginal likelihood of No Tensor model with Gaussian observations
+# hyperparams include signal_var, which should always be hyperparams[end]
+# gradfeature is a function with args hyperparams giving the gradient of random features for the No Tensor model wrt hyperparams. It should ignore signal_var=hyperparams[end], and give an n by N by Lh array where Lh=length(hyperparams)
+# function should return a vector of length Lh
+function GPNT_gradnlogmarginal(y::Array,n::Integer,hyperparams::Vector,randfeature::Function,gradfeature::Function)
+	N=length(y);
+	phi=randfeature(hyperparams);
+	signal_var=hyperparams[end];
+	A=phi*phi'+signal_var*eye(n);
+	Chol=cholfact(A); L=Chol[:L]; U=Chol[:U] # L*U=A
+	gradphi=gradfeature(hyperparams);
+	Lh=length(hyperparams);
+	signal_var=hyperparams[Lh];
+	grad=Array(Float64,Lh);
+	b=phi*y
+	l=\(U,\(L,b)); #inv(A)*phi*y
+	for h=1:(Lh-1)
+		gphi=gradphi[:,:,h]; #dphi/dh
+		temp=\(U,\(L,gphi));	#inv(A)*dphi/dh
+		B=phi'*temp; #phi'*inv(A)*dphi/dh
+		c=phi'*l-y; #(phi'*inv(A)*phi-I)y
+		grad[h]=trace(B)+sum(y.*(B*c))/signal_var
+	end
+	lambda=eigvals(A);
+	grad[Lh]=(N-n)/(2*signal_var)+sum(1./lambda)/2+(sum(l.*(phi*y))-sum(y.^2))/(2*signal_var^2)+sum(l.^2)/(2*signal_var)
+	return grad
+end
 
 
-@everywhere t=Iterators.product(1:10,1:10)
-@everywhere myt=Array(Any,100);
-@everywhere it=1;
-@everywhere for prod in t
-	myt[it]=prod;
-        it+=1;
+# learning hyperparams by optimising Gaussian marginal likelihood wrt positive hyperparams
+# hyperparams include signal_var, which should always be hyperparams[end]
+# nlogmarginal is the negative log marginal lkhd, a function with input argument hyperparams only
+# gradnlogmarginal is the gradient of nlogmarginal wrt hyperparams
+function GPNT_hyperparameters(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector)
+nlm(loghyperparams::Vector)=nlogmarginal(exp(loghyperparams)); # exp needed to enable unconstrained optimisation, since hyperparams must be positive
+g(loghyperparams::Vector)=gradnlogmarginal(exp(loghyperparams)).*exp(loghyperparams)
+    function g!(loghyperparams::Vector,storage::Vector)
+        grad=g(loghyperparams)
+        for i=1:length(loghyperparams)
+            storage[i]=grad[i]
         end
-@sync @parallel for  Tuple in myt
-i,j=Tuple;
-epsw=float(string(i,"e-6")); epsU=float(string(j,"e-9"));
-=#
-#for param_seed=1:5
-tic(); w_store,U_store=GPTregression(phitrain, ytrain, signal_var, I, r, Q, m, epsw, epsU, burnin, maxepoch,param_seed); toc();
-testRMSE=Array(Float64,maxepoch)
-finalpred=zeros(Ntest)
-numbatches=int(ceil(Ntrain/m))
-for epoch=1:maxepoch
-    testpred=pred(w_store[:,epoch*numbatches],U_store[:,:,:,epoch*numbatches],I,phitest)
-	if (maxepoch-epoch)<50
-		finalpred+=testpred
-	end
-    testRMSE[epoch]=norm(ytest-testpred)/sqrt(Ntest)
+    end
+    l=optimize(logmarginal,g!,log(init_hyperparams),method=:cg,show_trace = true, extended_trace = true)
+	return exp(l.minimum)
 end
-plot(testRMSE)
-finalpred/=50
-println("n=",n,";epsw=",epsw,";epsU=",epsU,";vanilla SGLD RMSE over last 50 epochs=",norm(ytest-finalpred)/sqrt(Ntest))
-#end
 
-#testpred=pred(w,U,I,phitest)
-#println(norm(ytest-testpred)/sqrt(Ntest))
+# extract random fourier features from tensor decomp of each row of X
+# set fixed seed using srand(seed) to use the same Z and b
+# fixedl=true if using same length_scale for all dimensions. o/w false.
+function RFFtensor(X::Array,n::Integer,hyperparams::Vector,phi_scale::Real,Z::Array=randn(n,size(X,2)),b::Array=2*pi*rand(n);fixedl=true)
+	N,D=size(X);
+	if fixedl
+		length_scale=hyperparams[1]; sigma_RBF=hyperparams[2];
+	else length_scale=hyperparams[1:D]; sigma_RBF=hyperparams[D+1];
+	end
+	phi=Array(Float64,n,D,N)
+	Zt=scale(Z,1./length_scale)
+	for i=1:N
+		for k=1:D
+			for j=1:n
+				phi[j,k,i]=cos(X[i,k]*Zt[j,k]+b[j,k])
+			end
+		end
+    end
+    return phi_scale*(sigma_RBF)^(1/D)*sqrt(2/n)*phi
+end
+
+# alternative Fourier feature embedding
+# set fixed seed using srand(seed) to use the same Z
+# n must be even
+function RFFtensor2(X::Array,n::Integer,hyperparams::Vector,phi_scale::Real,Z::Array=randn(int(n/2),D);fixedl=true)    
+	if n%2==1
+		error("n not even")
+	end
+	half_n=int(n/2);
+	N,D=size(X)
+	if fixedl
+		length_scale=hyperparams[1]; sigma_RBF=hyperparams[2];
+	else length_scale=hyperparams[1:D]; sigma_RBF=hyperparams[D+1];
+	end
+	phi=Array(Float64,n,D,N)
+	Zt=scale(Z,1./length_scale)
+	for i=1:N
+		for k=1:D
+			for j=1:half_n
+				phi[2*j-1,k,i]=sin(X[i,k]*Zt[j,k])
+				phi[2*j,k,i]=cos(X[i,k]*Zt[j,k])
+			end
+		end
+	end
+	return phi_scale*(sigma_RBF)^(1/D)*phi/sqrt(half_n)
+end
+
+# random fourier feature embedding for the no tensor model (full-theta)
+# set fixed seed using srand(seed) to use the same Z and b
+# fixedl=true if using same length_scale for all dimensions. o/w false.
+function RFF(X::Array,n::Integer,hyperparams::Vector,Z::Array=randn(n,size(X,2)),b::Array=2*pi*rand(n);fixedl=true)    
+    N,D=size(X);
+	if fixedl
+		length_scale=hyperparams[1]; sigma_RBF=hyperparams[2];
+	else length_scale=hyperparams[1:D]; sigma_RBF=hyperparams[D+1];
+	end
+    phi=Array(Float64,n,N)
+    Zt=scale(Z,1./length_scale)
+    for i=1:N
+		for j=1:n
+        	phi[j,i]=cos(sum(X[i,:].*Zt[j,:]) + b[j])
+		end
+    end
+    return sqrt(2/n)*sigma_RBF*phi
+end
+
+# alternative fourier feature embedding for the no tensor model (full-theta)
+# set fixed seed using srand(seed) to use the same Z
+# fixedl=true if using same length_scale for all dimensions. o/w false.
+function RFF2(X::Array,n::Integer,hyperparams::Vector,Z::Array=randn(int(n/2),D);fixedl=true) 
+	if n%2==1
+		error("n not even")
+	end
+	half_n=int(n/2);
+	N,D=size(X)
+	if fixedl
+		length_scale=hyperparams[1]; sigma_RBF=hyperparams[2];
+	else length_scale=hyperparams[1:D]; sigma_RBF=hyperparams[D+1];
+	end
+	phi=Array(Float64,n,N)
+	Zt=scale(Z,1./length_scale)
+	for i=1:N
+	    for j=1:half_n
+	        temp=sum(X[i,:].*Zt[j,:])
+	        phi[2*j-1,i]=sin(temp)
+	        phi[2*j,i]=cos(temp)
+	    end                    
+	end
+	return sigma_RBF*phi/sqrt(half_n)
+end
+
+# function to give grad of RFF wrt length_scale and sigma_RBF
+# set fixed seed using srand(seed) to use the same Z and b
+# returns an n by N by Lh array where Lh=length(hyperparams), where [:,:,h] is the gradient of RFF wrt hyperparameter h
+function gradRFF(X::Array,n::Integer,hyperparams::Vector,Z::Array=randn(n,size(X,2)),b::Array=2*pi*rand(n);fixedl=true)
+    N,D=size(X);
+	features=Array(Float64,n,N)
+	if fixedl
+		length_scale=hyperparams[1]; sigma_RBF=hyperparams[2];
+		Zt=scale(Z,1./length_scale)
+		for i=1:N
+			for j=1:n
+			   	features[j,i]=sum(X[i,:].*Zt[j,:]) + b[j]
+			end
+		end
+		phisin=sqrt(2/n)*sigma_RBF*sin(features);
+		return cat(3,phisin.*(Zt*X')/length_scale,sqrt(2/n)*cos(features))		
+	else length_scale=hyperparams[1:D]; sigma_RBF=hyperparams[D+1];
+		gradl=Array(Float64,n,N,D)
+		Zt=scale(Z,1./length_scale)
+		for i=1:N
+			for j=1:n
+			   	features[j,i]=sum(X[i,:].*Zt[j,:]) + b[j]
+			end
+		end
+		phisin=sqrt(2/n)*sigma_RBF*sin(features);
+		for k=1:D
+		    gradl[:,:,k]=phisin.*(Zt[:,k]*X[:,k]')/length_scale[k]
+		end
+		return cat(3,gradl,sqrt(2/n)*cos(features))
+	end
+end
+
+function RFFtest(X::Array,n::Integer,hyperparams::Vector,Z,b) 
+    N,D=size(X);
+	length_scale=hyperparams[1]; sigma_RBF=hyperparams[2];
+    phi=Array(Float64,n,N)
+    Zt=scale(Z,1./length_scale)
+    for i=1:N
+		for j=1:n
+        	phi[j,i]=cos(sum(X[i,:].*Zt[j,:]) + b[j])
+		end
+    end
+    return sqrt(2/n)*sigma_RBF*phi
+end
+

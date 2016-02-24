@@ -2,7 +2,7 @@ module GPT_SGLD
 
 using Distributions,Optim,ForwardDiff
 
-export datawhitening,feature, feature2, featureNotensor, gradfeatureNotensor,GPNT_SGLD,logsumexp,GPNT_SGLDclass,GPNT_logmarginal,GPNT_hyperparameters, GPNT_hyperparameters_ng,samplenz,proj, geod, pred, createmesh,fhatdraw,GPTregression,GPTclassification, GPT_SGLDERM_RMSprop, GPT_GMC,GPT_SGLDERMw
+export datawhitening,feature, feature2, featureNotensor,featureNotensor2, gradfeatureNotensor,GPNT_SGLD,logsumexp,GPNT_SGLDclass,GPNT_nlogmarginal,GPNT_gradnlogmarginal,GPNT_hyperparameters, GPNT_hyperparameters_ng,samplenz,proj, geod, pred, createmesh,fhatdraw,GPTregression,GPTclassification, GPT_SGLDERM_RMSprop, GPT_GMC,GPT_SGLDERMw
 
 # computes log(sum(exp(x))) in a robust manner
 function logsumexp(x::Array)
@@ -86,7 +86,10 @@ end
 # alternative Fourier feature embedding
 # use Z=randn(half_n,D) as input
 function feature2(X::Array,length_scale,sigma_RBF::Real,phi_scale::Real,Z::Array)    
-	half_n=size(Z,1);
+	if size(Z,1)%2==1
+		error("n not even")
+	end	
+	half_n=int(size(Z,1)/2);
 	N,D=size(X)
 	phi=Array(Float64,2*half_n,D,N)
 	Zt=scale(Z,1./length_scale)
@@ -119,9 +122,12 @@ end
 # alternative fourier feature embedding for the no tensor model (full-theta)
 # use Z=randn(half_n,D) as input
 function featureNotensor2(X::Array,length_scale,sigma_RBF::Real,Z::Array) 
-	half_n=size(Z,1)
+	if size(Z,1)%2==1
+		error("n not even")
+	end	
+	half_n=int(size(Z,1)/2);
 	N,D=size(X)
-	phi=Array(Float64,n,N)
+	phi=Array(Float64,half_n*2,N)
 	Zt=scale(Z,1./length_scale)
 	for i=1:N
 	    for j=1:half_n
@@ -147,7 +153,7 @@ function gradfeatureNotensor(X::Array,length_scale::Real,sigma_RBF::Real,Z::Arra
 		end
     end
     phisin=sqrt(2/n)*sigma_RBF*sin(features);
-    return phisin.*(Zt*X')/length_scale,sqrt(2/n)*cos(features)
+    return cat(3,phisin.*(Zt*X')/length_scale,sqrt(2/n)*cos(features))
 end
 
 # function to give grad of phi wrt length_scale and sigma_RBF where length_scale varies across dims
@@ -170,7 +176,7 @@ function gradfeatureNotensor(X::Array,length_scale::Vector,sigma_RBF::Real,Z::Ar
     for k=1:D
         gradl[:,:,k]=phisin.*(Zt[:,k]*X[:,k]')/length_scale[k]
     end
-    return gradl,sqrt(2/n)*cos(features)
+    return cat(3,gradl,sqrt(2/n)*cos(features))
 end
 
 # sample the Q random non-zero locations of w
@@ -420,7 +426,7 @@ function GPTregression(phi::Array, y::Array, signal_var::Real, I::Array, r::Inte
 				            return zeros(Q,maxepoch*numbatches),zeros(n,r,D,maxepoch*numbatches)
 				        end
 				    end
-				else U+=epsw_gradU/2+sqrt(epsU)*randn(n,r,D)
+				else U+=epsU*(gradU-n*U)/2+sqrt(epsU)*randn(n,r,D)
 				end
 			else
 				if stiefel
@@ -431,7 +437,7 @@ function GPTregression(phi::Array, y::Array, signal_var::Real, I::Array, r::Inte
 				            return zeros(Q,maxepoch*numbatches),zeros(n,r,D,maxepoch*numbatches)
 				        end
 				    end
-				else U+=epsw_gradU/2
+				else U+=epsU*(gradU-n*U)/2
 				end
 			end
 
@@ -650,7 +656,7 @@ function GPTclassification(phi::Array, y::Array, I::Array, r::Integer, Q::Intege
 						    end
 						end
 				    end
-				else U+=epsw_gradU/2+sqrt(epsU)*randn(n,r,D,C)
+				else U+=epsU*(gradU-n*U)/2+sqrt(epsU)*randn(n,r,D,C)
 				end
 			else
 				if stiefel
@@ -663,7 +669,7 @@ function GPTclassification(phi::Array, y::Array, I::Array, r::Integer, Q::Intege
 						    end
 						end
 				    end
-				else U+=epsw_gradU/2
+				else U+=epsU*(gradU-n*U)/2
 				end
 			end
 
@@ -897,49 +903,68 @@ function GPNT_SGLDclass(phi::Array, y::Array, sigma_theta::Real, m::Integer, eps
     return theta_store
 end
 
-# function to return the negative log marginal likelihood of No Tensor model with Gaussian likelihood
-# use the Z and b that was used to compute features
-function GPNT_logmarginal(X::Array,y::Array,length_scale,sigma_RBF::Real,signal_var::Real,Z::Array, b::Array)
-    N,D=size(X);
-	n=size(Z,1);
-    phi=featureNotensor(X,length_scale,sigma_RBF,Z,b);
+# function to return the negative log marginal likelihood of No Tensor model with Gaussian observations
+# hyperparams include signal_var, which should always be hyperparams[end]
+# randfeature is the function with arg hyperparams generating random features for the No Tensor model. It should ignore signal_var=hyperparams[end]
+# random_numbers are the random numbers used to generate features in randfeature. This can be an array or a Tuple
+function GPNT_nlogmarginal(y::Array,n::Integer,hyperparams::Vector,randfeature::Function)
+	N=length(y);
+    phi=randfeature(hyperparams);
+	signal_var=hyperparams[end];
     A=phi*phi'+signal_var*eye(n);
+	Chol=cholfact(A);L=Chol[:L]; U=Chol[:U] # L*U=A
     b=phi*y;
-	B=\(A,b);
+	#l=\(A,b);
+	l=\(U,\(L,b)); #inv(A)*phi*y
+	#logdetA=sum(log(eigvals(A)))	
+	logdetA=2*sum(log(diag(L)));
+    return (N-n)*log(signal_var)/2+logdetA/2+(sum(y.*y)-sum(b.*l))/(2*signal_var)+N*log(2*pi)/2
+end
+
+# function to return the gradient of negative log marginal likelihood of No Tensor model with Gaussian observations
+# hyperparams include signal_var, which should always be hyperparams[end]
+# gradfeature is a function with args hyperparams giving the gradient of random features for the No Tensor model wrt hyperparams. It should ignore signal_var=hyperparams[end], and give an n by N by Lh array where Lh=length(hyperparams)
+# function should return a vector of length Lh
+function GPNT_gradnlogmarginal(y::Array,n::Integer,hyperparams::Vector,randfeature::Function,gradfeature::Function)
+	N=length(y);
+	phi=randfeature(hyperparams);
+	signal_var=hyperparams[end];
+	A=phi*phi'+signal_var*eye(n);
+	Chol=cholfact(A); L=Chol[:L]; U=Chol[:U] # L*U=A
+	gradphi=gradfeature(hyperparams);
+	Lh=length(hyperparams);
+	signal_var=hyperparams[Lh];
+	grad=Array(Float64,Lh);
+	b=phi*y
+	#l=\(A,b);
+	l=\(U,\(L,b)); #inv(A)*phi*y
+	for h=1:(Lh-1)
+		gphi=gradphi[:,:,h]; #dphi/dh
+		#temp=\(A,gphi);		
+		temp=\(U,\(L,gphi));	#inv(A)*dphi/dh
+		B=phi'*temp; #phi'*inv(A)*dphi/dh
+		c=phi'*l-y; #(phi'*inv(A)*phi-I)y
+		grad[h]=trace(B)+sum(y.*(B*c))/signal_var
+	end
 	lambda=eigvals(A);
-	logdetA=sum(log(lambda));
-    return (N-n)*log(signal_var)/2+logdetA/2+(sum(y.*y)-sum(b.*B))/(2*signal_var)
+	grad[Lh]=(N-n)/(2*signal_var)+sum(1./lambda)/2+(sum(l.*(phi*y))-sum(y.^2))/(2*signal_var^2)+sum(l.^2)/(2*signal_var)
+	return grad
 end
 
-# learning hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising Gaussian marginal likelihood for fixed length_scale
-function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Real,init_sigma_RBF::Real,init_signal_var::Real,Z::Array, b::Array)
-	D=size(X,2);
-    logmarginal(hyperparams::Vector)=GPNT_logmarginal(X,y,n,exp(hyperparams[1]),exp(hyperparams[2]),exp(hyperparams[3]),Z,b); # log marginal likelihood as a fn of hyperparams=log([length_scale,sigma_RBF,signal_var]) only.
-    # exp needed to enable unconstrained optimisation, since length_scale,sigmaRBF,signal_var must be positive
-    g=ForwardDiff.gradient(logmarginal)
-    function g!(hyperparams::Vector,storage::Vector)
-        grad=g(hyperparams)
-        for i=1:length(hyperparams)
+# learning hyperparams by optimising Gaussian marginal likelihood wrt positive hyperparams
+# hyperparams include signal_var, which should always be hyperparams[end]
+# nlogmarginal is the negative log marginal lkhd, a function with input argument hyperparams only
+# gradnlogmarginal is the gradient of nlogmarginal wrt hyperparams
+function GPNT_hyperparameters(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector)
+nlm(loghyperparams::Vector)=nlogmarginal(exp(loghyperparams)); # exp needed to enable unconstrained optimisation, since hyperparams must be positive
+gnlm(loghyperparams::Vector)=gradnlogmarginal(exp(loghyperparams)).*exp(loghyperparams)
+    function g!(loghyperparams::Vector,storage::Vector)
+        grad=gnlm(loghyperparams)
+        for i=1:length(loghyperparams)
             storage[i]=grad[i]
         end
     end
-    l=optimize(logmarginal,g!,log([init_length_scale,init_sigma_RBF,init_signal_var]),method=:cg,show_trace = true, extended_trace = true)
-	return exp(l.minimum)
-end
-
-#learning hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising Gaussian marginal likelihood for varying length_scale
-function GPNT_hyperparameters(X::Array,y::Array,n::Integer,init_length_scale::Vector,init_sigma_RBF::Real,init_signal_var::Real,Z::Array, b::Array)
-	D=size(X,2);
-    logmarginal(hyperparams::Vector)=GPNT_logmarginal(X,y,n,exp(hyperparams[1:D]),exp(hyperparams[D+1]),exp(hyperparams[D+2]),Z::Array, b::Array); # log marginal likelihood as a fn of hyperparams=log([length_scale,sigma_RBF,signal_var]) only.
-    # exp needed to enable unconstrained optimisation, since length_scale,sigmaRBF,signal_var must be positive
-    g=ForwardDiff.gradient(logmarginal)
-    function g!(hyperparams::Vector,storage::Vector)
-        grad=g(hyperparams)
-        for i=1:length(hyperparams)
-            storage[i]=grad[i]
-        end
-    end
-    l=optimize(logmarginal,g!,log([init_length_scale,init_sigma_RBF,init_signal_var]),method=:cg,show_trace = true, extended_trace = true)
+    l=optimize(nlm,g!,log(init_hyperparams),method=:gradient_descent,show_trace = true, extended_trace = true)
 	return exp(l.minimum)
 end
 

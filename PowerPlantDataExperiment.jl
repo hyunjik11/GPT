@@ -38,24 +38,40 @@
 @everywhere Q=200;
 @everywhere m=50;
 @everywhere r=20;
-@everywhere n=32000;
+@everywhere n=100;
 @everywhere Z=randn(n,D);
 @everywhere b=2*pi*rand(n,D);
 @everywhere I=samplenz(r,D,Q);
 @everywhere phi_scale=sqrt(n/(Q^(1/D)));
-@everywhere phitrain=feature(Xtrain,length_scale,sigma_RBF,phi_scale,Z,b);
-@everywhere phitest=feature(Xtest,length_scale,sigma_RBF,phi_scale,Z,b);
+@everywhere phitrain=featureNotensor(Xtrain,length_scale,sigma_RBF,Z,b);
+@everywhere phitest=featureNotensor(Xtest,length_scale,sigma_RBF,Z,b);
 @everywhere epsw=1e-4; 
 @everywhere epsU=1e-7;
-@everywhere epsilon=1e-8;
+@everywhere epsilon=1e-4;
 @everywhere alpha=0.99;
 @everywhere L=30;
 @everywhere param_seed=234;
 #tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L,param_seed);toc()
+function test(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector,epsilon::Real)
+nlm(loghyperparams::Vector)=nlogmarginal(exp(loghyperparams)); # exp needed to enable unconstrained optimisation, since hyperparams must be positive
+gnlm(loghyperparams::Vector)=gradnlogmarginal(exp(loghyperparams)).*exp(loghyperparams)
+loghyperparams=log(init_hyperparams)
+for i=1:100
+	println("nlogmarginal=",nlm(loghyperparams)," hyperparams=",exp(loghyperparams))
+	loghyperparams-=epsilon*gnlm(loghyperparams)	
+end
+return exp(loghyperparams)
+end
 
+randfeature(hyperparams::Vector)=featureNotensor(Xtrain,hyperparams[1],hyperparams[2],Z,b)
+gradfeature(hyperparams::Vector)=gradfeatureNotensor(Xtrain,hyperparams[1],hyperparams[2],Z,b)
+nlogmarginal(hyperparams::Vector)=GPNT_nlogmarginal(ytrain,n,hyperparams,randfeature)
+gradnlogmarginal(hyperparams::Vector)=GPNT_gradnlogmarginal(ytrain,n,hyperparams,randfeature,gradfeature)
+test(nlogmarginal,gradnlogmarginal,1+0.2*randn(3),epsilon)
+#=
 nll=GPNT_logmarginal(Xtrain,ytrain,length_scale,sigma_RBF,signal_var,Z,b)
 println("nll=",nll," Z[1,1]=",Z[1,1])
-#=
+
 cov=CovSEiso(length_scale,sigma_RBF);
 lik=LikGauss(signal_var);
 gp=GPmodel(InfExact(), cov, lik, MeanZero(), Xtrain, ytrain);
