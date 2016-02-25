@@ -52,6 +52,7 @@
 @everywhere L=30;
 @everywhere param_seed=234;
 #tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L,param_seed);toc()
+#=
 function test(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector,epsilon::Real)
 nlm(loghyperparams::Vector)=nlogmarginal(exp(loghyperparams)); # exp needed to enable unconstrained optimisation, since hyperparams must be positive
 gnlm(loghyperparams::Vector)=gradnlogmarginal(exp(loghyperparams)).*exp(loghyperparams)
@@ -62,12 +63,18 @@ for i=1:100
 end
 return exp(loghyperparams)
 end
-
+=#
 randfeature(hyperparams::Vector)=featureNotensor(Xtrain,hyperparams[1],hyperparams[2],Z,b)
 gradfeature(hyperparams::Vector)=gradfeatureNotensor(Xtrain,hyperparams[1],hyperparams[2],Z,b)
 nlogmarginal(hyperparams::Vector)=GPNT_nlogmarginal(ytrain,n,hyperparams,randfeature)
 gradnlogmarginal(hyperparams::Vector)=GPNT_gradnlogmarginal(ytrain,n,hyperparams,randfeature,gradfeature)
-test(nlogmarginal,gradnlogmarginal,1+0.2*randn(3),epsilon)
+#test(nlogmarginal,gradnlogmarginal,1+0.2*randn(3),epsilon)
+
+Lh=3 #number of hyperparams
+lbounds=[0.,0.,0.001] #lower bound on hyperparams
+GPNT_hyperparameters(nlogmarginal,gradnlogmarginal,1+0.2*randn(Lh))
+
+
 #=
 nll=GPNT_logmarginal(Xtrain,ytrain,length_scale,sigma_RBF,signal_var,Z,b)
 println("nll=",nll," Z[1,1]=",Z[1,1])

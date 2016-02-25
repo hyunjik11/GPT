@@ -10,6 +10,45 @@ for i=1:10
 end
 =#
 
+# UserHashmap is an M by Nu array with M distinct hash values in 1:n for each col: sample(1:n,M,replace=false) Similar for MovieHashmap
+# UserBHashmap is an M by Nu array of +/-1: 2*rand(Bernoulli(),M,Nu)-1 Similar for MovieBHashmap.
+function CFfeature(UserData::Array,MovieData::Array,UserHashmap::Array,MovieHashmap::Array, UserBHashmap::Array,MovieBHashmap::Array,n::Integer,a::Real,b1::Real,b2::Real)
+	Nu,Du=size(UserData); Nm,Dm=size(MovieData); # number of users/movies and features
+	phiUser=zeros(n+Du,Nu);
+	phiMovie=zeros(n+Dm,Nm);
+	for user=1:Nu
+		for j=1:M
+			phiUser[UserHashmap[j,user],user]=UserBHashmap[j,user];
+		end
+	end
+	phiUser[1:n,:]*=a			
+	phiUser[n+1:n+Du,:]=b1*UserData'
+	for movie=1:Nm
+		for j=1:M
+			phiMovie[MovieHashmap[j,movie],movie]=MovieBHashmap[j,movie];
+		end
+	end
+	phiMovie[n+1:n+Dm,:]=b2*UserData'
+	return phiUser,phiMovie
+end
+
+# to get the feature for user u,movie m, take the kronecker product kron(phiUser[:,u],phiMovie[:,m])
+function CFfeatureNotensor(Rating::Array,UserData::Array,MovieData::Array,Rating::Array,UserHashmap::Array,MovieHashmap::Array, UserBHashmap::Array,MovieBHashmap::Array,n::Integer,a::Real,b1::Real,b2::Real)
+	N=size(Rating,1);
+	Nu,Du=size(UserData); Nm,Dm=size(MovieData);
+	phiUser,phiMovie=CFfeature(UserData,MovieData,UserHashmap,MovieHashmap,UserBHashmap,MovieBHashmap, n,a,b1,b2);
+	phi=Array(Float64,(n+Du)*(n+Dm),N);
+	for i=1:N
+		phi[:,i]=kron(phiUser[:,Rating[i,1]],phiMovie[:,Rating[i,2]])
+	end
+	return phi
+end
+		
+		
+		
+
+
+
 # function to return the negative log marginal likelihood of No Tensor model with Gaussian observations
 # hyperparams include signal_var, which should always be hyperparams[end]
 # randfeature is the function with arg hyperparams generating random features for the No Tensor model. It should ignore signal_var=hyperparams[end]

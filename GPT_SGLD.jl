@@ -1,6 +1,6 @@
 module GPT_SGLD
 
-using Distributions,Optim,ForwardDiff
+using Distributions,NLopt
 
 export datawhitening,feature, feature2, featureNotensor,featureNotensor2, gradfeatureNotensor,GPNT_SGLD,logsumexp,GPNT_SGLDclass,GPNT_nlogmarginal,GPNT_gradnlogmarginal,GPNT_hyperparameters, GPNT_hyperparameters_ng,samplenz,proj, geod, pred, createmesh,fhatdraw,GPTregression,GPTclassification, GPT_SGLDERM_RMSprop, GPT_GMC,GPT_SGLDERMw
 
@@ -955,17 +955,28 @@ end
 # hyperparams include signal_var, which should always be hyperparams[end]
 # nlogmarginal is the negative log marginal lkhd, a function with input argument hyperparams only
 # gradnlogmarginal is the gradient of nlogmarginal wrt hyperparams
-function GPNT_hyperparameters(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector)
-nlm(loghyperparams::Vector)=nlogmarginal(exp(loghyperparams)); # exp needed to enable unconstrained optimisation, since hyperparams must be positive
-gnlm(loghyperparams::Vector)=gradnlogmarginal(exp(loghyperparams)).*exp(loghyperparams)
-    function g!(loghyperparams::Vector,storage::Vector)
-        grad=gnlm(loghyperparams)
-        for i=1:length(loghyperparams)
-            storage[i]=grad[i]
-        end
-    end
-    l=optimize(nlm,g!,log(init_hyperparams),method=:gradient_descent,show_trace = true, extended_trace = true)
-	return exp(l.minimum)
+# lbounds are the lower bounds for the hyperparams. For signal_var, should have a small positive value (eg. 0.001) to prevent PosDefException
+# xtol is the relative tolerance on hyperparams
+# alg is the optimization algorithm e.g. :LD_MMA,:LD_SLSQP,:LD_LBFGS etc.
+function GPNT_hyperparameters(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector,lbounds::Vector;xtol::Real=1e-3,alg::Symbol=:LD_MMA)
+	count=0;
+	Lh=length(init_hyperparams)
+	opt=Opt(:LD_MMA,Lh);
+	function myfn(hyperparams::Vector,grad::Vector)
+		if length(grad)>0
+			grad[:]=gradnlogmarginal(hyperparams)
+		end
+	
+		global count
+		count::Int +=1
+		nlm=nlogmarginal(hyperparams);
+		println("f_$count : nlogmarginal=$nlm hyperparams=$hyperparams")
+		return nlm
+	end
+	lower_bounds!(opt,lbounds);
+	xtol_rel!(opt,xtol);
+	min_objective!(opt,myfn);
+	(minf,minx,ret)=optimize(opt,init_hyperparams);
 end
 
 # function to learn hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising non-Gaussian marginal likelihood using the stochastic EM algorithm for fixed length_scale
