@@ -45,9 +45,9 @@ end
 end
 
 ##data clearing
-@everywhere UserData = readdlm("/homes/hkim/GPT/ml-100k/u.user", '|');
-@everywhere MovieData = readdlm("/homes/hkim/GPT/ml-100k/u.item",'|');
-@everywhere Rating = readdlm("/homes/hkim/GPT/ml-100k/u.data",Float64);
+@everywhere UserData = readdlm("ml-100k/u.user", '|');
+@everywhere MovieData = readdlm("ml-100k/u.item",'|');
+@everywhere Rating = readdlm("ml-100k/u.data",Float64);
 
 @everywhere Ntrain = 80000;
 @everywhere Ntest = 20000;
@@ -96,8 +96,8 @@ a=1;b1=1;b2=1;
 # UserBHashmap is an M by Nu array of +/-1: 2*rand(Bernoulli(),M,Nu)-1 Similar for MovieBHashmap.
 function CFfeature(UserData::Array,MovieData::Array,UserHashmap::Array,MovieHashmap::Array, UserBHashmap::Array,MovieBHashmap::Array,n::Integer,a::Real,b1::Real,b2::Real)
 	Nu,Du=size(UserData); Nm,Dm=size(MovieData); # number of users/movies and features
-	phiUser=zeros(n+Du,Nu);
-	phiMovie=zeros(n+Dm,Nm);
+	phiUser=spzeros(n+Du,Nu);
+	phiMovie=spzeros(n+Dm,Nm);
 	for user=1:Nu
 		for j=1:M
 			phiUser[UserHashmap[j,user],user]=UserBHashmap[j,user];
@@ -111,23 +111,46 @@ function CFfeature(UserData::Array,MovieData::Array,UserHashmap::Array,MovieHash
 		end
 	end
 	phiMovie[1:n,:]*=1/M		
-	phiMovie[n+1:n+Dm,:]=b2*UserData'
+	phiMovie[n+1:n+Dm,:]=b2*MovieData'
 	return phiUser,phiMovie
 end
 
 # to get the feature for user u,movie m, take the kronecker product kron(phiUser[:,u],phiMovie[:,m])
-function CFfeatureNotensor(Rating::Array,UserData::Array,MovieData::Array,Rating::Array,UserHashmap::Array,MovieHashmap::Array, UserBHashmap::Array,MovieBHashmap::Array,n::Integer,a::Real,b1::Real,b2::Real)
-	N=size(Rating,1);
+function CFfeatureNotensor(myRating::Array,UserData::Array,MovieData::Array,UserHashmap::Array,MovieHashmap::Array, UserBHashmap::Array,MovieBHashmap::Array,n::Integer,a::Real,b1::Real,b2::Real)
+    Rating=int(myRating[:,1:2]);
+        N=size(Rating,1);
 	Nu,Du=size(UserData); Nm,Dm=size(MovieData);
 	phiUser,phiMovie=CFfeature(UserData,MovieData,UserHashmap,MovieHashmap,UserBHashmap,MovieBHashmap, n,a,b1,b2);
-	phi=Array(Float64,(n+Du)*(n+Dm),N);
+	phi=zeros((n+Du)*(n+Dm),N);
 	for i=1:N
 		phi[:,i]=kron(phiUser[:,Rating[i,1]],phiMovie[:,Rating[i,2]])
 	end
 	return phi
 end
-#=
-Z1=CFfeature(UserData,MovieData,UserHashmap,MovieHashmap, UserBHashmap,MovieBHashmap,n,a,b1,b2);
-Z2=CFfeatureNotensor(Ratingtrain,UserData,MovieData,UserHashmap,MovieHashmap, UserBHashmap,MovieBHashmap,n,a,b1,b2);
-=#
+
+function CFgradfeatureNotensor(myRating::Array,UserData::Array,MovieData::Array,UserHashmap::Array,MovieHashmap::Array, UserBHashmap::Array,MovieBHashmap::Array,n::Integer,a::Real,b1::Real,b2::Real)
+    Rating=int(myRating[:,1:2]);
+    N=size(Rating,1);
+    Nu,Du=size(UserData); Nm,Dm=size(MovieData);
+    Rating
+    phiUser,phiMovie=CFfeature(UserData,MovieData,UserHashmap,MovieHashmap,UserBHashmap,MovieBHashmap, n,a,b1,b2);
+    tempa=zeros(n+Du,Nu);tempa[1:n,:]=phiUser[1:n,:]/a;
+    tempb1=zeros(n+Du,Nu);tempb1[n+1:n+Du,:]=phiUser[n+1:n+Du,:]/b1;
+    tempb2=zeros(n+Dm,Nm);tempb2[n+1:n+Dm,:]=phiMovie[n+1:n+Dm,:]/b2;
+
+    gradphia=zeros((n+Du)*(n+Dm),N);
+    gradphib1=zeros((n+Du)*(n+Dm),N);
+    gradphib2=zeros((n+Du)*(n+Dm),N);
+    for i=1:N
+        gradphia[:,i]=kron(tempa[:,Rating[i,1]],phiMovie[:,Rating[i,2]])
+        gradphib1[:,i]=kron(tempb1[:,Rating[i,1]],phiMovie[:,Rating[i,2]])
+        gradphib2[:,i]=kron(phiUser[:,Rating[i,1]],tempb2[:,Rating[i,2]])
+    end
+    return cat(3,gradphia,gradphib1,gradphib2)
+end
+
+@time Z1=CFfeature(UserData,MovieData,UserHashmap,MovieHashmap, UserBHashmap,MovieBHashmap,n,a,b1,b2);
+@time Z2=CFfeatureNotensor(Ratingtrain,UserData,MovieData,UserHashmap,MovieHashmap, UserBHashmap,MovieBHashmap,n,a,b1,b2);
+@time Z3=CFgradfeatureNotensor(Ratingtrain,UserData,MovieData,UserHashmap,MovieHashmap, UserBHashmap,MovieBHashmap,n,a,b1,b2);
+
 
