@@ -2,7 +2,7 @@ module GPT_SGLD
 
 using Distributions,NLopt
 
-export datawhitening,feature, feature2, featureNotensor,featureNotensor2, gradfeatureNotensor,GPNT_SGLD,logsumexp,GPNT_SGLDclass,GPNT_nlogmarginal,GPNT_gradnlogmarginal,GPNT_hyperparameters, GPNT_hyperparameters_ng,samplenz,proj, geod, pred, createmesh,fhatdraw,GPTregression,GPTclassification, GPT_SGLDERM_RMSprop, GPT_GMC,GPT_SGLDERMw
+export datawhitening,feature, feature2, featureNotensor,featureNotensor2, gradfeatureNotensor,GPNT_SGLD,logsumexp,GPNT_SGLDclass,GPNT_nlogmarginal,GPNT_gradnlogmarginal,GPNT_hyperparameters, GPNT_hyperparameters_ng,samplenz,proj, geod, pred, createmesh,fhatdraw,GPTregression,GPTclassification, GPT_SGLDERM_RMSprop, GPT_GMC,GPT_SGLDERMw,CFfeature,CFfeatureNotensor,CFgradfeatureNotensor
 
 # computes log(sum(exp(x))) in a robust manner
 function logsumexp(x::Array)
@@ -914,9 +914,7 @@ function GPNT_nlogmarginal(y::Array,n::Integer,hyperparams::Vector,randfeature::
     A=phi*phi'+signal_var*eye(n);
 	Chol=cholfact(A);L=Chol[:L]; U=Chol[:U] # L*U=A
     b=phi*y;
-	#l=\(A,b);
 	l=\(U,\(L,b)); #inv(A)*phi*y
-	#logdetA=sum(log(eigvals(A)))	
 	logdetA=2*sum(log(diag(L)));
     return (N-n)*log(signal_var)/2+logdetA/2+(sum(y.*y)-sum(b.*l))/(2*signal_var)+N*log(2*pi)/2
 end
@@ -936,18 +934,17 @@ function GPNT_gradnlogmarginal(y::Array,n::Integer,hyperparams::Vector,randfeatu
 	signal_var=hyperparams[Lh];
 	grad=Array(Float64,Lh);
 	b=phi*y
-	#l=\(A,b);
 	l=\(U,\(L,b)); #inv(A)*phi*y
 	for h=1:(Lh-1)
-		gphi=gradphi[:,:,h]; #dphi/dh
-		#temp=\(A,gphi);		
-		temp=\(U,\(L,gphi));	#inv(A)*dphi/dh
-		B=phi'*temp; #phi'*inv(A)*dphi/dh
-		c=phi'*l-y; #(phi'*inv(A)*phi-I)y
-		grad[h]=trace(B)+sum(y.*(B*c))/signal_var
+		gphi=gradphi[:,:,h]; #dphi/dh	
+		B=gphi*phi'; #dphi/dh*phi'
+		C=\(U,\(L,B)); #inv(A)*dphi/dh*phi'
+		d=B*l-gphi*y; #dphi/dh*(phi'*inv(A)*phi-I)y
+		tmp=\(U,\(L,d)); #inv(A)*dphi/dh*(phi'*inv(A)*phi-I)y
+		grad[h]=trace(C)+sum(b.*tmp)/signal_var
 	end
 	lambda=eigvals(A);
-	grad[Lh]=(N-n)/(2*signal_var)+sum(1./lambda)/2+(sum(l.*(phi*y))-sum(y.^2))/(2*signal_var^2)+sum(l.^2)/(2*signal_var)
+	grad[Lh]=(N-n)/(2*signal_var)+sum(1./lambda)/2+(sum(l.*b)-sum(y.^2))/(2*signal_var^2)+sum(l.^2)/(2*signal_var)
 	return grad
 end
 
@@ -959,18 +956,15 @@ end
 # xtol is the relative tolerance on hyperparams
 # alg is the optimization algorithm e.g. :LD_MMA,:LD_SLSQP,:LD_LBFGS etc.
 function GPNT_hyperparameters(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector,lbounds::Vector;xtol::Real=1e-3,alg::Symbol=:LD_MMA)
-	count=0;
 	Lh=length(init_hyperparams)
 	opt=Opt(:LD_MMA,Lh);
 	function myfn(hyperparams::Vector,grad::Vector)
 		if length(grad)>0
 			grad[:]=gradnlogmarginal(hyperparams)
 		end
-	
-		global count
-		count::Int +=1
+
 		nlm=nlogmarginal(hyperparams);
-		println("f_$count : nlogmarginal=$nlm hyperparams=$hyperparams")
+		println("nlogmarginal=$nlm hyperparams=$hyperparams")
 		return nlm
 	end
 	lower_bounds!(opt,lbounds);
@@ -1212,6 +1206,64 @@ function GPT_SGLDERM_RMSprop(phi::Array, y::Array, signal_var::Real, I::Array, r
         end
     end
     return w_store,U_store
+end
+
+# UserHashmap is an M by Nu array with M distinct hash values in 1:n for each col: sample(1:n,M,replace=false) Similar for MovieHashmap
+# UserBHashmap is an M by Nu array of +/-1: 2*rand(Bernoulli(),M,Nu)-1 Similar for MovieBHashmap.
+function CFfeature(UserData::Array,MovieData::Array,UserHashmap::Array,MovieHashmap::Array, UserBHashmap::Array,MovieBHashmap::Array,n::Integer,a::Real,b1::Real,b2::Real)
+	Nu,Du=size(UserData); Nm,Dm=size(MovieData); # number of users/movies and features
+	M=size(UserHashmap,1);
+	phiUser=zeros(n+Du,Nu);
+	phiMovie=zeros(n+Dm,Nm);
+	for user=1:Nu
+		for j=1:M
+			phiUser[UserHashmap[j,user],user]=UserBHashmap[j,user];
+		end
+	end
+	phiUser[1:n,:]*=a/M			
+	phiUser[n+1:n+Du,:]=b1*UserData'
+	for movie=1:Nm
+		for j=1:M
+			phiMovie[MovieHashmap[j,movie],movie]=MovieBHashmap[j,movie];
+		end
+	end
+	phiMovie[1:n,:]*=1/M		
+	phiMovie[n+1:n+Dm,:]=b2*MovieData'
+	return phiUser,phiMovie
+end
+
+# to get the feature for user u,movie m, take the kronecker product kron(phiUser[:,u],phiMovie[:,m])
+function CFfeatureNotensor(myRating::Array,UserData::Array,MovieData::Array,UserHashmap::Array,MovieHashmap::Array, UserBHashmap::Array,MovieBHashmap::Array,n::Integer,a::Real,b1::Real,b2::Real)
+    Rating=int(myRating[:,1:2]);
+        N=size(Rating,1);
+	Nu,Du=size(UserData); Nm,Dm=size(MovieData);
+	phiUser,phiMovie=CFfeature(UserData,MovieData,UserHashmap,MovieHashmap,UserBHashmap,MovieBHashmap, n,a,b1,b2);
+	phi=zeros((n+Du)*(n+Dm),N);
+	for i=1:N
+		phi[:,i]=kron(phiUser[:,Rating[i,1]],phiMovie[:,Rating[i,2]])
+	end
+	return phi
+end
+
+function CFgradfeatureNotensor(myRating::Array,UserData::Array,MovieData::Array,UserHashmap::Array,MovieHashmap::Array, UserBHashmap::Array,MovieBHashmap::Array,n::Integer,a::Real,b1::Real,b2::Real)
+    Rating=int(myRating[:,1:2]);
+    N=size(Rating,1);
+    Nu,Du=size(UserData); Nm,Dm=size(MovieData);
+    Rating
+    phiUser,phiMovie=CFfeature(UserData,MovieData,UserHashmap,MovieHashmap,UserBHashmap,MovieBHashmap, n,a,b1,b2);
+    tempa=zeros(n+Du,Nu);tempa[1:n,:]=phiUser[1:n,:]/a;
+    tempb1=zeros(n+Du,Nu);tempb1[n+1:n+Du,:]=phiUser[n+1:n+Du,:]/b1;
+    tempb2=zeros(n+Dm,Nm);tempb2[n+1:n+Dm,:]=phiMovie[n+1:n+Dm,:]/b2;
+
+    gradphia=zeros((n+Du)*(n+Dm),N);
+    gradphib1=zeros((n+Du)*(n+Dm),N);
+    gradphib2=zeros((n+Du)*(n+Dm),N);
+    for i=1:N
+        gradphia[:,i]=kron(tempa[:,Rating[i,1]],phiMovie[:,Rating[i,2]])
+        gradphib1[:,i]=kron(tempb1[:,Rating[i,1]],phiMovie[:,Rating[i,2]])
+        gradphib2[:,i]=kron(phiUser[:,Rating[i,1]],tempb2[:,Rating[i,2]])
+    end
+    return cat(3,gradphia,gradphib1,gradphib2)
 end
 
 

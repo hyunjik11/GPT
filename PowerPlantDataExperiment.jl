@@ -72,7 +72,7 @@ gradnlogmarginal(hyperparams::Vector)=GPNT_gradnlogmarginal(ytrain,n,hyperparams
 
 Lh=3 #number of hyperparams
 lbounds=[0.,0.,0.001] #lower bound on hyperparams
-GPNT_hyperparameters(nlogmarginal,gradnlogmarginal,1+0.2*randn(Lh))
+GPNT_hyperparameters(nlogmarginal,gradnlogmarginal,1+0.2*randn(Lh),lbounds)
 
 
 #=
