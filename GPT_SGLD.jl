@@ -1220,14 +1220,14 @@ function CFfeature(UserData::Array,MovieData::Array,UserHashmap::Array,MovieHash
 			phiUser[UserHashmap[j,user],user]=UserBHashmap[j,user];
 		end
 	end
-	phiUser[1:n,:]*=a/M			
+	phiUser[1:n,:]*=a/sqrt(M)			
 	phiUser[n+1:n+Du,:]=b1*UserData'
 	for movie=1:Nm
 		for j=1:M
 			phiMovie[MovieHashmap[j,movie],movie]=MovieBHashmap[j,movie];
 		end
 	end
-	phiMovie[1:n,:]*=1/M		
+	phiMovie[1:n,:]*=1/sqrt(M)		
 	phiMovie[n+1:n+Dm,:]=b2*MovieData'
 	return phiUser,phiMovie
 end
