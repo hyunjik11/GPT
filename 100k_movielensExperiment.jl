@@ -67,7 +67,7 @@ end
 @everywhere Ratingtest=hcat(Rating[Ntrain+1:Ntrain+Ntest,1:2],ytest);
 @everywhere n = 30; 
 @everywhere M = 5;
-@everywhere burnin=0;
+@everywhere burnin=15;
 @everywhere numiter=30;
 @everywhere r = 8
 @everywhere Q=r;   
@@ -76,15 +76,13 @@ end
 @everywhere param_seed=17;
 @everywhere I=repmat(1:r,1,2);
 @everywhere m = 100;
-@everywhere maxepoch = 20;
-@everywhere epsw=1e-2
-@everywhere epsU=1e-10
+@everywhere maxepoch = 100;
+@everywhere epsw=4e-2
+@everywhere epsU=2e-10
 @everywhere sigma_w=sqrt(n1*n2)/r
 
 @everywhere numbatches=int(ceil(maximum(Ntrain)/m));
 @everywhere a=1;b1=1;b2=2;
-L=100;
-norm=Array(Float64,L);
 UserHashmap=Array(Int64,M,n1); MovieHashmap=Array(Int64,M,n2);
 for i=1:n1
 	UserHashmap[:,i]=sample(1:n,M,replace=false)
@@ -165,7 +163,7 @@ function GPT_test(Rating::Array,UserData::Array,MovieData::Array,Ratingtest::Arr
 				        if U==zeros(n1,r) || V==zeros(n2,r)#if NaN appears while evaluating G
 				            return zeros(r,r,maxepoch),zeros(n1,r,maxepoch),zeros(n2,r,maxepoch)
 				        end
-				else U+=epsU*(gradU-n1*U)/2+sqrt(epsU)*randn(n1,r); V+=epsU*(gradV-n2*U)/2+sqrt(epsU)*randn(n2,r);
+				else U+=epsU*(gradU-n1*U)/2+sqrt(epsU)*randn(n1,r); V+=epsU*(gradV-n2*V)/2+sqrt(epsU)*randn(n2,r);
 				end
 			else
 				if stiefel
@@ -193,7 +191,7 @@ function GPT_test(Rating::Array,UserData::Array,MovieData::Array,Ratingtest::Arr
 			cutoff!(final_trainpred);
 			trainRMSE=sqrt(sum((ytrainStd*Rating[:,3]+ytrainMean-final_trainpred).^2)/N)
 			
-			counter=0;
+			#counter=0;
 			for i=1:Ntest
 				user=Ratingtest[i,1]; movie=Ratingtest[i,2];
 				testpred[i]=(testpred[i]*counter+sum((U[user,:]*w).*V[movie,:]))/(counter+1)
@@ -201,16 +199,15 @@ function GPT_test(Rating::Array,UserData::Array,MovieData::Array,Ratingtest::Arr
 			final_testpred=testpred*ytrainStd+ytrainMean;
 			cutoff!(final_testpred);
 			testRMSE=sqrt(sum((ytrainStd*Ratingtest[:,3]+ytrainMean-final_testpred).^2)/Ntest)
-			#counter+=1
+			counter+=1
 			println("epoch=$epoch, trainRMSE=$trainRMSE, testRMSE=$testRMSE")
 		end
 	end
 	return w_store,U_store,V_store
 end
-for epsw in [0.08,0.04,0.02,0.01,0.005,0.003], epsU in [8e-10,4e-10,2e-10,1e-10,0.5e-10,0.3e-10]
+
 println("epsw=$epsw , epsU=$epsU")
-w_store,U_store,V_store=GPT_test(Ratingtrain,UserData,MovieData,Ratingtest,signal_var, sigma_w, r, m, epsw, epsU, burnin, maxepoch, param_seed);
-end
+w_store,U_store,V_store=GPT_test(Ratingtrain,UserData,MovieData,Ratingtest,signal_var, sigma_w, r, m, epsw, epsU, burnin, maxepoch, param_seed,stiefel=false);
 
 #randfeature(hyperparams::Vector)=CFfeatureNotensor(Ratingtrain,UserData,MovieData,UserHashmap,MovieHashmap, UserBHashmap,MovieBHashmap,n,hyperparams[1],hyperparams[2],hyperparams[3]);
 #gradfeature(hyperparams::Vector)=CFgradfeatureNotensor(Ratingtrain,UserData,MovieData,UserHashmap,MovieHashmap, UserBHashmap,MovieBHashmap,n,hyperparams[1],hyperparams[2],hyperparams[3]);
