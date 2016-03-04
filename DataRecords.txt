@@ -378,3 +378,27 @@ Learn w only from various values of r, using 500 train 500 test only:
         
         From worker 6:  r=50;minRMSE=3.2162263124587727e8;minepoch=1;epsw=0.001;burnin=0;maxepoch=300
         From worker 21: r=50;minRMSE=9.203201535007894;minepoch=300;epsw=1.0e-6;burnin=0;maxepoch=300
+
+
+PowerPlant:
+Exact- -lm=-431.351;l=[1.4426,0.0041,4.0272,7.3516];sigma_RBF=0.8296;signal_var=0.0205
+RFF n=100: 
+run 1: -lm=33.163;l=[1.6516,0.9415,4.7960,5.1739];sigma_RBF=1.1901;signal_var=0.0568
+run 2: -lm=2.675;l=[1.0129,0.5343,1.5260,11.4774];sigma_RBF=1.2312;signal_var=0.0549
+run 3: -lm=5.945;l=[0.6351,0.8010,3.0499,2.2805];sigma_RBF=1.1199;signal_var=0.0548
+run 4: -lm=6.071;l=[1.3956,0.5643,3.4776,4.9812];sigma_RBF=1.086;signal_var=0.0554
+run 5: -lm=44.422;l=[0.5578,0.5164,4.0674,3.2197];sigma_RBF=1.0710;signal_var=0.0555
+run 6: -lm=17.459;l=[1.1250,1.0133,5.6645,2.6713];sigma_RBF=1.1169;signal_var=0.0562
+run 7: -lm=12.477;l=[1.0460,0.6434,3.5127,3.0847];sigma_RBF=1.0676;signal_var=0.0554
+run 8: -lm=12.944;l=[1.5172,0.6043,1.1261,2.2452];sigma_RBF=1.1494;signal_var=0.0543
+run 9: -lm=43.277;l=[1.4483,0.9814,0.7002,7.1069];sigma_RBF=1.1976;signal_var=0.0555
+run 10:-lm=7.548;l=[0.9925,0.6571,1.1985,3.7406];sigma_RBF=1.0316;signal_var=0.0547
+
+Var_GP m=100:
+run 1: -lm=-42.038;l=[1.4457,0.48137,2.9862,4.8715];sigma_RBF=0.5008;signal_var=0.0533;fc=801;time=19187;
+run 2: -lm=-44.9321;l=[1.429,0.46212,3.1836,4.8138];sigma_RBF=0.5271;signal_var=0.0532;fc=716;time=35498;
+run 3: -lm=-46.0695;l=[1.4859,0.51412,2.3432,4.6775];sigma_RBF=0.4850;signal_var=0.0531;fc=801;time=39588;
+run 4: -lm=45.9502;l=[1.4258,0.47939,2.8809,4.8471];sigma_RBF=0.5132;signal_var=0.0532
+
+
+

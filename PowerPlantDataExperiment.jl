@@ -16,7 +16,6 @@
 @everywhere seed=18;
 @everywhere length_scale=1.4332;
 @everywhere sigma_RBF=1;
-@everywhere srand(seed)
 #@everywhere length_scale=1+0.2*randn(1)[1];
 #@everywhere sigma_RBF=1+0.2*randn(1)[1];
 @everywhere signal_var=0.2299^2;
@@ -39,6 +38,8 @@
 @everywhere m=50;
 @everywhere r=20;
 @everywhere n=100;
+for seed=1:10
+@everywhere srand(seed)
 @everywhere Z=randn(n,D);
 @everywhere b=2*pi*rand(n,D);
 @everywhere I=samplenz(r,D,Q);
@@ -52,6 +53,19 @@
 @everywhere L=30;
 @everywhere param_seed=234;
 #tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L,param_seed);toc()
+
+randfeature(hyperparams::Vector)=featureNotensor(Xtrain,hyperparams[1:D],hyperparams[D+1],Z,b)
+gradfeature(hyperparams::Vector)=gradfeatureNotensor(Xtrain,hyperparams[1:D],hyperparams[D+1],Z,b)
+nlogmarginal(hyperparams::Vector)=GPNT_nlogmarginal(ytrain,n,hyperparams,randfeature)
+gradnlogmarginal(hyperparams::Vector)=GPNT_gradnlogmarginal(ytrain,n,hyperparams,randfeature,gradfeature)
+#test(nlogmarginal,gradnlogmarginal,1+0.2*randn(3),epsilon)
+
+Lh=D+2; #number of hyperparams
+#lbounds=[0.,0.,0.001] #lower bound on hyperparams
+#GPNT_hyperparameters(nlogmarginal,gradnlogmarginal,1+0.2*randn(Lh),lbounds)
+myhyperparams=GPNT_hyperparameters_optim(nlogmarginal,gradnlogmarginal,[ones(Lh-1),0.2^2]);
+println("hyperparams=$myhyperparams");
+end
 #=
 function test(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector,epsilon::Real)
 nlm(loghyperparams::Vector)=nlogmarginal(exp(loghyperparams)); # exp needed to enable unconstrained optimisation, since hyperparams must be positive
@@ -64,17 +78,6 @@ end
 return exp(loghyperparams)
 end
 =#
-randfeature(hyperparams::Vector)=featureNotensor(Xtrain,hyperparams[1],hyperparams[2],Z,b)
-gradfeature(hyperparams::Vector)=gradfeatureNotensor(Xtrain,hyperparams[1],hyperparams[2],Z,b)
-nlogmarginal(hyperparams::Vector)=GPNT_nlogmarginal(ytrain,n,hyperparams,randfeature)
-gradnlogmarginal(hyperparams::Vector)=GPNT_gradnlogmarginal(ytrain,n,hyperparams,randfeature,gradfeature)
-#test(nlogmarginal,gradnlogmarginal,1+0.2*randn(3),epsilon)
-
-Lh=3 #number of hyperparams
-lbounds=[0.,0.,0.001] #lower bound on hyperparams
-GPNT_hyperparameters(nlogmarginal,gradnlogmarginal,1+0.2*randn(Lh),lbounds)
-
-
 #=
 nll=GPNT_logmarginal(Xtrain,ytrain,length_scale,sigma_RBF,signal_var,Z,b)
 println("nll=",nll," Z[1,1]=",Z[1,1])

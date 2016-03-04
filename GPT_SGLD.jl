@@ -1,8 +1,8 @@
 module GPT_SGLD
 
-using Distributions,NLopt
+using Distributions,NLopt,Optim
 
-export datawhitening,feature, feature2, featureNotensor,featureNotensor2, gradfeatureNotensor,GPNT_SGLD,logsumexp,GPNT_SGLDclass,GPNT_nlogmarginal,GPNT_gradnlogmarginal,GPNT_hyperparameters, GPNT_hyperparameters_ng,samplenz,proj, geod, pred, createmesh,fhatdraw,GPTregression,GPTclassification, GPT_SGLDERM_RMSprop, GPT_GMC,GPT_SGLDERMw,CFfeature,CFfeatureNotensor,CFgradfeatureNotensor
+export datawhitening,feature, feature2, featureNotensor,featureNotensor2, gradfeatureNotensor,GPNT_SGLD,logsumexp,GPNT_SGLDclass,GPNT_nlogmarginal,GPNT_gradnlogmarginal,GPNT_hyperparameters, GPNT_hyperparameters_optim, GPNT_hyperparameters_ng,samplenz,proj, geod, pred, createmesh,fhatdraw,GPTregression,GPTclassification, GPT_SGLDERM_RMSprop, GPT_GMC,GPT_SGLDERMw,CFfeature,CFfeatureNotensor,CFgradfeatureNotensor
 
 # computes log(sum(exp(x))) in a robust manner
 function logsumexp(x::Array)
@@ -971,6 +971,19 @@ function GPNT_hyperparameters(nlogmarginal::Function,gradnlogmarginal::Function,
 	xtol_rel!(opt,xtol);
 	min_objective!(opt,myfn);
 	(minf,minx,ret)=optimize(opt,init_hyperparams);
+end
+
+function GPNT_hyperparameters_optim(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector;alg::Symbol=:cg,xtol::Real=1e-4,ftol::Real=1e-3)
+nlm(loghyperparams::Vector)=nlogmarginal(exp(loghyperparams)); # exp needed to enable unconstrained optimisation, since hyperparams must be positive
+g(loghyperparams::Vector)=gradnlogmarginal(exp(loghyperparams)).*exp(loghyperparams)
+    function g!(loghyperparams::Vector,storage::Vector)
+        grad=g(loghyperparams)
+        for i=1:length(loghyperparams)
+            storage[i]=grad[i]
+        end
+    end
+    l=optimize(nlm,g!,log(init_hyperparams),method=alg,xtol=xtol,ftol=ftol,show_trace = true, extended_trace = true)
+	return exp(l.minimum)
 end
 
 # function to learn hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising non-Gaussian marginal likelihood using the stochastic EM algorithm for fixed length_scale

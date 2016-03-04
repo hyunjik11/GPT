@@ -67,7 +67,7 @@ end
 @everywhere Ratingtest=hcat(Rating[Ntrain+1:Ntrain+Ntest,1:2],ytest);
 @everywhere n = 30; 
 @everywhere M = 5;
-@everywhere burnin=15;
+@everywhere burnin=0;
 @everywhere numiter=30;
 @everywhere r = 8
 @everywhere Q=r;   
@@ -76,10 +76,11 @@ end
 @everywhere param_seed=17;
 @everywhere I=repmat(1:r,1,2);
 @everywhere m = 100;
-@everywhere maxepoch = 100;
-@everywhere epsw=4e-2
-@everywhere epsU=2e-10
+@everywhere maxepoch = 300;
+@everywhere epsw=1e-2#2e-2
+@everywhere epsU=5e-7#4e-10
 @everywhere sigma_w=sqrt(n1*n2)/r
+@everywhere sigma_u=0.1;
 
 @everywhere numbatches=int(ceil(maximum(Ntrain)/m));
 @everywhere a=1;b1=1;b2=2;
@@ -172,7 +173,7 @@ function GPT_test(Rating::Array,UserData::Array,MovieData::Array,Ratingtest::Arr
 				        if U==zeros(n1,r) || V==zeros(n2,r)#if NaN appears while evaluating G
 				            return zeros(r,r,maxepoch),zeros(n1,r,maxepoch),zeros(n2,r,maxepoch)
 				        end
-				else U+=epsU*(gradU-n1*U)/2; V+=epsU*(gradV-n2*U)/2;
+				else U+=epsU*(gradU-n1*U)/2; V+=epsU*(gradV-n2*V)/2;
 				end
 			end
 		end
@@ -206,8 +207,81 @@ function GPT_test(Rating::Array,UserData::Array,MovieData::Array,Ratingtest::Arr
 	return w_store,U_store,V_store
 end
 
-println("epsw=$epsw , epsU=$epsU")
-w_store,U_store,V_store=GPT_test(Ratingtrain,UserData,MovieData,Ratingtest,signal_var, sigma_w, r, m, epsw, epsU, burnin, maxepoch, param_seed,stiefel=false);
+# function for tensor model for CF with no side information, using full W
+function GPT_pmf(Rating::Array,UserData::Array,MovieData::Array,Ratingtest::Array, signal_var::Real, sigma_u::Real, r::Integer, m::Integer, epsU::Real,burnin::Integer, maxepoch::Integer, param_seed::Integer)
+	N=size(Rating,1);Ntest=size(Ratingtest,1);
+	n1,D1=size(UserData); 
+	n2,D2=size(MovieData);
+	numbatches=int(ceil(N/m));
+	
+	# initialise U,V
+	srand(param_seed);
+	U_store=Array(Float64,n1,r,maxepoch)
+	V_store=Array(Float64,n2,r,maxepoch)
+	U=sigma_u*randn(n1,r);V=sigma_u*randn(n2,r);
+    
+	testpred=zeros(Ntest)
+	counter=0;
+	for epoch=1:(burnin+maxepoch)
+		#randomly permute training data and divide into mini_batches of size m
+        perm=randperm(N)
+		shuffledRatings=Rating[perm,:]
+		
+		#run SGLD on w and U
+		for batch=1:numbatches
+            # random samples for the stochastic gradient
+            idx=(m*(batch-1)+1):min(m*batch,N);
+			batch_size=length(idx);
+			batch_ratings=shuffledRatings[idx,:];
+			
+			# compute gradients
+			gradU=zeros(n1,r);
+			gradV=zeros(n2,r);
+			for ii=1:batch_size
+				user=batch_ratings[ii,1]; movie=batch_ratings[ii,2]; rating=batch_ratings[ii,3];
+				pred=sum(U[user,:].*V[movie,:])
+				gradU[user,:]+=(rating-pred)*V[movie,:]/signal_var
+				gradV[movie,:]+=(rating-pred)*U[user,:]/signal_var
+			end
+			gradU*=N/batch_size;
+			gradV*=N/batch_size;
+
+			# update U,V
+			U+=epsU*(gradU-U/sigma_u^2)/2; V+=epsU*(gradV-V/sigma_u^2)/2;
+		end
+		
+		if epoch>burnin
+			U_store[:,:,epoch-burnin]=U
+			V_store[:,:,epoch-burnin]=V
+		
+			trainpred=Array(Float64,N)
+			for i=1:N
+				user=Rating[i,1]; movie=Rating[i,2]; 
+				trainpred[i]=sum(U[user,:].*V[movie,:])
+			end
+			final_trainpred=trainpred*ytrainStd+ytrainMean;
+			cutoff!(final_trainpred);
+			trainRMSE=sqrt(sum((ytrainStd*Rating[:,3]+ytrainMean-final_trainpred).^2)/N)
+			
+			#counter=0;
+			for i=1:Ntest
+				user=Ratingtest[i,1]; movie=Ratingtest[i,2];
+				testpred[i]=(testpred[i]*counter+sum(U[user,:].*V[movie,:]))/(counter+1)
+			end
+			final_testpred=testpred*ytrainStd+ytrainMean;
+			cutoff!(final_testpred);
+			testRMSE=sqrt(sum((ytrainStd*Ratingtest[:,3]+ytrainMean-final_testpred).^2)/Ntest)
+			counter+=1
+			println("epoch=$epoch, trainRMSE=$trainRMSE, testRMSE=$testRMSE")
+		end
+	end
+	return U_store,V_store
+end
+
+println("epsU=$epsU")
+GPT_pmf(Ratingtrain,UserData,MovieData,Ratingtest,signal_var, sigma_u,r, m, epsU,burnin, maxepoch, param_seed);
+println("")
+#w_store,U_store,V_store=GPT_test(Ratingtrain,UserData,MovieData,Ratingtest,signal_var, sigma_w, r, m, epsw, epsU, burnin, maxepoch, param_seed,stiefel=false,langevin=false);
 
 #randfeature(hyperparams::Vector)=CFfeatureNotensor(Ratingtrain,UserData,MovieData,UserHashmap,MovieHashmap, UserBHashmap,MovieBHashmap,n,hyperparams[1],hyperparams[2],hyperparams[3]);
 #gradfeature(hyperparams::Vector)=CFgradfeatureNotensor(Ratingtrain,UserData,MovieData,UserHashmap,MovieHashmap, UserBHashmap,MovieBHashmap,n,hyperparams[1],hyperparams[2],hyperparams[3]);
