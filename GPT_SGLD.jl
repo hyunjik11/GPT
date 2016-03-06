@@ -955,7 +955,7 @@ end
 # lbounds are the lower bounds for the hyperparams. For signal_var, should have a small positive value (eg. 0.001) to prevent PosDefException
 # xtol is the relative tolerance on hyperparams
 # alg is the optimization algorithm e.g. :LD_MMA,:LD_SLSQP,:LD_LBFGS etc.
-function GPNT_hyperparameters(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector,lbounds::Vector;xtol::Real=1e-3,alg::Symbol=:LD_MMA)
+function GPNT_hyperparameters(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector,lbounds::Vector;xtol::Real=1e-4,ftol::Real=1e-3,alg::Symbol=:LD_MMA)
 	Lh=length(init_hyperparams)
 	opt=Opt(:LD_MMA,Lh);
 	function myfn(hyperparams::Vector,grad::Vector)
@@ -964,13 +964,15 @@ function GPNT_hyperparameters(nlogmarginal::Function,gradnlogmarginal::Function,
 		end
 
 		nlm=nlogmarginal(hyperparams);
-		println("nlogmarginal=$nlm hyperparams=$hyperparams")
+		#println("nlogmarginal=$nlm hyperparams=$hyperparams")
 		return nlm
 	end
 	lower_bounds!(opt,lbounds);
-	xtol_rel!(opt,xtol);
+    xtol_rel!(opt,xtol);
+    ftol_rel!(opt,ftol);
 	min_objective!(opt,myfn);
-	(minf,minx,ret)=optimize(opt,init_hyperparams);
+    (minf,minx,ret)=NLopt.optimize(opt,init_hyperparams);
+    return minx,minf
 end
 
 function GPNT_hyperparameters_optim(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector;alg::Symbol=:cg,xtol::Real=1e-4,ftol::Real=1e-3)
@@ -982,8 +984,8 @@ g(loghyperparams::Vector)=gradnlogmarginal(exp(loghyperparams)).*exp(loghyperpar
             storage[i]=grad[i]
         end
     end
-    l=optimize(nlm,g!,log(init_hyperparams),method=alg,xtol=xtol,ftol=ftol,show_trace = true, extended_trace = true)
-	return exp(l.minimum)
+    l=Optim.optimize(nlm,g!,log(init_hyperparams),method=alg,xtol=xtol,ftol=ftol,show_trace = false, extended_trace = false)
+	return exp(l.minimum),l.f_minimum
 end
 
 # function to learn hyperparams signal_var,sigma_RBF,length_scale for No Tensor Model by optimising non-Gaussian marginal likelihood using the stochastic EM algorithm for fixed length_scale

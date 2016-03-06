@@ -11,7 +11,7 @@
 @everywhere data = convert(Array,data);
 @everywhere N=size(data,1);
 @everywhere D=4;
-@everywhere Ntrain=5000;
+@everywhere Ntrain=500;
 @everywhere Ntest=N-Ntrain;
 @everywhere seed=18;
 @everywhere length_scale=1.4332;
@@ -35,9 +35,9 @@
 @everywhere burnin=0;
 @everywhere maxepoch=100;
 @everywhere Q=200;
-@everywhere m=50;
+@everywhere m=10;
 @everywhere r=20;
-@everywhere n=100;
+@everywhere n=320;
 for seed=1:10
 @everywhere srand(seed)
 @everywhere Z=randn(n,D);
@@ -63,8 +63,9 @@ gradnlogmarginal(hyperparams::Vector)=GPNT_gradnlogmarginal(ytrain,n,hyperparams
 Lh=D+2; #number of hyperparams
 #lbounds=[0.,0.,0.001] #lower bound on hyperparams
 #GPNT_hyperparameters(nlogmarginal,gradnlogmarginal,1+0.2*randn(Lh),lbounds)
-myhyperparams=GPNT_hyperparameters_optim(nlogmarginal,gradnlogmarginal,[ones(Lh-1),0.2^2]);
-println("hyperparams=$myhyperparams");
+myhyperparams,fmin=GPNT_hyperparameters(nlogmarginal,gradnlogmarginal,[ones(Lh-1),0.2^2],0.001*ones(Lh));
+length_scale=myhyperparams[1:D]; sigma_RBF=myhyperparams[D+1]; signal_var=myhyperparams[D+2];
+println("-l=$fmin;length_scale=$length_scale;sigma_RBF=$sigma_RBF;signal_var=$signal_var");
 end
 #=
 function test(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector,epsilon::Real)
