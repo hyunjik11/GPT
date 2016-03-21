@@ -1,32 +1,34 @@
 % addpath(genpath('/homes/hkim/Documents/GPstuff-4.6'));
-% %addpath(genpath('/Users/hyunjik11/Documents/GPstuff'));
+addpath(genpath('/Users/hyunjik11/Documents/GPstuff'));
 % num_workers=4;
 % POOL=parpool('local',num_workers);
 % % Load the data
 % x=h5read('/homes/hkim/GPT/PPdata.h5','/Xtrain');
 % y=h5read('/homes/hkim/GPT/PPdata.h5','/ytrain');
-% %x=h5read('/Users/hyunjik11/Documents/GPT/PPdata.h5','/Xtrain');
-% %y=h5read('/Users/hyunjik11/Documents/GPT/PPdata.h5','/ytrain');
-% x=x(1:500,:); y=y(1:500); %only use 500 pts for faster computation.
-% [n, D] = size(x);
+x=h5read('/Users/hyunjik11/Documents/GPT/PPdata.h5','/Xtrain');
+y=h5read('/Users/hyunjik11/Documents/GPT/PPdata.h5','/ytrain');
+%x=x(1:500,:); y=y(1:500); %only use 500 pts for faster computation.
+[n, D] = size(x);
 
 % Now we will use the variational sparse approximation.
 
 % First we create the GP structure. Notice here that if we do
 % not explicitly set the priors for the covariance function
 % parameters they are given a uniform prior.
-% lik = lik_gaussian('sigma2', 0.2^2);
-% gpcf = gpcf_sexp('lengthScale', ones(1,D), 'magnSigma2', 0.2^2);
-% gp=gp_set('lik',lik,'cf',gpcf); %exact gp
+%lik = lik_gaussian('sigma2', 0.2^2);
+%gpcf = gpcf_sexp('lengthScale', ones(1,D), 'magnSigma2', 0.2^2);
+lik = lik_gaussian('sigma2', signal_var);
+gpcf = gpcf_sexp('lengthScale', length_scale, 'magnSigma2', sigma_RBF2);
+gp=gp_set('lik',lik,'cf',gpcf); %exact gp
 
 % Next we initialize the inducing inputs and set them in GP
 % structure. We have to give a prior for the inducing inputs also,
 % if we want to optimize them
-m=320; %number of inducing pts.
-fprintf('m=%d \n',m)
-parfor i=1:10
-X_u=datasample(x,m,1,'Replace',false); %each row specifies coordinates of an inducing point. here we randomly sample m data points
-gp_var = gp_set('type', 'VAR', 'lik', lik, 'cf', gpcf,'X_u', X_u, 'jitterSigma2', 1e-4); %var_gp
+%m=320; %number of inducing pts.
+%fprintf('m=%d \n',m)
+%parfor i=1:10
+%X_u=datasample(x,m,1,'Replace',false); %each row specifies coordinates of an inducing point. here we randomly sample m data points
+%gp_var = gp_set('type', 'VAR', 'lik', lik, 'cf', gpcf,'X_u', X_u, 'jitterSigma2', 1e-4); %var_gp
 
 
 % -----------------------------
@@ -47,24 +49,28 @@ gp_var = gp_set('type', 'VAR', 'lik', lik, 'cf', gpcf,'X_u', X_u, 'jitterSigma2'
 % packed
 
 % optimize parameters and inducing inputs
-gp_var = gp_set(gp_var, 'infer_params', 'covariance+likelihood+inducing');
+%gp_var = gp_set(gp_var, 'infer_params', 'covariance+likelihood+inducing');
 % optimize only parameters
 %gp_var = gp_set(gp_var, 'infer_params', 'covariance+likelihood');           
 
-opt=optimset('TolFun',1e-3,'TolX',1e-4,'MaxIter',1000,'Display','off');
+%opt=optimset('TolFun',1e-3,'TolX',1e-4,'MaxIter',1000);%,'Display','off');
 % Optimize with the quasi-Newton method
-% gp=gp_optim(gp,x,y,'opt',opt);
-gp_var=gp_optim(gp_var,x,y,'opt',opt,'optimf',@fminscg); %can also use @fminlbfgs,@fminunc
+%gp=gp_optim(gp,x,y,'opt',opt);
+%gp_var=gp_optim(gp_var,x,y,'opt',opt,'optimf',@fminscg); %can also use @fminlbfgs,@fminunc
 % Set the options for the optimization
+for m=1:10
+xm=x(1:10*m,:); ym=y(1:10*m);
+fprintf('m=%d,-l=%2.4f \n',10*m,gp_e([],gp,xm,ym));
+end
 % fprintf('-l=%2.4f;',gp_e([],gp,x,y));
 % fprintf('length_scale=[');
 % fprintf('%s',num2str(gp.cf{1}.lengthScale));
-% fprintf('];sigma_RBF=%2.4f;signal_var=%2.4f \n',gp.cf{1}.magnSigma2,gp.lik.sigma2);
-fprintf('-l=%2.4f;',gp_e([],gp_var,x,y));
-fprintf('length_scale=[');
-fprintf('%s',num2str(gp_var.cf{1}.lengthScale));
-fprintf('];sigma_RBF=%2.4f;signal_var=%2.4f \n',gp_var.cf{1}.magnSigma2,gp_var.lik.sigma2);
-end
+% fprintf('];sigma_RBF2=%2.4f;signal_var=%2.4f \n',gp.cf{1}.magnSigma2,gp.lik.sigma2);
+%fprintf('-l=%2.4f;',gp_e([],gp_var,x,y));
+%fprintf('length_scale=[');
+%fprintf('%s',num2str(gp_var.cf{1}.lengthScale));
+%fprintf('];sigma_RBF2=%2.4f;signal_var=%2.4f \n',gp_var.cf{1}.magnSigma2,gp_var.lik.sigma2);
+%end
 % delete(POOL);
 % To optimize the parameters and inducing inputs sequentially uncomment the below lines
 % $$$ iter = 1
