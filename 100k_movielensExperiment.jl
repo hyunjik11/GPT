@@ -43,7 +43,7 @@ end
 @everywhere function bin_age(age::Array)
 	q=quantile(age,[0.2,0.4,0.6,0.8,1.0])
 	indmin(q.<UserData[30,2])
-        map(x->indmin(q.<x),age)
+	map(x->indmin(q.<x),age)
 end
 
 ##data clearing
@@ -72,21 +72,20 @@ end
 @everywhere M = 5;
 @everywhere burnin=0;
 @everywhere numiter=30;
-@everywhere r = 16
+@everywhere r = 15;
 @everywhere Q=r;   
 @everywhere D = 2;
-@everywhere signal_var = 0.5;
+@everywhere signal_var = 0.01;
 @everywhere param_seed=17;
 @everywhere I=repmat(1:r,1,2);
 @everywhere m = 100;
-@everywhere maxepoch = 50;
-@everywhere epsw=1e-2#2e-2
-@everywhere epsU=5e-7#4e-10
+@everywhere maxepoch = 30;
+@everywhere epsw=1e-2
+@everywhere epsU=1e-6
 @everywhere sigma_w=sqrt(n1*n2)/r
 @everywhere sigma_u=0.1;
 
 @everywhere numbatches=int(ceil(maximum(Ntrain)/m));
-@everywhere a=1;b1=1;b2=2;
 @everywhere UserHashmap=Array(Int64,M,n1); 
 @everywhere MovieHashmap=Array(Int64,M,n2);
 @everywhere for i=1:n1
@@ -97,9 +96,6 @@ end
 end
 @everywhere UserBHashmap=2*rand(Bernoulli(),M,n1)-1
 @everywhere MovieBHashmap=2*rand(Bernoulli(),M,n2)-1
-@everywhere a=1;
-@everywhere b1=1;
-@everywhere b2=1;
 
 # function to cutoff predictions at 1 and 5
 @everywhere function cutoff!(pred::Vector)
@@ -118,7 +114,7 @@ end
 	# initialise U,V
 	srand(param_seed);
 	U_store=Array(Float64,n1,r,maxepoch)
-	V_store=Array(Float64,n2,r,maxepoch)
+	V_store=Array(Float64,testRMSE=0.9515487492625331n2,r,maxepoch)
 	testpred_store=Array(Float64,Ntest,maxepoch);
 	U=sigma_u*randn(n1,r);V=sigma_u*randn(n2,r);
 
@@ -507,7 +503,9 @@ end
 end
 
 # function for tensor model for CF with side information, using SGD to learn U,V with fixed w.
-@everywhere function GPT_fixw_sideinfo(Rating::Array,UserData::Array,MovieData::Array,Ratingtest::Array, signal_var::Real, sigma_u::Real, w::Array, m::Integer, epsU::Real,burnin::Integer, maxepoch::Integer, param_seed::Integer;langevin::Bool=false, stiefel::Bool=false,avg::Bool=false)
+# only use side info for users with freq <= uft and movies with freq <= mft
+@everywhere function GPT_fixw_sideinfo(Rating::Array,UserData::Array,MovieData::Array,Ratingtest::Array,userfreq::Vector, moviefreq::Vector, signal_var::Real, sigma_u::Real, w::Array, m::Integer, epsU::Real,a::Real,b::Real,c::Real,burnin::Integer, maxepoch::Integer, param_seed::Integer;langevin::Bool=false, stiefel::Bool=false,avg::Bool=false)
+	#println("langevin=$langevin")
 	N=size(Rating,1);Ntest=size(Ratingtest,1);
 	n1,D1=size(UserData); 
 	n2,D2=size(MovieData);
@@ -515,20 +513,40 @@ end
 	r=size(w,1);
 	# initialise U,V
 	srand(param_seed);
-	U_store=Array(Float64,D1,r,maxepoch)
-	V_store=Array(Float64,D2,r,maxepoch)
+	U_store=Array(Float64,n1+D1,r,maxepoch)
+	V_store=Array(Float64,n2+D2,r,maxepoch)
 	testpred_store=Array(Float64,Ntest,maxepoch);
-	U=sigma_u*randn(D1,r);V=sigma_u*randn(D2,r);
+	U=sigma_u*randn(n1+D1,r);V=sigma_u*randn(n2+D2,r);
+
+	Uidx=Dict{Int64,Array{Int64}}(); Vidx=Dict{Int64,Array{Int64}}(); #dictionary of feature indices in U/V for each user/movie
+	for user=1:n1
+		userfeat_ind=find(UserData[user,:]);
+		Uidx[user]=n1+userfeat_ind;
+	end
+	for movie=1:n2
+		moviefeat_ind=find(MovieData[movie,:]);
+		Vidx[movie]=n2+moviefeat_ind;
+	end
+	
+	prob_user_in_m=Array(Float64,n1); prob_movie_in_m=Array(Float64,n2); #prob(user/movie in arbitrary minibatch). Need for bias correction.
+	for user=1:n1
+		temp=[1-userfreq[user]/(N-i+1) for i=1:m];
+		prob_user_in_m[user]=1-exp(sum(log(temp)));
+	end
+	for movie=1:n2
+		temp=[1-moviefreq[movie]/(N-i+1) for i=1:m];
+		prob_movie_in_m[movie]=1-exp(sum(log(temp)));
+	end
 
 	trainRMSEvec=Array(Float64,maxepoch)
 	testRMSEvec=Array(Float64,maxepoch)
+	trainpred=zeros(N)
 	testpred=zeros(Ntest)
 	counter=0;
 	for epoch=1:(burnin+maxepoch)
 		#randomly permute training data and divide into mini_batches of size m
         perm=randperm(N)
 		shuffledRatings=Rating[perm,:]
-		
 		#run SGLD on w and U
 		for batch=1:numbatches
             # random samples for the stochastic gradient
@@ -537,35 +555,175 @@ end
 			batch_ratings=shuffledRatings[idx,:];
 			
 			# compute gradients
-			gradU=zeros(D1,r);
-			gradV=zeros(D2,r);
+			gradU=zeros(n1+D1,r);
+			gradV=zeros(n2+D2,r);
+			Uindices=zeros(1+D1,batch_size);Vindices=zeros(1+D2,batch_size); # large enough container for all indices occuring in minibatch
 			for ii=1:batch_size
 				user=batch_ratings[ii,1]; movie=batch_ratings[ii,2]; rating=batch_ratings[ii,3];
-				userfeat_ind=find(UserData[user,:]); moviefeat_ind=find(MovieData[movie,:]);
-				sumU=sum(U[userfeat_ind,:],1); sumV=sum(V[moviefeat_ind,:],1);
-				pred=sum((sumU*w).*sumV)
-				gradU[userfeat_ind,:]+=repmat((rating-pred)*sumV*w',length(userfeat_ind))/signal_var
-				gradV[moviefeat_ind,:]+=repmat((rating-pred)*sumU*w,length(moviefeat_ind))/signal_var
+				uidx=Uidx[user]; vidx=Vidx[movie]; #feature rows of U,V to be updated
+				lu=length(uidx); lv=length(vidx);
+				sumU=U[user,:]+b*sum(U[uidx,:],1); sumV=V[movie,:]+c*sum(V[vidx,:],1); 
+				pred=a*sum((sumU*w).*sumV)
+				Utemp=(rating-pred)*sumV*w'; Vtemp=(rating-pred)*sumU*w;
+				gradU[user,:]+=a*Utemp/signal_var;
+				gradV[movie,:]+=a*Vtemp/signal_var;
+				gradU[uidx,:]+=a*b*repmat(Utemp,lu)/signal_var
+				gradV[vidx,:]+=a*c*repmat(Vtemp,lv)/signal_var
+				Uindices[1:1+lu,ii]=[user,uidx]; Vindices[1:1+lv,ii]=[movie,vidx];
 			end
-			gradU*=N/batch_size;
-			gradV*=N/batch_size;
-
+			gradU*=N/batch_size;gradV*=N/batch_size;
+			
 			# update U,V
 			if langevin
+				Uindices=sort(union(vec(Uindices)))[2:end];
+				Vindices=sort(union(vec(Vindices)))[2:end];
+				Unoise=zeros(n1+D1,r); Unoise[Uindices,:]=sqrt(epsU)*randn(length(Uindices),r);
+				Vnoise=zeros(n2+D2,r); Vnoise[Vindices,:]=sqrt(epsU)*randn(length(Vindices),r);
+				U+=epsU*(gradU-U/sigma_u^2)/2+Unoise
+				V+=epsU*(gradV-V/sigma_u^2)/2+Vnoise
+				if batch==numbatches
+					#println("fnorm(Ugrad)=",epsU*sqrt(sum((gradU-U/sigma_u^2).^2)),",fnorm(Unoise)=",sqrt(sum(Unoise.^2)));
+					#println("fnorm(Vgrad)=",epsU*sqrt(sum((gradV-V/sigma_u^2).^2)),",fnorm(Vnoise)=",sqrt(sum(Vnoise.^2)));
+				end
+			else U+=epsU*(gradU-U/sigma_u^2)/2
+				 V+=epsU*(gradV-V/sigma_u^2)/2
+			end
+			
+			#=
+			if langevin
 				if stiefel
-			        momU=proj(U,sqrt(epsU)*gradU/2+randn(n1,r)); momV=proj(V,sqrt(epsU)*gradV/2+randn(n2,r));
+			        momU=proj(U,sqrt(epsU)*gradU/2+randn(n1+D1,r)); momV=proj(V,sqrt(epsU)*gradV/2+randn(n2+D2,r));
 			        U=geod(U,momU,sqrt(epsU)); V=geod(V,momV,sqrt(epsU));
-			        if U==zeros(n1,r) || V==zeros(n2,r)#if NaN appears while evaluating G
-			            return zeros(r,r,maxepoch),zeros(n1,r,maxepoch),zeros(n2,r,maxepoch)
+			        if U==zeros(n1+D1,r) || V==zeros(n2+D2,r)#if NaN appears while evaluating G
+			            return zeros(r,r,maxepoch),zeros(n1+D1,r,maxepoch),zeros(n2+D2,r,maxepoch)
 			        end
-				else U+=epsU*(gradU-U/sigma_u^2)/2+sqrt(epsU)*randn(n1,r); V+=epsU*(gradV-V/sigma_u^2)/2+sqrt(epsU)*randn(n2,r);
+				else U+=epsU*(gradU-U/sigma_u^2)/2+sqrt(epsU)*randn(n1+D1,r); V+=epsU*(gradV-V/sigma_u^2)/2+sqrt(epsU)*randn(n2+D2,r);
 				end
 			else
 				if stiefel
 			        momU=proj(U,sqrt(epsU)*gradU/2); momV=proj(V,sqrt(epsU)*gradV/2);
 			        U=geod(U,momU,sqrt(epsU)); V=geod(V,momV,sqrt(epsU));
-			        if U==zeros(n1,r) || V==zeros(n2,r)#if NaN appears while evaluating G
-			            return zeros(r,r,maxepoch),zeros(n1,r,maxepoch),zeros(n2,r,maxepoch)
+			        if U==zeros(n1+D1,r) || V==zeros(n2+D2,r)#if NaN appears while evaluating G
+			            return zeros(r,r,maxepoch),zeros(n1+D1,r,maxepoch),zeros(n2+D2,r,maxepoch)
+			        end
+				else U+=epsU*(gradU-U/sigma_u^2)/2; V+=epsU*(gradV-V/sigma_u^2)/2;
+				end
+			end
+			=#
+		end
+		
+		if epoch>burnin
+			U_store[:,:,epoch-burnin]=U
+			V_store[:,:,epoch-burnin]=V
+			if ~avg
+				counter=0;
+			end
+			
+			for i=1:N
+				user=Rating[i,1]; movie=Rating[i,2];
+				uidx=Uidx[user]; vidx=Vidx[movie]; #relevant rows of U,V to be updated
+				sumU=U[user,:]+b*sum(U[uidx,:],1); sumV=V[movie,:]+c*sum(V[vidx,:],1);
+				trainpred[i]=(trainpred[i]*counter+a*sum((sumU*w).*sumV))/(counter+1)
+			end
+			final_trainpred=trainpred*ytrainStd+ytrainMean;
+			cutoff!(final_trainpred);
+			trainRMSE=sqrt(sum((ytrainStd*Rating[:,3]+ytrainMean-final_trainpred).^2)/N)
+			trainRMSEvec[epoch-burnin]=trainRMSE
+			
+			for i=1:Ntest
+				user=Ratingtest[i,1]; movie=Ratingtest[i,2];
+				uidx=Uidx[user]; vidx=Vidx[movie]; #relevant rows of U,V to be updated
+				sumU=U[user,:]+b*sum(U[uidx,:],1); sumV=V[movie,:]+c*sum(V[vidx,:],1);
+				testpred[i]=(testpred[i]*counter+a*sum((sumU*w).*sumV))/(counter+1)
+			end
+			final_testpred=testpred*ytrainStd+ytrainMean;
+			cutoff!(final_testpred);
+			testpred_store[:,epoch-burnin]=final_testpred;
+			testRMSE=sqrt(sum((ytrainStd*Ratingtest[:,3]+ytrainMean-final_testpred).^2)/Ntest)
+			testRMSEvec[epoch-burnin]=testRMSE			
+			counter+=1
+			#println("epoch=$epoch, trainRMSE=$trainRMSE, testRMSE=$testRMSE")
+		end
+	end
+	return U_store,V_store,testpred_store,trainRMSEvec,testRMSEvec
+end
+
+# function for tensor model for CF with side information, using SGD to learn U,V with fixed w.
+# only use side info for users with freq <= uft and movies with freq <= mft
+@everywhere function GPT_fixw_sideinfofast(Rating::Array,UserData::Array,MovieData::Array,Ratingtest::Array,userfreq::Vector, moviefreq::Vector, signal_var::Real, sigma_u::Real, w::Array, m::Integer, epsU::Real,a::Real,b::Real,c::Real,burnin::Integer, maxepoch::Integer, param_seed::Integer;langevin::Bool=false, stiefel::Bool=false,avg::Bool=false)
+	#println("langevin=$langevin")
+	N=size(Rating,1);Ntest=size(Ratingtest,1);
+	n1,D1=size(UserData); 
+	n2,D2=size(MovieData);
+	numbatches=int(ceil(N/m));
+	r=size(w,1);
+	# initialise U,V
+	srand(param_seed);
+	U_store=Array(Float64,n1+D1,r,maxepoch)
+	V_store=Array(Float64,n2+D2,r,maxepoch)
+	testpred_store=Array(Float64,Ntest,maxepoch);
+	U=sigma_u*randn(n1+D1,r);V=sigma_u*randn(n2+D2,r);
+
+	Uidx=Dict{Int64,Array{Int64}}(); Vidx=Dict{Int64,Array{Int64}}(); #dictionary of feature indices in U/V for each user/movie
+	for user=1:n1
+		userfeat_ind=find(UserData[user,:]);
+		Uidx[user]=n1+userfeat_ind;
+	end
+	for movie=1:n2
+		moviefeat_ind=find(MovieData[movie,:]);
+		Vidx[movie]=n2+moviefeat_ind;
+	end
+
+	trainRMSEvec=Array(Float64,maxepoch)
+	testRMSEvec=Array(Float64,maxepoch)
+	trainpred=zeros(N)
+	testpred=zeros(Ntest)
+	counter=0;
+	for epoch=1:(burnin+maxepoch)
+		#randomly permute training data and divide into mini_batches of size m
+        perm=randperm(N)
+		shuffledRatings=Rating[perm,:]
+		#run SGLD on w and U
+		for batch=1:numbatches
+            # random samples for the stochastic gradient
+            idx=(m*(batch-1)+1):min(m*batch,N);
+			batch_size=length(idx);
+			batch_ratings=shuffledRatings[idx,:];
+			
+			# compute gradients
+			gradU=zeros(n1+D1,r);
+			gradV=zeros(n2+D2,r);
+			for ii=1:batch_size
+				user=batch_ratings[ii,1]; movie=batch_ratings[ii,2]; rating=batch_ratings[ii,3];
+				uidx=Uidx[user]; vidx=Vidx[movie]; #feature rows of U,V to be updated
+				lu=length(uidx); lv=length(vidx);
+				sumU=U[user,:]+b*sum(U[uidx,:],1); sumV=V[movie,:]+c*sum(V[vidx,:],1); 
+				pred=a*sum((sumU*w).*sumV)
+				Utemp=(rating-pred)*sumV*w'; Vtemp=(rating-pred)*sumU*w;
+				gradU[user,:]+=a*Utemp/signal_var;
+				gradV[movie,:]+=a*Vtemp/signal_var;
+				gradU[uidx,:]+=a*b*repmat(Utemp,lu)/signal_var
+				gradV[vidx,:]+=a*c*repmat(Vtemp,lv)/signal_var
+			end
+			gradU*=N/batch_size;gradV*=N/batch_size;
+			
+			# update U,V
+
+			if langevin
+				if stiefel
+			        momU=proj(U,sqrt(epsU)*gradU/2+randn(n1+D1,r)); momV=proj(V,sqrt(epsU)*gradV/2+randn(n2+D2,r));
+			        U=geod(U,momU,sqrt(epsU)); V=geod(V,momV,sqrt(epsU));
+			        if U==zeros(n1+D1,r) || V==zeros(n2+D2,r)#if NaN appears while evaluating G
+			            return zeros(r,r,maxepoch),zeros(n1+D1,r,maxepoch),zeros(n2+D2,r,maxepoch)
+			        end
+				else U+=epsU*(gradU-U/sigma_u^2)/2+sqrt(epsU)*randn(n1+D1,r); V+=epsU*(gradV-V/sigma_u^2)/2+sqrt(epsU)*randn(n2+D2,r);
+				end
+			else
+				if stiefel
+			        momU=proj(U,sqrt(epsU)*gradU/2); momV=proj(V,sqrt(epsU)*gradV/2);
+			        U=geod(U,momU,sqrt(epsU)); V=geod(V,momV,sqrt(epsU));
+			        if U==zeros(n1+D1,r) || V==zeros(n2+D2,r)#if NaN appears while evaluating G
+			            return zeros(r,r,maxepoch),zeros(n1+D1,r,maxepoch),zeros(n2+D2,r,maxepoch)
 			        end
 				else U+=epsU*(gradU-U/sigma_u^2)/2; V+=epsU*(gradV-V/sigma_u^2)/2;
 				end
@@ -578,12 +736,12 @@ end
 			if ~avg
 				counter=0;
 			end
-			trainpred=Array(Float64,N)
+			
 			for i=1:N
 				user=Rating[i,1]; movie=Rating[i,2];
-				userfeat_ind=find(UserData[user,:]); moviefeat_ind=find(MovieData[movie,:]);
-				sumU=sum(U[userfeat_ind,:],1); sumV=sum(V[moviefeat_ind,:],1);
-				trainpred[i]=(trainpred[i]*counter+sum((sumU*w).*sumV))/(counter+1)
+				uidx=Uidx[user]; vidx=Vidx[movie]; #relevant rows of U,V to be updated
+				sumU=U[user,:]+b*sum(U[uidx,:],1); sumV=V[movie,:]+c*sum(V[vidx,:],1);
+				trainpred[i]=(trainpred[i]*counter+a*sum((sumU*w).*sumV))/(counter+1)
 			end
 			final_trainpred=trainpred*ytrainStd+ytrainMean;
 			cutoff!(final_trainpred);
@@ -592,9 +750,9 @@ end
 			
 			for i=1:Ntest
 				user=Ratingtest[i,1]; movie=Ratingtest[i,2];
-				userfeat_ind=find(UserData[user,:]); moviefeat_ind=find(MovieData[movie,:]);
-				sumU=sum(U[userfeat_ind,:],1); sumV=sum(V[moviefeat_ind,:],1);
-				testpred[i]=(testpred[i]*counter+sum((sumU*w).*sumV))/(counter+1)
+				uidx=Uidx[user]; vidx=Vidx[movie]; #relevant rows of U,V to be updated
+				sumU=U[user,:]+b*sum(U[uidx,:],1); sumV=V[movie,:]+c*sum(V[vidx,:],1);
+				testpred[i]=(testpred[i]*counter+a*sum((sumU*w).*sumV))/(counter+1)
 			end
 			final_testpred=testpred*ytrainStd+ytrainMean;
 			cutoff!(final_testpred);
@@ -602,7 +760,7 @@ end
 			testRMSE=sqrt(sum((ytrainStd*Ratingtest[:,3]+ytrainMean-final_testpred).^2)/Ntest)
 			testRMSEvec[epoch-burnin]=testRMSE			
 			counter+=1
-			println("epoch=$epoch, trainRMSE=$trainRMSE, testRMSE=$testRMSE")
+			#println("epoch=$epoch, trainRMSE=$trainRMSE, testRMSE=$testRMSE")
 		end
 	end
 	return U_store,V_store,testpred_store,trainRMSEvec,testRMSEvec
@@ -644,9 +802,27 @@ end
 	end
 	return userfrequencies,moviefrequencies,uRMSE,mRMSE
 end
+
+#return vector of freq vs RMSE for users and for movies
+@everywhere function RMSEbyfreq_binned(userfreq::Vector,moviefreq::Vector,Rating::Array,pred::Array,nbins::Integer)
+	qu=linspace(0,maximum(userfreq),nbins+1)[2:end]
+	map(x->indmin(qu.<x),userfreq);
+	qm=linspace(0,maximum(moviefreq),nbins+1)[2:end]
+	map(x->indmin(qm.<x),moviefreq);
+	uRMSE=Array(Float64,nbins); mRMSE=Array(Float64,nbins);
+	for i=1:nbins
+		users=find(userfreq.==i);
+		indices=findin(Rating[:,1],users);
+		uRMSE[i]=sqrt(sum((Rating[indices,3]-pred[indices]).^2)/length(indices))
+		movies=find(moviefreq.==i);
+		indices=findin(Rating[:,2],movies);
+		mRMSE[i]=sqrt(sum((Rating[indices,3]-pred[indices]).^2)/length(indices))
+	end
+	return qu,qm,uRMSE,mRMSE
+end
 	
 
-
+#=
 @everywhere file="ml100k_UVhyperparams.h5";
 @everywhere mu_u=h5read(file,"mu_u");
 @everywhere mu_m=h5read(file,"mu_m");
@@ -661,48 +837,78 @@ end
 @everywhere w_init[r,1:tempr]=mu_u'*Lu';
 @everywhere w_init[1:tempr,r]=Lu*mu_m;
 @everywhere w_init[r,r]=sum(mu_u.*mu_m);
-
+=#
 #epsw=3e+1;
 #epsU=1e-10;
 
 #w_init=randn(r,r);
-w_init=eye(r);
-signal_var=0.5; sigma_u=1; sigma_w=sqrt(sum(w_init.^2))/r; epsw=0.3; epsU=1e-7; burnin=10; maxepoch=20; n_samples=8; m=100;
-#println("epsw=$epsw, epsU=$epsU,m=$m");
+@everywhere w_init=eye(r);
+@everywhere a=0.2;
+@everywhere b=0.15;
+@everywhere c=0.25;
+#signal_var=0.5; sigma_u=0.5; sigma_w=sqrt(sum(w_init.^2))/r; epsw=0.3; epsU=1e-4; burnin=15; maxepoch=1000; #n_samples=8; m=100; a=0.25;b=0.25;c=0.3; param_seed=10;
+@everywhere userfreq,moviefreq=freq(Ratingtrain,UserData,MovieData);
+#epsUs=[1e-8,3e-8,5e-8,1e-7,3e-7,5e-7,1e-6];
+#colours=["blue","green","red","magenta","orange","black","purple"]
+#trainRMSE=SharedArray(Float64,maxepoch,7)
+#testRMSE=SharedArray(Float64,maxepoch,7)
+#println("signal_var=$signal_var,sigma_u=$sigma_u,epsU=$epsU,m=$m,a=$a,b=$b,c=$c");
 #GPT_fixw(Ratingtrain,UserData,MovieData,Ratingtest, signal_var, sigma_u, w_init, m, epsU,burnin, maxepoch, param_seed,langevin=false, stiefel=false,avg=false)
-#GPT_fixw_gibbs(Ratingtrain,UserData,MovieData,Ratingtest, signal_var,sigma_u, w_init, burnin, maxepoch, n_samples, param_seed,avg=true,rotated_w=true)
-w_store,U_store,V_store,testpred_store,trainRMSEvec,testRMSEvec=GPT_fullw_gibbs(Ratingtrain,UserData,MovieData,Ratingtest,signal_var,sigma_u,sigma_w,w_init, burnin, maxepoch, n_samples, param_seed,avg=true,rotated_w=false);
+#GPT_fixw_gibbs(Ratingtrain,UserData,MovieData,Ratingtest, signal_var,sigma_u, w_init, burnin, maxepoch, n_samples, param_seed,avg=true,rotated_w=false)
+#w_store,U_store,V_store,testpred_store,trainRMSEvec,testRMSEvec=GPT_fullw_gibbs(Ratingtrain,UserData,MovieData,Ratingtest,signal_var,sigma_u,sigma_w,w_init, burnin, maxepoch, n_samples, param_seed,avg=true,rotated_w=false);
 #w_store,U_store,V_store,trainRMSEvec,testRMSEvec=GPT_fullw(Ratingtrain,UserData,MovieData,Ratingtest,signal_var,sigma_u,sigma_w,w_init, m, epsw, epsU, burnin, maxepoch, param_seed,stiefel=false,langevin=false);
-#temp1,temp2,testpred_store,trainRMSEvec,testRMSEvec=GPT_fixw_sideinfo(Ratingtrain,UserData,MovieData,Ratingtest, signal_var,sigma_u, w_init, m, epsU,burnin, maxepoch, param_seed,langevin=false, stiefel=false,avg=false)
+@parallel for param_seed=1:10
+temp1,temp2,testpred_store,trainRMSEvec,testRMSEvec=GPT_fixw_sideinfofast(Ratingtrain,UserData,MovieData,Ratingtest,userfreq,moviefreq,signal_var,sigma_u, w_init, m, epsU,a,b,c,burnin, maxepoch, param_seed,langevin=false, stiefel=false,avg=false);
+#println("")
+#figure()
+#for i=1:7
+#	plot(trainRMSE[:,i],label=string("epsU=",epsUs[i],",train"),color=colours[i])
+#	plot(testRMSE[:,i],label=string("epsU=",epsUs[i],",test"),color=colours[i])
+#end
+#legend()
+#
+argmin=indmin(testRMSEvec); mintest=testRMSEvec[argmin];
+println("mintest=$mintest,argmin=$argmin,a=$a,b=$b,c=$c")
+end
+#=
 idx=indmin(testRMSEvec);
 testpred=testpred_store[:,idx];
-userfreq,moviefreq=freq(Ratingtrain,UserData,MovieData);
-Ratingtest[:,3]=ytrainStd*Ratingtest[:,3]+ytrainMean;
-userfrequencies,moviefrequencies,uRMSEgibbs,mRMSEgibbs=RMSEbyfreq(userfreq,moviefreq,Ratingtest,testpred)
-#plot(userfrequencies,uRMSE);
-#figure(); plot(moviefrequencies,mRMSE);
-println("")
-#=
-@everywhere t=Iterators.product([0.5,0.1,0.01],0:1:4,-1:1:2,-12:1:-10)
-@everywhere myt=Array(Any,180);
+bayespmf_pred=h5read("bayespmf_pred.h5","bayespmf_pred");
+Rating = readdlm("ml-100k/u.data",Float64);
+Ratingtest=Rating[Ntrain+1:Ntrain+Ntest,:];
+nbins=100;
+qu,qm,uRMSE,mRMSE=RMSEbyfreq_binned(userfreq,moviefreq,Ratingtest,testpred,nbins);
+qu,qm,uRMSEbpmf,mRMSEbpmf=RMSEbyfreq_binned(userfreq,moviefreq,Ratingtest,bayespmf_pred,nbins);
+#plt[:hist](userfreq,600);
+#plt[:hist](moviefreq,600);
+figure();
+subplot(2,1,1);
+plot(qu,uRMSE);
+plot(qu,uRMSEbpmf);
+xlabel("number of ratings by user");
+ylabel("testRMSE");
+subplot(2,1,2);
+plot(qm,mRMSE);
+plot(qm,mRMSEbpmf);
+xlabel("number of ratings on movie");
+suptitle("testRMSE by number of ratings on movie/user")
+
+@everywhere t=Iterators.product([0.001,0.05],[0.05,0.1,0.3,0.5,1],[1e-8,1e-7,1e-6,1e-5,1e-4,1e-3])
+@everywhere myt=Array(Any,60);
 @everywhere it=1;
 @everywhere for prod in t
 	myt[it]=prod;
         it+=1;
 end
 
-
 @parallel for  Tuple in myt 
-    i,j,k,l=Tuple;
-    signal_var=i;
-	sigma_w=float(string("1e",j));
-	epsw=float(string("1e",k));
-	epsU=float(string("1e",l));
-	w_store,U_store,V_store,trainRMSEvec,testRMSEvec=GPT_fullw(Ratingtrain,UserData,MovieData,Ratingtest,signal_var,sigma_w,w_init, m, epsw, epsU, burnin, maxepoch, param_seed,stiefel=false,langevin=false);
-	mintrain=minimum(trainRMSEvec); mintest=minimum(testRMSEvec);
-	println("mintest=$mintest,mintrain=$mintrain,epsw=$epsw,epsU=$epsU,signal_var=$signal_var,sigma_w=$sigma_w")
+    signal_var,sigma_u,epsU=Tuple;
+	temp1,temp2,testpred_store,trainRMSEvec,testRMSEvec=GPT_fixw_sideinfofast(Ratingtrain,UserData,MovieData,Ratingtest,userfreq,moviefreq,signal_var,sigma_u, w_init, m, epsU,a,b,c,burnin, maxepoch, param_seed,langevin=false, stiefel=false,avg=false);
+	argmin=indmin(testRMSEvec); mintest=testRMSEvec[argmin];
+	println("mintest=$mintest,argmin=$argmin,signal_var=$signal_var,sigma_u=$sigma_u,epsU=$epsU")
 end
 =#
+
 #w_store,U_store,V_store=GPT_test(Ratingtrain,UserData,MovieData,Ratingtest,signal_var, sigma_w, r, m, epsw, epsU, burnin, maxepoch, param_seed,stiefel=false,langevin=false);
 
 #randfeature(hyperparams::Vector)=CFfeatureNotensor(Ratingtrain,UserData,MovieData,UserHashmap,MovieHashmap, UserBHashmap,MovieBHashmap,n,hyperparams[1],hyperparams[2],hyperparams[3]);
