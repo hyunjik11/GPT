@@ -7,7 +7,7 @@ addpath(genpath('/Users/hyunjik11/Documents/GPstuff'));
 % y=h5read('/homes/hkim/GPT/PPdata.h5','/ytrain');
 x=h5read('/Users/hyunjik11/Documents/GPT/PPdata.h5','/Xtrain');
 y=h5read('/Users/hyunjik11/Documents/GPT/PPdata.h5','/ytrain');
-% x=x(1:500,:); y=y(1:500); %only use 500 pts for faster computation.
+x=x(1:500,:); y=y(1:500); %only use 500 pts for faster computation.
 [n, D] = size(x);
 
 % Now we will use the variational sparse approximation.
@@ -63,10 +63,10 @@ gp=gp_set('lik',lik,'cf',gpcf); %exact gp
 %fprintf('m=%d,-l=%2.4f \n',10*m,gp_e([],gp,xm,ym));
 %end
 [temp,nll]=gp_e([],gp,x,y);
-fprintf('-l=%2.4f;',nll);
-fprintf('length_scale=[');
-fprintf('%s',num2str(gp.cf{1}.lengthScale));
-fprintf('];sigma_RBF2=%2.4f;signal_var=%2.4f \n',gp.cf{1}.magnSigma2,gp.lik.sigma2);
+fprintf('-l=%2.4f;',gp_e([],gp,x,y));
+%fprintf('length_scale=[');
+%fprintf('%s',num2str(gp.cf{1}.lengthScale));
+%fprintf('];sigma_RBF2=%2.4f;signal_var=%2.4f \n',gp.cf{1}.magnSigma2,gp.lik.sigma2);
 %fprintf('-l=%2.4f;',gp_e([],gp_var,x,y));
 %fprintf('length_scale=[');
 %fprintf('%s',num2str(gp_var.cf{1}.lengthScale));

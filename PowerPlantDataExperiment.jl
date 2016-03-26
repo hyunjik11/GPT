@@ -11,7 +11,7 @@
 @everywhere data = convert(Array,data);
 @everywhere N=size(data,1);
 @everywhere D=4;
-@everywhere Ntrain=500;
+@everywhere Ntrain=5000;
 @everywhere Ntest=N-Ntrain;
 @everywhere seed=18;
 @everywhere length_scale=1.4332;
@@ -37,36 +37,94 @@
 @everywhere Q=200;
 @everywhere m=10;
 @everywhere r=20;
-@everywhere n=320;
-for seed=1:10
-@everywhere srand(seed)
-@everywhere Z=randn(n,D);
-@everywhere b=2*pi*rand(n,D);
-@everywhere I=samplenz(r,D,Q);
-@everywhere phi_scale=sqrt(n/(Q^(1/D)));
-@everywhere phitrain=featureNotensor(Xtrain,length_scale,sigma_RBF,Z,b);
-@everywhere phitest=featureNotensor(Xtest,length_scale,sigma_RBF,Z,b);
-@everywhere epsw=1e-4; 
-@everywhere epsU=1e-7;
-@everywhere epsilon=1e-4;
-@everywhere alpha=0.99;
-@everywhere L=30;
-@everywhere param_seed=234;
+#@everywhere n=20;
+@everywhere Xtrain=Xtrain[1:500,:];
+@everywhere ytrain=ytrain[1:500];
+for n in [10,20,40,80,160,320]
+println("n=$n");
+    
+mystats=SharedArray(Float64,10,7);
+@sync @parallel for seed=1:10
+srand(seed)
+Z=randn(n,D);
+b=2*pi*rand(n,D);
+#@everywhere I=samplenz(r,D,Q);
+#@everywhere phi_scale=sqrt(n/(Q^(1/D)));
+#@everywhere phitrain=featureNotensor(Xtrain,length_scale,sigma_RBF,Z,b);
+#@everywhere phitest=featureNotensor(Xtest,length_scale,sigma_RBF,Z,b);
+#@everywhere epsw=1e-4; 
+#@everywhere epsU=1e-7;
+#@everywhere epsilon=1e-4;
+#@everywhere alpha=0.99;
+#@everywhere L=30;
+#@everywhere param_seed=234;
 #tic();w_store,U_store,accept_prob=GPT_GMC(phitrain,ytrain,sigma,I,r,Q,epsw,epsU,burnin,maxepoch,L,param_seed);toc()
 
-randfeature(hyperparams::Vector)=featureNotensor(Xtrain,hyperparams[1:D],hyperparams[D+1],Z,b)
+#=
+function RFF_nlogmarginal(y::Array,n::Integer,hyperparams::Vector,randfeature::Function)
+    N=length(y);
+    phi=randfeature(hyperparams);
+    signal_var=hyperparams[end];
+    A=phi*phi'+signal_var*eye(n);
+    Chol=cholfact(A);L=Chol[:L]; U=Chol[:U] # L*U=A
+    b=phi*y;
+    l=\(U,\(L,b)); #inv(A)*phi*y
+    logdetA=2*sum(log(diag(L)));
+    sum1=(N-n)*log(signal_var)/2+logdetA/2;
+    sum2=(sum(y.*y)-sum(b.*l))/(2*signal_var);
+    nll=sum1+sum2+N*log(2*pi)/2;
+    println("logdet/2=$sum1, innerprod/2=$sum2, nll=$nll")
+    return sum1,sum2,nll
+end
+=#
+#signal_var=0.0205;
+#sigma_RBF2=0.8296;
+#length_scale=[1.4426,0.0041,4.0272,7.3516];
+#nll=GP_nlogmarginal(Xtrain,ytrain,signal_var,sigma_RBF2,length_scale);
+    
+randfeature(hyperparams::Vector)=featureNotensor(Xtrain,hyperparams[1:D],hyperparams[D+1],Z,b);
 gradfeature(hyperparams::Vector)=gradfeatureNotensor(Xtrain,hyperparams[1:D],hyperparams[D+1],Z,b)
-nlogmarginal(hyperparams::Vector)=GPNT_nlogmarginal(ytrain,n,hyperparams,randfeature)
+nlogmarginal(hyperparams::Vector)=GPNT_nlogmarginal(ytrain,n,hyperparams,randfeature);
+#=
+sum1,sum2,nll=nlogmarginal([length_scale,sqrt(sigma_RBF2),signal_var]);
+mystats[seed,:]=[sum1 sum2 nll];        
+end
+mean1=mean(mystats[:,1]); std1=std(mystats[:,1]);
+mean2=mean(mystats[:,2]); std2=std(mystats[:,2]);
+mean3=mean(mystats[:,3]); std3=std(mystats[:,3]);
+println("mean(logdet/2)=$mean1,std(logdet/2)=$std1")
+println("mean(innerprod/2)=$mean2,std(innerprod/2)=$std2")
+println("mean(nll)=$mean3,std(nll)=$std3")
+end
+=#
+
 gradnlogmarginal(hyperparams::Vector)=GPNT_gradnlogmarginal(ytrain,n,hyperparams,randfeature,gradfeature)
 #test(nlogmarginal,gradnlogmarginal,1+0.2*randn(3),epsilon)
 
 Lh=D+2; #number of hyperparams
 #lbounds=[0.,0.,0.001] #lower bound on hyperparams
 #GPNT_hyperparameters(nlogmarginal,gradnlogmarginal,1+0.2*randn(Lh),lbounds)
-myhyperparams,fmin=GPNT_hyperparameters(nlogmarginal,gradnlogmarginal,[ones(Lh-1),0.2^2],0.001*ones(Lh));
-length_scale=myhyperparams[1:D]; sigma_RBF=myhyperparams[D+1]; signal_var=myhyperparams[D+2];
-println("-l=$fmin;length_scale=$length_scale;sigma_RBF=$sigma_RBF;signal_var=$signal_var");
+myhyperparams,fmin=GPNT_hyperparameters(nlogmarginal,gradnlogmarginal,[ones(Lh-2),0.2,0.2^2],0.001*ones(Lh));
+length_scale=myhyperparams[1:D]; sigma_RBF2=myhyperparams[D+1]^2; signal_var=myhyperparams[D+2];
+mystats[seed,:]=[fmin,length_scale,sigma_RBF2,signal_var]';
+println("nll=$fmin;length_scale=$length_scale;sigma_RBF=$sigma_RBF2;signal_var=$signal_var");
 end
+mean1=mean(mystats[:,1]); std1=std(mystats[:,1]);
+mean2=mean(mystats[:,2]); std2=std(mystats[:,2]);
+mean3=mean(mystats[:,3]); std3=std(mystats[:,3]);
+mean4=mean(mystats[:,4]); std4=std(mystats[:,4]);
+mean5=mean(mystats[:,5]); std5=std(mystats[:,5]);
+    mean6=mean(mystats[:,6]); std6=std(mystats[:,6]);
+    mean7=mean(mystats[:,7]); std7=std(mystats[:,7]);
+    println("mean_nll=$mean1, std_nll=$std1")
+    println("mean_l1=$mean2, std_l1=$std2")
+    println("mean_l2=$mean3, std_l2=$std3")
+    println("mean_l3=$mean4, std_l3=$std4")
+    println("mean_l4=$mean5, std_l4=$std5")
+    println("mean_sigma_RBF2=$mean6, std_sigma_RBF2=$std6")
+    println("mean_signal_var=$mean7, std_signal_var=$std7")
+end
+=#
 #=
 function test(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector,epsilon::Real)
 nlm(loghyperparams::Vector)=nlogmarginal(exp(loghyperparams)); # exp needed to enable unconstrained optimisation, since hyperparams must be positive

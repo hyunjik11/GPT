@@ -2,7 +2,7 @@ module GPT_SGLD
 
 using Distributions,NLopt,Optim
 
-export datawhitening,feature, feature2, featureNotensor,featureNotensor2, gradfeatureNotensor,GPNT_SGLD,logsumexp,GPNT_SGLDclass,GPNT_nlogmarginal,GPNT_gradnlogmarginal,GPNT_hyperparameters, GPNT_hyperparameters_optim, GPNT_hyperparameters_ng,samplenz,proj, geod, pred, createmesh,fhatdraw,GPTregression,GPTclassification, GPT_SGLDERM_RMSprop, GPT_GMC,GPT_SGLDERMw,CFfeature,CFfeatureNotensor,CFgradfeatureNotensor
+export datawhitening,feature, feature2, featureNotensor,featureNotensor2, gradfeatureNotensor,GPNT_SGLD,logsumexp,GPNT_SGLDclass,GP_nlogmarginal,GPNT_nlogmarginal,GPNT_gradnlogmarginal,GPNT_hyperparameters, GPNT_hyperparameters_optim, GPNT_hyperparameters_ng,samplenz,proj, geod, pred, createmesh,fhatdraw,GPTregression,GPTclassification, GPT_SGLDERM_RMSprop, GPT_GMC,GPT_SGLDERMw,CFfeature,CFfeatureNotensor,CFgradfeatureNotensor
 
 # computes log(sum(exp(x))) in a robust manner
 function logsumexp(x::Array)
@@ -903,20 +903,36 @@ function GPNT_SGLDclass(phi::Array, y::Array, sigma_theta::Real, m::Integer, eps
     return theta_store
 end
 
+# function to return the negative log marginal likelihood of GP with ARD kernel.
+# also prints the values of the logdet term and innerprod term.
+function GP_nlogmarginal(X::Array,y::Vector,signal_var::Real,sigma_RBF2::Real,length_scale)
+    n=length(y);    
+    K=[sigma_RBF2*exp(-sum(((X[i,:]-X[j,:])'./length_scale).^2)/2) for i=1:n, j=1:n];
+    A=K+signal_var*eye(n);
+    Chol=cholfact(A); L=Chol[:L]; U=Chol[:U]; #L*U=A
+    l=\(U,\(L,y)); #inv(A)*y
+    half_logdetA=sum(log(diag(L)));
+    half_innerprod=sum(y.*l)/2;
+    println("logdet/2=$half_logdetA, innerprod/2=$half_innerprod")
+    return half_logdetA+half_innerprod+n*log(2*pi)/2
+end
+
 # function to return the negative log marginal likelihood of No Tensor model with Gaussian observations
 # hyperparams include signal_var, which should always be hyperparams[end]
 # randfeature is the function with arg hyperparams generating random features for the No Tensor model. It should ignore signal_var=hyperparams[end]
 # random_numbers are the random numbers used to generate features in randfeature. This can be an array or a Tuple
 function GPNT_nlogmarginal(y::Array,n::Integer,hyperparams::Vector,randfeature::Function)
-	N=length(y);
+    N=length(y);
     phi=randfeature(hyperparams);
-	signal_var=hyperparams[end];
+    signal_var=hyperparams[end];
     A=phi*phi'+signal_var*eye(n);
-	Chol=cholfact(A);L=Chol[:L]; U=Chol[:U] # L*U=A
+    Chol=cholfact(A);L=Chol[:L]; U=Chol[:U] # L*U=A
     b=phi*y;
-	l=\(U,\(L,b)); #inv(A)*phi*y
-	logdetA=2*sum(log(diag(L)));
-    return (N-n)*log(signal_var)/2+logdetA/2+(sum(y.*y)-sum(b.*l))/(2*signal_var)+N*log(2*pi)/2
+    l=\(U,\(L,b)); #inv(A)*phi*y
+    logdetA=2*sum(log(diag(L)));
+    sum1=(N-n)*log(signal_var)/2+logdetA/2;
+    sum2=(sum(y.*y)-sum(b.*l))/(2*signal_var);
+    return sum1+sum2+N*log(2*pi)/2
 end
 
 # function to return the gradient of negative log marginal likelihood of No Tensor model with Gaussian observations

@@ -475,7 +475,7 @@ length_scale=[1.2758     0.41733      1.9028      3.4391] sf=0.4954, signal_var=
 length_scale=[1.2745     0.41294      1.8903      3.4415] sf=0.4931, signal_var=0.0511
 
 PowerPlant500 (only first 500 of training):
-Exact: -l=49.2210;length_scale=[2.0368      3.0397      5.7816      6.9119];sigma_RBF=0.7596;signal_var=0.0599 
+Exact: -l=34.0459;length_scale=[2.0368      3.0397      5.7816      6.9119];sigma_RBF=0.7596;signal_var=0.0599 
 Var_GP:
 m=10:
  TolFun reached. Func-count 163. Final f(x)=54.2445. Elapsed time 2.46
