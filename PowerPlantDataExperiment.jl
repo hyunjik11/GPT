@@ -124,7 +124,7 @@ mean5=mean(mystats[:,5]); std5=std(mystats[:,5]);
     println("mean_sigma_RBF2=$mean6, std_sigma_RBF2=$std6")
     println("mean_signal_var=$mean7, std_signal_var=$std7")
 end
-=#
+
 #=
 function test(nlogmarginal::Function,gradnlogmarginal::Function,init_hyperparams::Vector,epsilon::Real)
 nlm(loghyperparams::Vector)=nlogmarginal(exp(loghyperparams)); # exp needed to enable unconstrained optimisation, since hyperparams must be positive
