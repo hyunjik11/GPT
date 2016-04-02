@@ -834,68 +834,7 @@ m=4800,-l=-345.4282
 m=4900,-l=-377.5256 
 m=5000,-l=-431.3101
 =======
-hyperparam tuning for tensor model with side info
-From worker 20: mintest=0.9083643533904859,argmin=18,a=0.2,b=0.1,c=0.3,uft=200,mft=700
-From worker 20: mintest=0.9094869145559091,argmin=12,a=0.3,b=0.1,c=0.3,uft=200,mft=700
-From worker 21: mintest=0.9130958533863448,argmin=10,a=0.3,b=0.3,c=0.3,uft=500,mft=700
-From worker 17: mintest=0.9157033917010053,argmin=12,a=0.3,b=0.2,c=0.4,uft=500,mft=80
- From worker 21: mintest=0.9142349032359616,argmin=7,a=0.4,b=0.3,c=0.3,uft=500,mft=700
-From worker 17: mintest=0.9171585070812658,argmin=9,a=0.4,b=0.2,c=0.4,uft=500,mft=80
-From worker 17: mintest=0.9186064932144633,argmin=7,a=0.5,b=0.2,c=0.4,uft=500,mft=80
-From worker 21: mintest=0.915471572329726,argmin=6,a=0.5,b=0.3,c=0.3,uft=500,mft=700
- From worker 21: mintest=0.9165063404918685,argmin=5,a=0.6,b=0.3,c=0.3,uft=500,mft=70
- From worker 21: mintest=0.9161352408071053,argmin=4,a=0.7,b=0.3,c=0.3,uft=500,mft=700
-From worker 21: mintest=0.9199026862530694,argmin=4,a=0.9,b=0.3,c=0.3,uft=500,mft=700
-From worker 17: mintest=0.9198902924666152,argmin=11,a=0.3,b=0.3,c=0.4,uft=500,mft=80
-From worker 21: mintest=0.9173795361847745,argmin=9,a=0.3,b=0.4,c=0.3,uft=500,mft=700
- From worker 21: mintest=0.9164927380393747,argmin=13,a=0.2,b=0.4,c=0.3,uft=500,mft=700
-From worker 21: mintest=0.9186652779879209,argmin=6,a=0.5,b=0.4,c=0.3,uft=500,mft=700
-From worker 20: mintest=0.9166024646275203,argmin=25,a=0.1,b=0.1,c=0.3,uft=200,mft=700
-From worker 21: mintest=0.9192464757496649,argmin=4,a=0.6,b=0.4,c=0.3,uft=500,mft=700
-From worker 21: mintest=0.9191609257042722,argmin=4,a=0.7,b=0.4,c=0.3,uft=500,mft=700
-From worker 19: mintest=0.9106717766730635,argmin=20,a=0.2,b=0.1,c=0.2,uft=100,mft=700
-From worker 19: mintest=0.9125650160367648,argmin=12,a=0.3,b=0.1,c=0.2,uft=100,mft=700
-From worker 20: mintest=0.9170452359765157,argmin=4,a=0.8,b=0.1,c=0.3,uft=200,mft=700
-From worker 19: mintest=0.9143285350656775,argmin=9,a=0.4,b=0.1,c=0.2,uft=100,mft=700
-From worker 20: mintest=0.9188028775025422,argmin=4,a=0.9,b=0.1,c=0.3,uft=200,mft=700
- From worker 19: mintest=0.9158945076941714,argmin=7,a=0.5,b=0.1,c=0.2,uft=100,mft=700
-From worker 19: mintest=0.917863119709497,argmin=6,a=0.6,b=0.1,c=0.2,uft=100,mft=700
-From worker 20: mintest=0.9131167476783313,argmin=25,a=0.1,b=0.2,c=0.3,uft=200,mft=700
-From worker 19: mintest=0.9191541381265579,argmin=5,a=0.7,b=0.1,c=0.2,uft=100,mft=700
-From worker 20: mintest=0.9078084833327139,argmin=17,a=0.2,b=0.2,c=0.3,uft=200,mft=700
-From worker 16: mintest=0.913405694160106,argmin=20,a=0.2,b=0.1,c=0.3,uft=200,mft=80
-From worker 13: mintest=0.9194331701235288,argmin=20,a=0.2,b=0.2,c=0.5,uft=500,mft=40
-
-From worker 18:	mintest=0.906142590782395,argmin=18,a=0.2,b=0.15,c=0.2,uft=500,mft=700
-From worker 21:	mintest=0.9066067138648717,argmin=18,a=0.2,b=0.1,c=0.3,uft=500,mft=700
-From worker 18:	mintest=0.9066494251792899,argmin=14,a=0.25,b=0.15,c=0.2,uft=500,mft=700
-From worker 19:	mintest=0.9061162297203815,argmin=18,a=0.2,b=0.1,c=0.25,uft=500,mft=700
-From worker 21:	mintest=0.9065275185604604,argmin=14,a=0.25,b=0.15,c=0.3,uft=500,mft=700
-From worker 19:	mintest=0.9066193375669847,argmin=15,a=0.25,b=0.1,c=0.25,uft=500,mft=700
-From worker 19:	mintest=0.905951067253417,argmin=18,a=0.2,b=0.15,c=0.25,uft=500,mft=700
-From worker 19:	mintest=0.9063718307171049,argmin=14,a=0.25,b=0.15,c=0.25,uft=500,mft=700
-
-hyperparam tuning for tensor model with fixed W=I and side info, using SGLD with full noise burnin=50,maxepoch=50, a=0.2,b=0.15,c=0.25;
-From worker 8:  mintest=0.9157914243191684,argmin=2,signal_var=0.01,sigma_u=0.1,epsU=1.0e-6
-From worker 16: mintest=0.9153326664536254,argmin=48,signal_var=0.3,sigma_u=0.3,epsU=0.0001
-From worker 9:  mintest=0.9172316089778852,argmin=50,signal_var=0.05,sigma_u=0.3,epsU=1.0e-6
-From worker 17: mintest=0.9068227976466219,argmin=50,signal_var=0.5,sigma_u=0.5,epsU=0.0001
-From worker 16: mintest=0.912247589572218,argmin=50,signal_var=0.1,sigma_u=0.3,epsU=0.0001
-From worker 16: mintest=0.9167895729488179,argmin=48,signal_var=0.05,sigma_u=0.3,epsU=0.0001
-From worker 17: mintest=0.9102160901089184,argmin=50,signal_var=0.3,sigma_u=0.5,epsU=0.0001
-From worker 8:  mintest=0.9157536024994127,argmin=48,signal_var=0.01,sigma_u=0.05,epsU=1.0e-6
-From worker 13: mintest=0.919860496140872,argmin=50,signal_var=0.3,sigma_u=0.3,epsU=1.0e-5
-From worker 12: mintest=0.9189940245864769,argmin=48,signal_var=0.01,sigma_u=0.1,epsU=1.0e-5
-
-SGLD with part noise
-From worker 13: mintest=0.9169480976786553,argmin=2,signal_var=0.1,sigma_u=0.3,epsU=1.0e-5
-From worker 14: mintest=0.9175559185302412,argmin=50,signal_var=0.5,sigma_u=0.5,epsU=1.0e-5
-From worker 13: mintest=0.9147475186225887,argmin=50,signal_var=0.3,sigma_u=0.3,epsU=1.0e-5
-From worker 8:  mintest=0.9158511697449401,argmin=50,signal_var=0.01,sigma_u=0.05,epsU=1.0e-6
-From worker 17: mintest=0.9166836814047709,argmin=50,signal_var=0.3,sigma_u=0.5,epsU=0.0001
-From worker 17: mintest=0.9057111010211444,argmin=50,signal_var=0.5,sigma_u=0.5,epsU=0.0001
-mintest=0.912177594566648,argmin=50,signal_var=0.3,sigma_u=0.5,epsU=1.0e-5
-mintest=0.911888657114625,argmin=50,signal_var=0.3,sigma_u=0.3,epsU=0.0001
-mintest=0.9143519825182196,argmin=50,signal_var=0.05,sigma_u=0.3,epsU=1.0e-6
-mintest=0.9152279505951751,argmin=2,signal_var=0.01,sigma_u=0.1,epsU=1.0e-6
-
+PPfull (9568 data its):
+nll=-2239.2172; logdet/2=-15816; innerprod/2=4784.0; (N*log(2*pi)/2=8792.4)
+length_scale=[1.3978,0.0028,2.8966,7.5565];
+sigma_RBF2=0.8333; signal_var=0.0195;
