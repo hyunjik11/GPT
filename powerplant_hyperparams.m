@@ -5,8 +5,8 @@ POOL=parpool('local',num_workers);
 % % Load the data
 % x=h5read('/homes/hkim/GPT/PPdata.h5','/Xtrain');
 % y=h5read('/homes/hkim/GPT/PPdata.h5','/ytrain');
-x=h5read('/Users/hyunjik11/Documents/GPT/PPdata_full.h5','/Xtrain');
-y=h5read('/Users/hyunjik11/Documents/GPT/PPdata_full.h5','/ytrain');
+x=h5read('PPdata_full.h5','/Xtrain');
+y=h5read('PPdata_full.h5','/ytrain');
 %% PP500 hyperparams
 %x=x(1:500,:); y=y(1:500); %only use 500 pts for faster computation.
 %length_scale=[2.0368 3.0397 5.7816 6.9119];
