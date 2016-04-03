@@ -8,7 +8,7 @@ errorbar(m_values,naive_ld_means,naive_ld_stds);
 errorbar(m_values,fic_ld_means,fic_ld_stds);
 errorbar(m_values,pic_ld_means,pic_ld_stds);
 set(gca,'XTick',[1 2 3 4 5 6]);
-set(gca,'XTickLabel',[10 20 40 80 160 320]);
+set(gca,'XTickLabel',[100 200 400 800 1600 3200]);
 legend('Exact GP','RFF','DTC','FIC','PIC')
 ylabel('logdet/2')
 xlabel('m')
@@ -23,7 +23,8 @@ errorbar(m_values,naive_ip_means,naive_ip_stds);
 errorbar(m_values,fic_ip_means,fic_ip_stds);
 errorbar(m_values,pic_ip_means,pic_ip_stds);
 set(gca,'XTick',[1 2 3 4 5 6]);
-set(gca,'XTickLabel',[10 20 40 80 160 320]);
+set(gca,'XTickLabel',[100 200 400 800 1600 3200]);
+ylim([3000 7000])
 legend('Exact GP','RFF','DTC','FIC','PIC')
 ylabel('innerprod/2')
 xlabel('m')

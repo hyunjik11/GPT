@@ -1,7 +1,7 @@
-% addpath(genpath('/homes/hkim/Documents/GPstuff-4.6'));
-addpath(genpath('/Users/hyunjik11/Documents/GPstuff'));
-% num_workers=4;
-% POOL=parpool('local',num_workers);
+addpath(genpath('/homes/hkim/Documents/GPstuff-4.6'));
+%addpath(genpath('/Users/hyunjik11/Documents/GPstuff'));
+num_workers=10;
+POOL=parpool('local',num_workers);
 % % Load the data
 % x=h5read('/homes/hkim/GPT/PPdata.h5','/Xtrain');
 % y=h5read('/homes/hkim/GPT/PPdata.h5','/ytrain');
@@ -13,9 +13,9 @@ y=h5read('/Users/hyunjik11/Documents/GPT/PPdata_full.h5','/ytrain');
 %sigma_RBF2=0.7596;
 %signal_var=0.0599;
 %% PPfull hyperparams
-length_scale=[1.3978 0.0028 2.8966 7.5565];
-sigma_RBF2=0.8333; 
-signal_var=0.0195;
+%length_scale=[1.3978 0.0028 2.8966 7.5565];
+%sigma_RBF2=0.8333; 
+%signal_var=0.0195;
 [n, D] = size(x);
 
 
@@ -24,39 +24,58 @@ signal_var=0.0195;
 % First we create the GP structure. Notice here that if we do
 % not explicitly set the priors for the covariance function
 % parameters they are given a uniform prior.
-%lik = lik_gaussian('sigma2', 0.2^2);
-%gpcf = gpcf_sexp('lengthScale', ones(1,D), 'magnSigma2', 0.2^2);
-lik = lik_gaussian('sigma2', signal_var);
-gpcf = gpcf_sexp('lengthScale', length_scale, 'magnSigma2', sigma_RBF2);
-gp=gp_set('lik',lik,'cf',gpcf); %exact gp
-
-%X_u=datasample(x,m,1,'Replace',false); %each row specifies coordinates of an inducing point. here we randomly sample m data points
-%gp_fic = gp_set('type', 'FIC', 'lik', lik, 'cf', gpcf,'X_u', X_u); %var_gp
-if 1==1
-[K,C]=gp_trcov(gp,x);
-%tmp=C\y;
-%fprintf('innerprod/2=%4.2f \n',y'*tmp); %evaluate y'*inv(K+s^2I)*y
-naive_ip_means=zeros(6,1); naive_ip_stds=zeros(6,1); k=1;
-for m=[100,200,400,800,1600,3200] %number of inducing pts.
-values=zeros(10,1);
-for i=1:10
-idx=randsample(n,m);
-K_mn=K(idx,:); K_mm=K(idx,idx);
-L_mm=chol(K_mm); %L_mm'*L_mm=K_mm;
-L=L_mm'\K_mn; %L'*L=K_hat=K_mn'*(K_mm\K_mn)
-K_hat=L'*L;
-%K_hat=K_hat+diag(diag(K-K_hat));
-%K_hat=K_hat+blockdiag(K-K_hat,m);
-value=y'*((K_hat+signal_var*eye(n))\y)/2;
-%L=chol(K_hat+signal_var*eye(n));
-%value=sum(log(diag(L)));
-values(i)=value;
-end
-mymean=mean(values); mystd=std(values);
-naive_ip_means(k)=mymean; naive_ip_stds(k)=mystd; k=k+1;
-fprintf('m=%d, mean=%4.4f, std=%4.4f \n',m,mymean,mystd)
-end
-end
+lik = lik_gaussian('sigma2', 0.2^2);
+gpcf = gpcf_sexp('lengthScale', ones(1,D), 'magnSigma2', 0.2^2);
+%lik = lik_gaussian('sigma2', signal_var);
+%gpcf = gpcf_sexp('lengthScale', length_scale, 'magnSigma2', sigma_RBF2);
+%gp=gp_set('lik',lik,'cf',gpcf); %exact gp
+k=1;
+mean_nll=zeros(6,1); mean_length_scale1=zeros(6,1);
+mean_sigmaRBF2=zeros(6,1); mean_signal_var=zeros(6,1);
+std_nll=zeros(6,1); std_length_scale1=zeros(6,1);
+std_sigmaRBF2=zeros(6,1); std_signal_var=zeros(6,1);
+for m=[100,200,400,800,1600,3200]
+    nll_values=zeros(10,1);
+    length_scale1_values=zeros(10,1);
+    sigmaRBF2_values=zeros(10,1);
+    signal_var_values=zeros(10,1);
+    parfor i=1:10
+        X_u=datasample(x,m,1,'Replace',false); %each row specifies coordinates of an inducing point. here we randomly sample m data points
+        gp_var = gp_set('type', 'VAR', 'lik', lik, 'cf', gpcf,'X_u', X_u); %var_gp
+% if 1==0
+% [K,C]=gp_trcov(gp,x);
+% %tmp=C\y;
+% %fprintf('innerprod/2=%4.2f \n',y'*tmp); %evaluate y'*inv(K+s^2I)*y
+% k=1;
+% fic_ld_means=zeros(6,1); fic_ld_stds=zeros(6,1);
+% fic_ip_means=zeros(6,1); fic_ip_stds=zeros(6,1);
+% for m=[100,200,400,800,1600,3200] %number of inducing pts.
+% ld_values=zeros(10,1);
+% ip_values=zeros(10,1);
+% for i=1:10
+% idx=randsample(n,m);
+% K_mn=K(idx,:); K_mm=K(idx,idx);
+% L_mm=chol(K_mm); %L_mm'*L_mm=K_mm;
+% L=L_mm'\K_mn; %L'*L=K_hat=K_mn'*(K_mm\K_mn)
+% K_hat=L'*L;
+% K_hat=K_hat+diag(diag(K-K_hat));
+% %K_hat=K_hat+blockdiag(K-K_hat,m);
+% L=chol(K_hat+signal_var*eye(n));
+% temp=L'\y;
+% ip_value=temp'*temp/2;
+% ld_value=sum(log(diag(L)));
+% ip_values(i)=ip_value;
+% ld_values(i)=ld_value;
+% end
+% ip_mean=mean(ip_values); ip_std=std(ip_values);
+% ld_mean=mean(ld_values); ld_std=std(ld_values);
+% fic_ip_means(k)=ip_mean; fic_ip_stds(k)=ip_std;
+% fic_ld_means(k)=ld_mean; fic_ld_stds(k)=ld_std; 
+% k=k+1;
+% fprintf('m=%d, ld_mean=%4.4f, ld_std=%4.4f \n',m,ld_mean,ld_std)
+% fprintf('m=%d, ip_mean=%4.4f, ip_std=%4.4f \n',m,ip_mean,ip_std)
+% end
+% end
 % Next we initialize the inducing inputs and set them in GP
 % structure. We have to give a prior for the inducing inputs also,
 % if we want to optimize them
@@ -80,30 +99,38 @@ end
 % packed
 
 % optimize parameters and inducing inputs
-%gp_var = gp_set(gp_var, 'infer_params', 'covariance+likelihood+inducing');
+gp_var = gp_set(gp_var, 'infer_params', 'covariance+likelihood+inducing');
 % optimize only parameters
 %gp_var = gp_set(gp_var, 'infer_params', 'covariance+likelihood');           
 
-%opt=optimset('TolFun',1e-3,'TolX',1e-4,'Display','iter','MaxIter',1000);%,'Display','off');
+opt=optimset('TolFun',1e-3,'TolX',1e-4,'Display','off','MaxIter',1000);%,'Display','off');
 % Optimize with the quasi-Newton method
 %gp=gp_optim(gp,x,y,'opt',opt);
-%gp_var=gp_optim(gp_var,x,y,'opt',opt,'optimf',@fminscg); %can also use @fminlbfgs,@fminunc
+gp_var=gp_optim(gp_var,x,y,'opt',opt,'optimf',@fminscg); %can also use @fminlbfgs,@fminunc
 % Set the options for the optimization
 %for m=1:10
 %xm=x(1:10*m,:); ym=y(1:10*m);
 %fprintf('m=%d,-l=%2.4f \n',10*m,gp_e([],gp,xm,ym));
 %end
-[temp,nll]=gp_e([],gp,x,y);
-fprintf('-l=%2.4f;',nll);
-fprintf('length_scale=[');
-fprintf('%s',num2str(gp.cf{1}.lengthScale));
-fprintf('];sigma_RBF2=%2.4f;signal_var=%2.4f \n',gp.cf{1}.magnSigma2,gp.lik.sigma2);
+[temp,nll]=gp_e([],gp_var,x,y);
+nll_values(i)=nll; length_scale1_values(i)=gp_var.cf{1}.lengthScale(1);
+sigmaRBF2_values(i)=gp_var.cf{1}.magnSigma2; signal_var_values(i)=gp_var.lik.sigma2;
+%fprintf('-l=%2.4f;',nll);
+%fprintf('length_scale=[');
+%fprintf('%s',num2str(gp.cf{1}.lengthScale));
+%fprintf('];sigma_RBF2=%2.4f;signal_var=%2.4f \n',gp.cf{1}.magnSigma2,gp.lik.sigma2);
 %fprintf('-l=%2.4f;',gp_e([],gp_var,x,y));
 %fprintf('length_scale=[');
 %fprintf('%s',num2str(gp_var.cf{1}.lengthScale));
 %fprintf('];sigma_RBF2=%2.4f;signal_var=%2.4f \n',gp_var.cf{1}.magnSigma2,gp_var.lik.sigma2);
-%end
-% delete(POOL);
+    end
+mean_nll(k)=mean(nll_values); mean_length_scale1(k)=mean(length_scale1_values);
+mean_sigmaRBF2(k)=mean(sigmaRBF2_values); mean_signal_var(k)=mean(signal_var_values);
+std_nll(k)=std(nll_values); std_length_scale1(k)=std(length_scale1_values);
+std_sigmaRBF2(k)=std(sigmaRBF2_values); std_signal_var(k)=std(signal_var_values);
+k=k+1;
+end
+delete(POOL);
 % To optimize the parameters and inducing inputs sequentially uncomment the below lines
 % $$$ iter = 1
 % $$$ e = gp_e(w,gp_var,x,y)

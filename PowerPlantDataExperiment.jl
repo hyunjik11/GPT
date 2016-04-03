@@ -42,15 +42,14 @@
 #@everywhere Xtrain=Xtrain[1:500,:];
 #@everywhere ytrain=ytrain[1:500];
 
-for n in [10,20,40,80,160,320]
+for n in [100,200,400,800,1600,3200]
 println("n=$n");
     
-mystats=SharedArray(Float64,10,7);
-@sync @parallel for seed=1:10
+mystats=SharedArray(Float64,10,3);
+for seed=1:10
 srand(seed)
 Z=randn(n,D);
 b=2*pi*rand(n,D);
-
 #@everywhere I=samplenz(r,D,Q);
 #@everywhere phi_scale=sqrt(n/(Q^(1/D)));
 #@everywhere phitrain=featureNotensor(Xtrain,length_scale,sigma_RBF,Z,b);
@@ -79,18 +78,16 @@ function RFF_nlogmarginal(y::Array,n::Integer,hyperparams::Vector,randfeature::F
     println("logdet/2=$sum1, innerprod/2=$sum2, nll=$nll")
     return sum1,sum2,nll
 end
-
 signal_var=0.0195;
 sigma_RBF2=0.8333;
 length_scale=[1.3978,0.0028,2.8966,7.5565];
 #nll=GP_nlogmarginal(Xtrain,ytrain,signal_var,sigma_RBF2,length_scale);
-   
+hyperparameters=[length_scale,sqrt(sigma_RBF2),signal_var];
 randfeature(hyperparams::Vector)=featureNotensor(Xtrain,hyperparams[1:D],hyperparams[D+1],Z,b);
-gradfeature(hyperparams::Vector)=gradfeatureNotensor(Xtrain,hyperparams[1:D],hyperparams[D+1],Z,b)
-nlogmarginal(hyperparams::Vector)=GPNT_nlogmarginal(ytrain,n,hyperparams,randfeature);
-
-sum1,sum2,nll=nlogmarginal([length_scale,sqrt(sigma_RBF2),signal_var]);
-mystats[seed,:]=[sum1 sum2 nll];        
+#gradfeature(hyperparams::Vector)=gradfeatureNotensor(Xtrain,hyperparams[1:D],hyperparams[D+1],Z,b)
+#nlogmarginal(hyperparams::Vector)=GPNT_nlogmarginal(ytrain,n,hyperparams,randfeature);
+sum1,sum2,nll=RFF_nlogmarginal(ytrain,n,hyperparameters,randfeature);
+mystats[seed,:]=[sum1 sum2 nll];
 end
 mean1=mean(mystats[:,1]); std1=std(mystats[:,1]);
 mean2=mean(mystats[:,2]); std2=std(mystats[:,2]);
@@ -308,7 +305,7 @@ meanfhatfinal=mean(meanfhat,2);
 println("RMSE=",norm(ytest-meanfhatfinal)/sqrt(N-Ntrain))
 =#
 
-if 1==1 #storing variables to h5 file
+if 1==0 #storing variables to h5 file
 #using HDF5
 c=h5open("PPdata_full.h5","w") do file
 	write(file,"Xtrain",sdata(Xtrain));
