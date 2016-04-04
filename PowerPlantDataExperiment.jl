@@ -84,9 +84,11 @@ length_scale=[1.3978,0.0028,2.8966,7.5565];
 #nll=GP_nlogmarginal(Xtrain,ytrain,signal_var,sigma_RBF2,length_scale);
 hyperparameters=[length_scale,sqrt(sigma_RBF2),signal_var];
 randfeature(hyperparams::Vector)=featureNotensor(Xtrain,hyperparams[1:D],hyperparams[D+1],Z,b);
+    phi=randfeature(hyperparameters);
+    K_rff=phi'*phi;
 #gradfeature(hyperparams::Vector)=gradfeatureNotensor(Xtrain,hyperparams[1:D],hyperparams[D+1],Z,b)
 #nlogmarginal(hyperparams::Vector)=GPNT_nlogmarginal(ytrain,n,hyperparams,randfeature);
-sum1,sum2,nll=RFF_nlogmarginal(ytrain,n,hyperparameters,randfeature);
+#sum1,sum2,nll=RFF_nlogmarginal(ytrain,n,hyperparameters,randfeature);
 mystats[seed,:]=[sum1 sum2 nll];
 end
 mean1=mean(mystats[:,1]); std1=std(mystats[:,1]);
