@@ -1,7 +1,7 @@
 addpath(genpath('/homes/hkim/Documents/GPstuff-4.6'));
 %addpath(genpath('/Users/hyunjik11/Documents/GPstuff'));
 num_workers=10;
-POOL=parpool('local',num_workers);
+%POOL=parpool('local',num_workers);
 % % Load the data
 % x=h5read('/homes/hkim/GPT/PPdata.h5','/Xtrain');
 % y=h5read('/homes/hkim/GPT/PPdata.h5','/ytrain');
@@ -53,14 +53,13 @@ for m=[100,200,400,800,1600,3200]
         L=L_mm'\K_mn; %L'*L=K_hat=K_mn'*(K_mm\K_mn)
         K_naive=L'*L;
         K_fic=K_naive+diag(diag(K-K_naive));
-        K_pic=K_naive+blockdiag(K-K_hat,m);
+        K_pic=K_naive+blockdiag(K-K_naive,m);
         naive_frob_values(i)=norm(K-K_naive,'fro');
         fic_frob_values(i)=norm(K-K_fic,'fro');
         pic_frob_values(i)=norm(K-K_pic,'fro');
         naive_spec_values(i)=norm(K-K_naive);
         fic_spec_values(i)=norm(K-K_fic);
         pic_spec_values(i)=norm(K-K_pic);
-        fprintf('ok')
     end
     frob_svd(k)=svd_frob_value; spec_svd(k)=svd_spec_value;
     mean_frob_naive(k)=mean(naive_frob_values); mean_spec_naive(k)=mean(naive_spec_values);
@@ -70,6 +69,7 @@ for m=[100,200,400,800,1600,3200]
     std_frob_fic(k)=std(fic_frob_values); std_spec_fic(k)=std(fic_spec_values);
     std_frob_pic(k)=std(pic_frob_values); std_spec_pic(k)=std(pic_spec_values);
     k=k+1;
+	fprintf('m=%d done',m);
 end
     
 % k=1;
