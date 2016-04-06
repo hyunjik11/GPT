@@ -1,21 +1,23 @@
 addpath(genpath('/homes/hkim/Documents/GPstuff-4.6'));
 %addpath(genpath('/Users/hyunjik11/Documents/GPstuff'));
 num_workers=10;
-%POOL=parpool('local',num_workers);
+POOL=parpool('local',num_workers);
 % % Load the data
-% x=h5read('/homes/hkim/GPT/PPdata.h5','/Xtrain');
-% y=h5read('/homes/hkim/GPT/PPdata.h5','/ytrain');
-x=h5read('PPdata_full.h5','/Xtrain');
-y=h5read('PPdata_full.h5','/ytrain');
+x=h5read('/homes/hkim/GPT/PPdata.h5','/Xtrain');
+y=h5read('/homes/hkim/GPT/PPdata.h5','/ytrain');
+% x=h5read('PPdata_full.h5','/Xtrain');
+% y=h5read('PPdata_full.h5','/ytrain');
 %% PP500 hyperparams
-%x=x(1:500,:); y=y(1:500); %only use 500 pts for faster computation.
-%length_scale=[2.0368 3.0397 5.7816 6.9119];
-%sigma_RBF2=0.7596;
-%signal_var=0.0599;
+x=x(1:500,:); y=y(1:500); %only use 500 pts for faster computation.
+length_scale=[2.0368 3.0397 5.7816 6.9119];
+sigma_RBF2=0.7596;
+signal_var=0.0599;
+half_logdet=-675.22;
+half_innerprod=249.80;
 %% PPfull hyperparams
-length_scale=[1.3978 0.0028 2.8966 7.5565];
-sigma_RBF2=0.8333; 
-signal_var=0.0195;
+% length_scale=[1.3978 0.0028 2.8966 7.5565];
+% sigma_RBF2=0.8333; 
+% signal_var=0.0195;
 [n, D] = size(x);
 
 
@@ -24,65 +26,113 @@ signal_var=0.0195;
 % First we create the GP structure. Notice here that if we do
 % not explicitly set the priors for the covariance function
 % parameters they are given a uniform prior.
-% lik = lik_gaussian('sigma2', 0.2^2);
-% gpcf = gpcf_sexp('lengthScale', ones(1,D), 'magnSigma2', 0.2^2);
 lik = lik_gaussian('sigma2', signal_var);
 gpcf = gpcf_sexp('lengthScale', length_scale, 'magnSigma2', sigma_RBF2);
 gp=gp_set('lik',lik,'cf',gpcf); %exact gp
-[K,C]=gp_trcov(gp,x);
+[K,~]=gp_trcov(gp,x);
 
-%frob_svd=zeros(6,1); spec_svd=zeros(6,1);
-%mean_frob_naive=zeros(6,1); mean_spec_naive=zeros(6,1);
-%mean_frob_fic=zeros(6,1); mean_spec_fic=zeros(6,1);
-%mean_frob_pic=zeros(6,1); mean_spec_pic=zeros(6,1);
-%std_frob_naive=zeros(6,1); std_spec_naive=zeros(6,1);
-%std_frob_fic=zeros(6,1); std_spec_fic=zeros(6,1);
-%std_frob_pic=zeros(6,1); std_spec_pic=zeros(6,1);
+frob_svd=zeros(6,1); spec_svd=zeros(6,1);
+mean_frob_naive=zeros(6,1); mean_spec_naive=zeros(6,1);
+mean_frob_fic=zeros(6,1); mean_spec_fic=zeros(6,1);
+mean_frob_pic=zeros(6,1); mean_spec_pic=zeros(6,1);
 mean_frob_rff=zeros(6,1); mean_spec_rff=zeros(6,1);
+std_frob_naive=zeros(6,1); std_spec_naive=zeros(6,1);
+std_frob_fic=zeros(6,1); std_spec_fic=zeros(6,1);
+std_frob_pic=zeros(6,1); std_spec_pic=zeros(6,1);
 std_frob_rff=zeros(6,1); std_spec_rff=zeros(6,1);
+mean_ip_naive=zeros(6,1); mean_ld_naive=zeros(6,1);
+mean_ip_fic=zeros(6,1); mean_ld_fic=zeros(6,1);
+mean_ip_pic=zeros(6,1); mean_ld_pic=zeros(6,1);
+mean_ip_rff=zeros(6,1); mean_ld_rff=zeros(6,1);
+std_ip_naive=zeros(6,1); std_ld_naive=zeros(6,1);
+std_ip_fic=zeros(6,1); std_ld_fic=zeros(6,1);
+std_ip_pic=zeros(6,1); std_ld_pic=zeros(6,1);
+std_ip_rff=zeros(6,1); std_ld_rff=zeros(6,1);
 k=1;
-for m=[100,200,400,800,1600,3200]
-    %[U,S,V]=svds(K,m);
-    %K_svd=U*S*V';
-    %svd_frob_value=norm(K-K_svd,'fro'); svd_spec_value=norm(K-K_svd);
-    %naive_frob_values=zeros(10,1); naive_spec_values=zeros(10,1);
-    %fic_frob_values=zeros(10,1); fic_spec_values=zeros(10,1);
-    %pic_frob_values=zeros(10,1); pic_spec_values=zeros(10,1);
+for m=[10,20,40,80,160,320]
+    [U,S,V]=svds(K,m);
+    K_svd=U*S*V';
+    svd_frob_value=norm(K-K_svd,'fro'); svd_spec_value=norm(K-K_svd);
+    naive_frob_values=zeros(10,1); naive_spec_values=zeros(10,1);
+    fic_frob_values=zeros(10,1); fic_spec_values=zeros(10,1);
+    pic_frob_values=zeros(10,1); pic_spec_values=zeros(10,1);
     rff_frob_values=zeros(10,1); rff_spec_values=zeros(10,1);
-    for i=1:10 
-        %idx=randsample(n,m);
-        %K_mn=K(idx,:); K_mm=K(idx,idx);
-        %L_mm=chol(K_mm); %L_mm'*L_mm=K_mm;
-        %L=L_mm'\K_mn; %L'*L=K_hat=K_mn'*(K_mm\K_mn)
-        %K_naive=L'*L;
-        %K_fic=K_naive+diag(diag(K-K_naive));
-        %K_pic=K_naive+blockdiag(K-K_naive,m);
+    naive_ip_values=zeros(10,1); naive_ld_values=zeros(10,1);
+    fic_ip_values=zeros(10,1); fic_ld_values=zeros(10,1);
+    pic_ip_values=zeros(10,1); pic_ld_values=zeros(10,1);
+    rff_ip_values=zeros(10,1); rff_ld_values=zeros(10,1);
+    
+    parfor i=1:10
+        X_u=datasample(x,m,1,'Replace',false); %each row specifies coordinates of an inducing point. here we randomly sample m data points
+        %%%%TEST beforehand how much time this takes: 
+        lik = lik_gaussian('sigma2', 0.2^2);
+        gpcf = gpcf_sexp('lengthScale', ones(1,D), 'magnSigma2', 0.2^2);
+        gp_var = gp_set('type', 'VAR', 'lik', lik, 'cf', gpcf,'X_u', X_u); %var_gp
+        gp_var = gp_set(gp_var, 'infer_params', 'covariance+likelihood+inducing');
+        opt=optimset('TolFun',1e-2,'TolX',1e-3,'Display','off','MaxIter',1000);
+        gp_var=gp_optim(gp_var,x,y,'opt',opt,'optimf',@fminscg);
+        xu=gp_var.X_u;
+        [K_big,~]=gp_trcov(gp,[x;xu]);
+        K_mn=K_big(n+1:n+m,1:n); K_mm=K_big(n+1:n+m,n+1:n+m);
+        L_mm=chol(K_mm); %L_mm'*L_mm=K_mm;
+        L=L_mm'\K_mn; %L'*L=K_hat=K_mn'*(K_mm\K_mn)
+        K_naive=L'*L;
+        K_fic=K_naive+diag(diag(K-K_naive));
+        K_pic=K_naive+blockdiag(K-K_naive,m);
         Z=randn(m/2,D);
         phi=SEard_RFF2(x,length_scale,sqrt(sigma_RBF2),Z);
         K_rff=phi'*phi;
-        %naive_frob_values(i)=norm(K-K_naive,'fro');
-        %fic_frob_values(i)=norm(K-K_fic,'fro');
-        %pic_frob_values(i)=norm(K-K_pic,'fro');
+        
+        L_naive=chol(K_naive+signal_var*eye(n));
+        temp_naive=L_naive'\y;
+        naive_ip_values(i)=temp_naive'*temp_naive/2;
+        naive_ld_values(i)=sum(log(diag(L_naive)));
+        L_fic=chol(K_fic+signal_var*eye(n));
+        temp_fic=L_fic'\y;
+        fic_ip_values(i)=temp_fic'*temp_fic/2;
+        fic_ld_values(i)=sum(log(diag(L_fic)));
+        L_pic=chol(K_pic+signal_var*eye(n));
+        temp_pic=L_pic'\y;
+        pic_ip_values(i)=temp_pic'*temp_pic/2;
+        pic_ld_values(i)=sum(log(diag(L_pic)));        
+        L_rff=chol(K_rff+signal_var*eye(n));
+        temp_rff=L_rff'\y;
+        rff_ip_values(i)=temp_rff'*temp_rff/2;
+        rff_ld_values(i)=sum(log(diag(L_rff)));
+        
+        naive_frob_values(i)=norm(K-K_naive,'fro');
+        fic_frob_values(i)=norm(K-K_fic,'fro');
+        pic_frob_values(i)=norm(K-K_pic,'fro');
         rff_frob_values(i)=norm(K-K_rff,'fro');
-        %naive_spec_values(i)=norm(K-K_naive);
-        %fic_spec_values(i)=norm(K-K_fic);
-        %pic_spec_values(i)=norm(K-K_pic);
+        naive_spec_values(i)=norm(K-K_naive);
+        fic_spec_values(i)=norm(K-K_fic);
+        pic_spec_values(i)=norm(K-K_pic);
         rff_spec_values(i)=norm(K-K_rff);
-        fprintf('ok');
+        fprintf('ok \n');
     end
-    %frob_svd(k)=svd_frob_value; spec_svd(k)=svd_spec_value;
-    %mean_frob_naive(k)=mean(naive_frob_values); mean_spec_naive(k)=mean(naive_spec_values);
-    %mean_frob_fic(k)=mean(fic_frob_values); mean_spec_fic(k)=mean(fic_spec_values);
-    %mean_frob_pic(k)=mean(pic_frob_values); mean_spec_pic(k)=mean(pic_spec_values);
+    frob_svd(k)=svd_frob_value; spec_svd(k)=svd_spec_value;
+    mean_frob_naive(k)=mean(naive_frob_values); mean_spec_naive(k)=mean(naive_spec_values);
+    mean_frob_fic(k)=mean(fic_frob_values); mean_spec_fic(k)=mean(fic_spec_values);
+    mean_frob_pic(k)=mean(pic_frob_values); mean_spec_pic(k)=mean(pic_spec_values);
     mean_frob_rff(k)=mean(rff_frob_values); mean_spec_rff(k)=mean(rff_spec_values);
-    %std_frob_naive(k)=std(naive_frob_values); std_spec_naive(k)=std(naive_spec_values);
-    %std_frob_fic(k)=std(fic_frob_values); std_spec_fic(k)=std(fic_spec_values);
-    %std_frob_pic(k)=std(pic_frob_values); std_spec_pic(k)=std(pic_spec_values);
+    std_frob_naive(k)=std(naive_frob_values); std_spec_naive(k)=std(naive_spec_values);
+    std_frob_fic(k)=std(fic_frob_values); std_spec_fic(k)=std(fic_spec_values);
+    std_frob_pic(k)=std(pic_frob_values); std_spec_pic(k)=std(pic_spec_values);
     std_frob_rff(k)=std(rff_frob_values); std_spec_rff(k)=std(rff_spec_values);
+    mean_ip_naive(k)=mean(naive_ip_values); mean_ld_naive(k)=mean(naive_ld_values);
+    mean_ip_fic(k)=mean(fic_ip_values); mean_ld_fic(k)=mean(fic_ld_values);
+    mean_ip_pic(k)=mean(pic_ip_values); mean_ld_pic(k)=mean(pic_ld_values);
+    mean_ip_rff(k)=mean(rff_ip_values); mean_ld_rff(k)=mean(rff_ld_values);
+    std_ip_naive(k)=std(naive_ip_values); std_ld_naive(k)=std(naive_ld_values);
+    std_ip_fic(k)=std(fic_ip_values); std_ld_fic(k)=std(fic_ld_values);
+    std_ip_pic(k)=std(pic_ip_values); std_ld_pic(k)=std(pic_ld_values);
+    std_ip_rff(k)=std(rff_ip_values); std_ld_rff(k)=std(rff_ld_values);
     k=k+1;
-	fprintf('m=%d done',m);
+	fprintf('m=%d done \n',m);
 end
-    
+clear K U S V K_svd K_big K_mn K_mm L_mm L K_naive K_fic K_pic K_rff L_rff L_fic L_pic L_naive temp_rff temp_fic temp_pic temp_naive
+save('pp500_workspace2.mat');
+delete(POOL);
 % k=1;
 % mean_nll=zeros(6,1); mean_length_scale1=zeros(6,1);
 % mean_sigmaRBF2=zeros(6,1); mean_signal_var=zeros(6,1);
@@ -184,7 +234,7 @@ end
 % std_sigmaRBF2(k)=std(sigmaRBF2_values); std_signal_var(k)=std(signal_var_values);
 % k=k+1;
 % end
-delete(POOL);
+
 % To optimize the parameters and inducing inputs sequentially uncomment the below lines
 % $$$ iter = 1
 % $$$ e = gp_e(w,gp_var,x,y)
