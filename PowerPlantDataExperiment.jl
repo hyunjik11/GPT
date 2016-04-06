@@ -2,12 +2,14 @@
 
 @everywhere using GPT_SGLD
 @everywhere using DataFrames
-#@everywhere using HDF5
+@everywhere using HDF5
 #@everywhere using Distributions
 #@everywhere using GPkit
 #@everywhere using PyPlot
 #@everywhere using Iterators
 
+file="/Users/hyunjik11/Downloads/PPfull_K.h5";
+K=h5read(file,"K");
 @everywhere data=DataFrames.readtable("Folds5x2_pp.csv", header = true);
 @everywhere data = convert(Array,data);
 @everywhere N=size(data,1);
@@ -46,10 +48,10 @@ for n in [100,200,400,800,1600,3200]
 println("n=$n");
     
 mystats=SharedArray(Float64,10,3);
-for seed=1:10
+for seed=1:3
 srand(seed)
 Z=randn(n,D);
-b=2*pi*rand(n,D);
+b=2*pi*rand(n);
 #@everywhere I=samplenz(r,D,Q);
 #@everywhere phi_scale=sqrt(n/(Q^(1/D)));
 #@everywhere phitrain=featureNotensor(Xtrain,length_scale,sigma_RBF,Z,b);
@@ -89,14 +91,16 @@ randfeature(hyperparams::Vector)=featureNotensor(Xtrain,hyperparams[1:D],hyperpa
 #gradfeature(hyperparams::Vector)=gradfeatureNotensor(Xtrain,hyperparams[1:D],hyperparams[D+1],Z,b)
 #nlogmarginal(hyperparams::Vector)=GPNT_nlogmarginal(ytrain,n,hyperparams,randfeature);
 #sum1,sum2,nll=RFF_nlogmarginal(ytrain,n,hyperparameters,randfeature);
-mystats[seed,:]=[sum1 sum2 nll];
+frob=sqrt(sum((K-K_rff).^2));
+println("FrobError=$frob");
+#mystats[seed,:]=[sum1 sum2 nll];
 end
-mean1=mean(mystats[:,1]); std1=std(mystats[:,1]);
-mean2=mean(mystats[:,2]); std2=std(mystats[:,2]);
-mean3=mean(mystats[:,3]); std3=std(mystats[:,3]);
-println("mean(logdet/2)=$mean1,std(logdet/2)=$std1")
-println("mean(innerprod/2)=$mean2,std(innerprod/2)=$std2")
-println("mean(nll)=$mean3,std(nll)=$std3")
+#mean1=mean(mystats[:,1]); std1=std(mystats[:,1]);
+#mean2=mean(mystats[:,2]); std2=std(mystats[:,2]);
+#mean3=mean(mystats[:,3]); std3=std(mystats[:,3]);
+#println("mean(logdet/2)=$mean1,std(logdet/2)=$std1")
+#println("mean(innerprod/2)=$mean2,std(innerprod/2)=$std2")
+#println("mean(nll)=$mean3,std(nll)=$std3")
 end
 
 #=

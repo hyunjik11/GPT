@@ -31,43 +31,54 @@ gpcf = gpcf_sexp('lengthScale', length_scale, 'magnSigma2', sigma_RBF2);
 gp=gp_set('lik',lik,'cf',gpcf); %exact gp
 [K,C]=gp_trcov(gp,x);
 
-frob_svd=zeros(6,1); spec_svd=zeros(6,1);
-mean_frob_naive=zeros(6,1); mean_spec_naive=zeros(6,1);
-mean_frob_fic=zeros(6,1); mean_spec_fic=zeros(6,1);
-mean_frob_pic=zeros(6,1); mean_spec_pic=zeros(6,1);
-std_frob_naive=zeros(6,1); std_spec_naive=zeros(6,1);
-std_frob_fic=zeros(6,1); std_spec_fic=zeros(6,1);
-std_frob_pic=zeros(6,1); std_spec_pic=zeros(6,1);
+%frob_svd=zeros(6,1); spec_svd=zeros(6,1);
+%mean_frob_naive=zeros(6,1); mean_spec_naive=zeros(6,1);
+%mean_frob_fic=zeros(6,1); mean_spec_fic=zeros(6,1);
+%mean_frob_pic=zeros(6,1); mean_spec_pic=zeros(6,1);
+%std_frob_naive=zeros(6,1); std_spec_naive=zeros(6,1);
+%std_frob_fic=zeros(6,1); std_spec_fic=zeros(6,1);
+%std_frob_pic=zeros(6,1); std_spec_pic=zeros(6,1);
+mean_frob_rff=zeros(6,1); mean_spec_rff=zeros(6,1);
+std_frob_rff=zeros(6,1); std_spec_rff=zeros(6,1);
 k=1;
 for m=[100,200,400,800,1600,3200]
-    [U,S,V]=svds(K,m);
-    K_svd=U*S*V';
-    svd_frob_value=norm(K-K_svd,'fro'); svd_spec_value=norm(K-K_svd);
-    naive_frob_values=zeros(10,1); naive_spec_values=zeros(10,1);
-    fic_frob_values=zeros(10,1); fic_spec_values=zeros(10,1);
-    pic_frob_values=zeros(10,1); pic_spec_values=zeros(10,1);
-    parfor i=1:10 
-        idx=randsample(n,m);
-        K_mn=K(idx,:); K_mm=K(idx,idx);
-        L_mm=chol(K_mm); %L_mm'*L_mm=K_mm;
-        L=L_mm'\K_mn; %L'*L=K_hat=K_mn'*(K_mm\K_mn)
-        K_naive=L'*L;
-        K_fic=K_naive+diag(diag(K-K_naive));
-        K_pic=K_naive+blockdiag(K-K_naive,m);
-        naive_frob_values(i)=norm(K-K_naive,'fro');
-        fic_frob_values(i)=norm(K-K_fic,'fro');
-        pic_frob_values(i)=norm(K-K_pic,'fro');
-        naive_spec_values(i)=norm(K-K_naive);
-        fic_spec_values(i)=norm(K-K_fic);
-        pic_spec_values(i)=norm(K-K_pic);
+    %[U,S,V]=svds(K,m);
+    %K_svd=U*S*V';
+    %svd_frob_value=norm(K-K_svd,'fro'); svd_spec_value=norm(K-K_svd);
+    %naive_frob_values=zeros(10,1); naive_spec_values=zeros(10,1);
+    %fic_frob_values=zeros(10,1); fic_spec_values=zeros(10,1);
+    %pic_frob_values=zeros(10,1); pic_spec_values=zeros(10,1);
+    rff_frob_values=zeros(10,1); rff_spec_values=zeros(10,1);
+    for i=1:10 
+        %idx=randsample(n,m);
+        %K_mn=K(idx,:); K_mm=K(idx,idx);
+        %L_mm=chol(K_mm); %L_mm'*L_mm=K_mm;
+        %L=L_mm'\K_mn; %L'*L=K_hat=K_mn'*(K_mm\K_mn)
+        %K_naive=L'*L;
+        %K_fic=K_naive+diag(diag(K-K_naive));
+        %K_pic=K_naive+blockdiag(K-K_naive,m);
+        Z=randn(m/2,D);
+        phi=SEard_RFF2(x,length_scale,sqrt(sigma_RBF2),Z);
+        K_rff=phi'*phi;
+        %naive_frob_values(i)=norm(K-K_naive,'fro');
+        %fic_frob_values(i)=norm(K-K_fic,'fro');
+        %pic_frob_values(i)=norm(K-K_pic,'fro');
+        rff_frob_values(i)=norm(K-K_rff,'fro');
+        %naive_spec_values(i)=norm(K-K_naive);
+        %fic_spec_values(i)=norm(K-K_fic);
+        %pic_spec_values(i)=norm(K-K_pic);
+        rff_spec_values(i)=norm(K-K_rff);
+        fprintf('ok');
     end
-    frob_svd(k)=svd_frob_value; spec_svd(k)=svd_spec_value;
-    mean_frob_naive(k)=mean(naive_frob_values); mean_spec_naive(k)=mean(naive_spec_values);
-    mean_frob_fic(k)=mean(fic_frob_values); mean_spec_fic(k)=mean(fic_spec_values);
-    mean_frob_pic(k)=mean(pic_frob_values); mean_spec_pic(k)=mean(pic_spec_values);
-    std_frob_naive(k)=std(naive_frob_values); std_spec_naive(k)=std(naive_spec_values);
-    std_frob_fic(k)=std(fic_frob_values); std_spec_fic(k)=std(fic_spec_values);
-    std_frob_pic(k)=std(pic_frob_values); std_spec_pic(k)=std(pic_spec_values);
+    %frob_svd(k)=svd_frob_value; spec_svd(k)=svd_spec_value;
+    %mean_frob_naive(k)=mean(naive_frob_values); mean_spec_naive(k)=mean(naive_spec_values);
+    %mean_frob_fic(k)=mean(fic_frob_values); mean_spec_fic(k)=mean(fic_spec_values);
+    %mean_frob_pic(k)=mean(pic_frob_values); mean_spec_pic(k)=mean(pic_spec_values);
+    mean_frob_rff(k)=mean(rff_frob_values); mean_spec_rff(k)=mean(rff_spec_values);
+    %std_frob_naive(k)=std(naive_frob_values); std_spec_naive(k)=std(naive_spec_values);
+    %std_frob_fic(k)=std(fic_frob_values); std_spec_fic(k)=std(fic_spec_values);
+    %std_frob_pic(k)=std(pic_frob_values); std_spec_pic(k)=std(pic_spec_values);
+    std_frob_rff(k)=std(rff_frob_values); std_spec_rff(k)=std(rff_spec_values);
     k=k+1;
 	fprintf('m=%d done',m);
 end

@@ -1,0 +1,16 @@
+function phi=SEard_RFF2(x,length_scale,sigma_RBF,Z)
+    %function to generate RFF for SEard kernel
+    %Z~randn(half_m,D);
+    [n,D]=size(x);
+    half_m=size(Z,1);
+    length_scale=reshape(length_scale,[1,D]);
+    for i=1:m
+        Z(i,:)=Z(i,:)./length_scale;
+    end
+    temp=Z*x';
+    phi=zeros(
+    for i=1:n
+        phi(:,i)=cos(phi(:,i)+b);
+    end
+    phi=sqrt(2/m)*sigma_RBF*phi;
+end

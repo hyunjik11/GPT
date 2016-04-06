@@ -108,7 +108,7 @@ end
 # use Z=randn(n,D) and b=2*pi*rand(n) as input
 function featureNotensor(X::Array,length_scale,sigma_RBF::Real,Z::Array,b::Array)    
     N,D=size(X)
-	n=size(Z,1)
+    n=size(Z,1)
     phi=Array(Float64,n,N)
     Zt=scale(Z,1./length_scale)
     for i=1:N
@@ -121,10 +121,7 @@ end
 
 # alternative fourier feature embedding for the no tensor model (full-theta)
 # use Z=randn(half_n,D) as input
-function featureNotensor2(X::Array,length_scale,sigma_RBF::Real,Z::Array) 
-	if size(Z,1)%2==1
-		error("n not even")
-	end	
+function featureNotensor2(X::Array,length_scale,sigma_RBF::Real,Z::Array) 	
 	half_n=int(size(Z,1)/2);
 	N,D=size(X)
 	phi=Array(Float64,half_n*2,N)
