@@ -1,10 +1,10 @@
-%addpath(genpath('/homes/hkim/Documents/GPstuff-4.6'));
-addpath(genpath('/Users/hyunjik11/Documents/GPstuff'));
+addpath(genpath('/homes/hkim/Documents/GPstuff-4.6'));
+%addpath(genpath('/Users/hyunjik11/Documents/GPstuff'));
 num_workers=10;
-%POOL=parpool('local',num_workers);
+POOL=parpool('local',num_workers);
 % % Load the data
-x=h5read('PPdata.h5','/Xtrain');
-y=h5read('PPdata.h5','/ytrain');
+x=h5read('/homes/hkim/GPT/PPdata.h5','/Xtrain');
+y=h5read('/homes/hkim/GPT/PPdata.h5','/ytrain');
 % x=h5read('PPdata_full.h5','/Xtrain');
 % y=h5read('PPdata_full.h5','/ytrain');
 %% PP500 hyperparams
@@ -134,9 +134,9 @@ for m=[10,20,40,80,160,320]
     k=k+1;
 	fprintf('m=%d done \n',m);
 end
-clear K U S V K_svd K_mn K_mm L_mm L K_naive K_fic K_pic K_rff L_rff L_fic L_pic L_naive temp_rff temp_fic temp_pic temp_naive
-save('pp500_rand_indpts_workspace.mat');
-%delete(POOL);
+%clear K U S V K_svd K_big K_mn K_mm L_mm L K_naive K_fic K_pic K_rff L_rff L_fic L_pic L_naive temp_rff temp_fic temp_pic temp_naive
+%save('pp500_workspace2.mat');
+delete(POOL);
 % k=1;
 % mean_nll=zeros(6,1); mean_length_scale1=zeros(6,1);
 % mean_sigmaRBF2=zeros(6,1); mean_signal_var=zeros(6,1);
