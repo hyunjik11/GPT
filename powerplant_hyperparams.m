@@ -1,23 +1,23 @@
-%addpath(genpath('/homes/hkim/Documents/GPstuff-4.6'));
-addpath(genpath('/Users/hyunjik11/Documents/GPstuff'));
+addpath(genpath('/homes/hkim/Documents/GPstuff-4.6'));
+%addpath(genpath('/Users/hyunjik11/Documents/GPstuff'));
 num_workers=10;
-%POOL=parpool('local',num_workers);
+POOL=parpool('local',num_workers);
 % % Load the data
-x=h5read('PPdata.h5','/Xtrain');
-y=h5read('PPdata.h5','/ytrain');
-% x=h5read('PPdata_full.h5','/Xtrain');
-% y=h5read('PPdata_full.h5','/ytrain');
+%x=h5read('PPdata.h5','/Xtrain');
+%y=h5read('PPdata.h5','/ytrain');
+ x=h5read('PPdata_full.h5','/Xtrain');
+ y=h5read('PPdata_full.h5','/ytrain');
 %% PP500 hyperparams
-x=x(1:500,:); y=y(1:500); %only use 500 pts for faster computation.
-length_scale=[2.0368 3.0397 5.7816 6.9119];
-sigma_RBF2=0.7596;
-signal_var=0.0599;
-half_logdet=-675.22;
-half_innerprod=249.80;
+%x=x(1:500,:); y=y(1:500); %only use 500 pts for faster computation.
+% length_scale=[2.0368 3.0397 5.7816 6.9119];
+% sigma_RBF2=0.7596;
+% signal_var=0.0599;
+half_logdet=-15816;
+half_innerprod=4784.0;
 %% PPfull hyperparams
-% length_scale=[1.3978 0.0028 2.8966 7.5565];
-% sigma_RBF2=0.8333; 
-% signal_var=0.0195;
+length_scale=[1.3978 0.0028 2.8966 7.5565];
+sigma_RBF2=0.8333; 
+signal_var=0.0195;
 [n, D] = size(x);
 
 
@@ -49,7 +49,7 @@ std_ip_fic=zeros(6,1); std_ld_fic=zeros(6,1);
 std_ip_pic=zeros(6,1); std_ld_pic=zeros(6,1);
 std_ip_rff=zeros(6,1); std_ld_rff=zeros(6,1);
 k=1;
-for m=[10,20,40,80,160,320]
+for m=[100,200,400,800,1600,3200]
     [U,S,V]=svds(K,m);
     K_svd=U*S*V';
     svd_frob_value=norm(K-K_svd,'fro'); svd_spec_value=norm(K-K_svd);
@@ -62,24 +62,35 @@ for m=[10,20,40,80,160,320]
     pic_ip_values=zeros(10,1); pic_ld_values=zeros(10,1);
     rff_ip_values=zeros(10,1); rff_ld_values=zeros(10,1);
     
-    for i=1:10
-%         X_u=datasample(x,m,1,'Replace',false); %each row specifies coordinates of an inducing point. here we randomly sample m data points
-%         %%%% 
-%         lik = lik_gaussian('sigma2', 0.2^2);
-%         gpcf = gpcf_sexp('lengthScale', ones(1,D), 'magnSigma2', 0.2^2);
-%         gp_var = gp_set('type', 'VAR', 'lik', lik, 'cf', gpcf,'X_u', X_u); %var_gp
-%         gp_var = gp_set(gp_var, 'infer_params', 'covariance+likelihood+inducing');
-%         opt=optimset('TolFun',1e-2,'TolX',1e-3,'Display','off','MaxIter',1000);
-%         gp_var=gp_optim(gp_var,x,y,'opt',opt,'optimf',@fminscg);
-%         xu=gp_var.X_u;
-%         [K_big,~]=gp_trcov(gp,[x;xu]);
-%         K_mn=K_big(n+1:n+m,1:n); K_mm=K_big(n+1:n+m,n+1:n+m);
-%         L_mm=chol(K_mm); %L_mm'*L_mm=K_mm;
-%         L=L_mm'\K_mn; %L'*L=K_hat=K_mn'*(K_mm\K_mn)
-        idx=randsample(n,m);
-        K_mn=K(idx,:); K_mm=K(idx,idx);
+    parfor i=1:10
+        X_u=datasample(x,m,1,'Replace',false); %each row specifies coordinates of an inducing point. here we randomly sample m data points
+        lik = lik_gaussian('sigma2', 0.2^2);
+        gpcf = gpcf_sexp('lengthScale', ones(1,D), 'magnSigma2', 0.2^2);
+        gp_var = gp_set('type', 'VAR', 'lik', lik, 'cf', gpcf,'X_u', X_u); %var_gp
+        iter = 1;
+        e = gp_e([],gp_var,x,y);
+        e_old = inf;
+        opt=optimset('TolFun',1e-3,'TolX',1e-4,'Display','off');
+        while iter < 100 & abs(e_old-e) > 1e-3
+             e_old = e;
+             gp_var = gp_set(gp_var, 'infer_params', 'covariance+likelihood');  % optimize parameters and inducing inputs
+             gp_var=gp_optim(gp_var,x,y,'opt',opt);
+             gp_var = gp_set(gp_var, 'infer_params', 'inducing');  % optimize parameters and inducing inputs
+             gp_var=gp_optim(gp_var,x,y,'opt',opt);
+             e = gp_e([],gp_var,x,y);
+             iter = iter +1;
+             [iter e];
+        end
+        %gp_var=gp_optim(gp_var,x,y,'opt',opt,'optimf',@fminscg);
+        xu=gp_var.X_u;
+        [K_big,~]=gp_trcov(gp,[x;xu]);
+        K_mn=K_big(n+1:n+m,1:n); K_mm=K_big(n+1:n+m,n+1:n+m);
         L_mm=chol(K_mm); %L_mm'*L_mm=K_mm;
         L=L_mm'\K_mn; %L'*L=K_hat=K_mn'*(K_mm\K_mn)
+%         idx=randsample(n,m);
+%         K_mn=K(idx,:); K_mm=K(idx,idx);
+%         L_mm=chol(K_mm); %L_mm'*L_mm=K_mm;
+%         L=L_mm'\K_mn; %L'*L=K_hat=K_mn'*(K_mm\K_mn)
         K_naive=L'*L;
         K_fic=K_naive+diag(diag(K-K_naive));
         K_pic=K_naive+blockdiag(K-K_naive,m);
@@ -134,9 +145,9 @@ for m=[10,20,40,80,160,320]
     k=k+1;
 	fprintf('m=%d done \n',m);
 end
-clear K U S V K_svd K_mn K_mm L_mm L K_naive K_fic K_pic K_rff L_rff L_fic L_pic L_naive temp_rff temp_fic temp_pic temp_naive
-save('pp500_rand_indpts_workspace.mat');
-%delete(POOL);
+clear K U S V K_big K_svd K_mn K_mm L_mm L K_naive K_fic K_pic K_rff L_rff L_fic L_pic L_naive temp_rff temp_fic temp_pic temp_naive
+save('ppfull_var_gp_indpts_workspace.mat');
+delete(POOL);
 % k=1;
 % mean_nll=zeros(6,1); mean_length_scale1=zeros(6,1);
 % mean_sigmaRBF2=zeros(6,1); mean_signal_var=zeros(6,1);

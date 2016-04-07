@@ -8,8 +8,8 @@ errorbar(m_values,mean_ld_naive,std_ld_naive);
 errorbar(m_values,mean_ld_fic,std_ld_fic);
 errorbar(m_values,mean_ld_pic,std_ld_pic);
 set(gca,'XTick',[1 2 3 4 5 6]);
-set(gca,'XTickLabel',[10 20 40 80 160 320]);
-ylim([-690 -630])
+set(gca,'XTickLabel',[100 200 400 800 1600 3200]);
+ylim([-20000 -2000])
 legend('Exact GP','RFF','DTC','FIC','PIC')
 ylabel('logdet/2')
 xlabel('m')
@@ -24,8 +24,8 @@ errorbar(m_values,mean_ip_naive,std_ip_naive);
 errorbar(m_values,mean_ip_fic,std_ip_fic);
 errorbar(m_values,mean_ip_pic,std_ip_pic);
 set(gca,'XTick',[1 2 3 4 5 6]);
-set(gca,'XTickLabel',[10 20 40 80 160 320]);
-ylim([210 310])
+set(gca,'XTickLabel',[100 200 400 800 1600 3200]);
+ylim([3000 7000])
 legend('Exact GP','RFF','DTC','FIC','PIC')
 ylabel('innerprod/2')
 xlabel('m')
@@ -40,8 +40,8 @@ errorbar(m_values,mean_frob_naive,std_frob_naive);
 errorbar(m_values,mean_frob_fic,std_frob_fic);
 errorbar(m_values,mean_frob_pic,std_frob_pic);
 set(gca,'XTick',[1 2 3 4 5 6]);
-set(gca,'XTickLabel',[10 20 40 80 160 320]);
-ylim([0 5]);
+set(gca,'XTickLabel',[100 200 400 800 1600 3200]);
+ylim([0 900]);
 legend('SVD','RFF','DTC','FIC','PIC')
 ylabel('Frobenius Norm Error')
 xlabel('m')
@@ -56,8 +56,8 @@ errorbar(m_values,mean_spec_naive,std_spec_naive);
 errorbar(m_values,mean_spec_fic,std_spec_fic);
 errorbar(m_values,mean_spec_pic,std_spec_pic);
 set(gca,'XTick',[1 2 3 4 5 6]);
-set(gca,'XTickLabel',[10 20 40 80 160 320]);
-ylim([0 5]);
+set(gca,'XTickLabel',[100 200 400 800 1600 3200]);
+ylim([0 250]);
 legend('SVD','RFF','DTC','FIC','PIC')
 ylabel('Spectral Norm Error')
 xlabel('m')

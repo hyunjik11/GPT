@@ -1,37 +1,67 @@
 addpath(genpath('/homes/hkim/Documents/GPstuff-4.6'));
+%addpath(genpath('/homes/hkim/Documents/gpml-matlab-v3.6-2015-07-07'));
 %addpath(genpath('/Users/hyunjik11/Documents/GPstuff'));
 %num_workers=10;
 %POOL=parpool('local',num_workers);
 % % Load the data
-x=h5read('/homes/hkim/GPT/PPdata.h5','/Xtrain');
-y=h5read('/homes/hkim/GPT/PPdata.h5','/ytrain');
-%x=h5read('PPdata_full.h5','/Xtrain');
-%y=h5read('PPdata_full.h5','/ytrain');
-x=x(1:500,:); y=y(1:500); %only use 500 pts for faster computation.
-%% PPfull hyperparams
-length_scale=[1.3978 0.0028 2.8966 7.5565];
-sigma_RBF2=0.8333; 
-signal_var=0.0195;
-[n, D] = size(x);
-lik = lik_gaussian('sigma2', 0.2^2);
-gpcf = gpcf_sexp('lengthScale', ones(1,D), 'magnSigma2', 0.2^2);
+load mauna.txt
+z = mauna(:,2) ~= -99.99;                             % get rid of missing data
+x = mauna(z,1); y = mauna(z,2);       % extract year and CO2 concentration
+
+% k1={@covProd, {@covSEiso,@covLINiso}};
+% k2={@covProd, {@covSEiso,@covPeriodic}};
+% k3={@covProd, {@covSEiso, @covRQiso}};
+% covfunc={@covSum, {k1, k2, k3}};      
+% hyp.cov=[0 0 0 0 0 0 0 0 0 0 0 0 0];
+% hyp.lik=-2;
+% [hyp fX i] =minimize(hyp, @gp, -500, @infExact, [], covfunc, @likGauss, x, y-mean(y));
+% zz = (2016+1/24:1/12:2024-1/24)';  
+% [mu s2] = gp(hyp, @infExact, [], covfunc, @likGauss, x, y-mean(y), zz);
+% f = [mu+2*sqrt(s2); flipdim(mu-2*sqrt(s2),1)] + mean(y);
+% fill([zz; flipdim(zz,1)], f, [7 7 7]/8); hold on;           % show predictions
+% plot(x,y,'b.'); plot(zz,mu+mean(y),'r.');
+lik = lik_gaussian('sigma2', 0.1);
+gpcf_se1 = gpcf_sexp('lengthScale', 1, 'magnSigma2',1); 
+gpcf_lin=gpcf_linear('coeffSigma2',1);
+gpcf1=gpcf_prod('cf',{gpcf_se1,gpcf_lin});
+gpcf_se2 = gpcf_sexp('lengthScale', 1, 'magnSigma2', 1);
+gpcf_per = gpcf_periodic('lengthScale',1,'period',1);
+gpcf2=gpcf_prod('cf',{gpcf_se2,gpcf_per});
+gpcf_se3 = gpcf_sexp('lengthScale', 1, 'magnSigma2', 1); 
+gpcf_rat = gpcf_rq('lengthScale',1,'magnSigma2',1,'alpha',20); 
+%%%% NOTE FROM SETH: for whatever reason, alpha = 1 above doesn't work.
+gpcf3=gpcf_prod('cf',{gpcf_se3,gpcf_rat});
 m=10;
 X_u=datasample(x,m,1,'Replace',false); %each row specifies coordinates of an inducing point. here we randomly sample m data points
-gp_var = gp_set('type', 'VAR', 'lik', lik, 'cf', gpcf,'X_u', X_u); %var_gp
+gp_var = gp_set('type', 'VAR', 'lik', lik, 'cf',{gpcf1,gpcf2,gpcf3},'X_u', X_u); %var_gp
 gp_var = gp_set(gp_var, 'infer_params', 'covariance+likelihood+inducing');
-% optimize only parameters
-%gp_var = gp_set(gp_var, 'infer_params', 'covariance+likelihood');           
-
+%gp=gp_set('lik',lik,'cf',{gpcf1 gpcf2 gpcf3});
 opt=optimset('TolFun',1e-3,'TolX',1e-4,'Display','iter','MaxIter',1000);
-% Optimize with the quasi-Newton method
-%gp=gp_optim(gp,x,y,'opt',opt);
-tic()
-gp_var=gp_optim(gp_var,x,y,'opt',opt,'optimf',@fminscg); %can also use @fminlbfgs,@fminunc
-toc()
-fprintf('m=%d,-l=%2.4f \n',10*m,gp_e([],gp_var,x,y));
-%end
-[temp,nll]=gp_e([],gp_var,x,y);
-fprintf('-l=%2.4f;',nll);
-fprintf('length_scale=[');
-fprintf('%s',num2str(gp_var.cf{1}.lengthScale));
-fprintf('];sigma_RBF2=%2.4f;signal_var=%2.4f \n',gp_var.cf{1}.magnSigma2,gp_var.lik.sigma2);
+%gp=gp_optim(gp,x,y-mean(y),'opt',opt);
+gp_var=gp_optim(gp_var,x,y-mean(y),'opt',opt);
+zz = (2016+1/24:1/12:2024-1/24)';
+% [mu s2]=gp_pred(gp,x,y-mean(y),zz);
+[mu s2]=gp_pred(gp_var,x,y-mean(y),zz);
+f = [mu+2*sqrt(s2); flipdim(mu-2*sqrt(s2),1)] + mean(y);
+fill([zz; flipdim(zz,1)], f, [7 7 7]/8); hold on;           % show predictions
+plot(x,y,'b.'); plot(zz,mu+mean(y),'r.');
+% m=10;
+% X_u=datasample(x,m,1,'Replace',false); %each row specifies coordinates of an inducing point. here we randomly sample m data points
+% gp_var = gp_set('type', 'VAR', 'lik', lik, 'cf', gpcf,'X_u', X_u); %var_gp
+% gp_var = gp_set(gp_var, 'infer_params', 'covariance+likelihood+inducing');
+% % optimize only parameters
+% %gp_var = gp_set(gp_var, 'infer_params', 'covariance+likelihood');           
+% 
+% opt=optimset('TolFun',1e-3,'TolX',1e-4,'Display','iter','MaxIter',1000);
+% % Optimize with the quasi-Newton method
+% %gp=gp_optim(gp,x,y,'opt',opt);
+% tic()
+% gp_var=gp_optim(gp_var,x,y,'opt',opt,'optimf',@fminscg); %can also use @fminlbfgs,@fminunc
+% toc()
+% fprintf('m=%d,-l=%2.4f \n',10*m,gp_e([],gp_var,x,y));
+% %end
+% [temp,nll]=gp_e([],gp_var,x,y);
+% fprintf('-l=%2.4f;',nll);
+% fprintf('length_scale=[');
+% fprintf('%s',num2str(gp_var.cf{1}.lengthScale));
+% fprintf('];sigma_RBF2=%2.4f;signal_var=%2.4f \n',gp_var.cf{1}.magnSigma2,gp_var.lik.sigma2);
