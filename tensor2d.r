@@ -1,4 +1,4 @@
-data = read.table("/homes/hkim/TensorGP/src/california/cadata.txt", col.names=  c( "MedHouseVal", "MedInc", "HouseAge", "AveRooms", "AveBedrms",
+data = read.table("cadata.txt", col.names=  c( "MedHouseVal", "MedInc", "HouseAge", "AveRooms", "AveBedrms",
                                                "Population", "AveOccup", "long", "lat"))
 data$MedHouseVal = log(data$MedHouseVal)
 f=data.frame(data$long,data$lat,data$MedHouseVal)
@@ -8,7 +8,9 @@ D=ncol(f)-1
 Ntrain=10320
 
 library(R.matlab)
-perm = readMat("/homes/hkim/TensorGP/src/california/permutation.mat")
+library(ggplot2)
+library(rstan)
+perm = readMat("permutation.mat")
 perm=c(perm[[1]])
 f=f[perm,]
 for(i in 1:ncol(f)) {
@@ -49,14 +51,12 @@ phitestV=phiV[(Ntrain+1):N,]
 data=list(N=N,Ntrain=Ntrain,n=n,r=r,phitrainU=phitrainU,phitrainV=phitrainV,
           phitestU=phitestU,phitestV=phitestV,ytrain=ytrain,ytest=ytest,
           sigma=sigma)
-library(ggplot2)
-library(rstan)
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 
 model = stan_model("tensor2d.stan")
-sink("Routput.txt",append=TRUE)
-cat("n=",n,"\n")
+sink("Routput_tensor.txt",append=TRUE)
+cat("n=",n,"; r=",r,"\n")
 fit = sampling(model, data=data, iter=600, chains=4)
 
 out = extract(fit)
@@ -67,6 +67,6 @@ trainpred=colMeans(out$trainpred)
 testpred=colMeans(out$testpred)
 trainRMSE=sqrt(mean((ytrain-trainpred)^2))*s
 testRMSE=sqrt(mean((ytest-testpred)^2))*s
-cat("n=",n,"; r=",r,"\n")
 cat("trainRMSE=",trainRMSE,"\n")
 cat("testRMSE=",testRMSE,"\n")
+sink()

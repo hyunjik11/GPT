@@ -1,4 +1,4 @@
-data = read.table("/homes/hkim/TensorGP/src/california/cadata.txt", col.names=  c( "MedHouseVal", "MedInc", "HouseAge", "AveRooms", "AveBedrms",
+data = read.table("cadata.txt", col.names=  c( "MedHouseVal", "MedInc", "HouseAge", "AveRooms", "AveBedrms",
                                                "Population", "AveOccup", "long", "lat"))
 
 data$MedHouseVal = log(data$MedHouseVal)
@@ -8,7 +8,9 @@ D=ncol(f)-1
 Ntrain=10320
 
 library(R.matlab)
-perm = readMat("/homes/hkim/TensorGP/src/california/permutation.mat")
+library(ggplot2)
+library(rstan)
+perm = readMat("permutation.mat")
 perm=c(perm[[1]])
 f=f[perm,]
 
@@ -41,17 +43,13 @@ phitrain=phi[1:Ntrain,]
 phitest=phi[(Ntrain+1):N,]
 data=list(Ntrain=Ntrain,n=n,phitrain=phitrain,
 ytrain=ytrain,sigma=sigma)
-library(ggplot2)
-library(rstan)
+
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 
-sink("Routput.txt",append=TRUE)
-cat("n=",n,"\n")
-
 model = stan_model("fulltheta.stan")
 
-sink("Routput.txt",append=TRUE)
+sink("Routput_fulltheta.txt",append=TRUE)
 cat("n=",n,"\n")
 fit = sampling(model, data=data, iter=100, chains=4)
 #opt = optimizing(model,data=data)
