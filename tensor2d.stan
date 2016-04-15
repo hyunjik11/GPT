@@ -8,9 +8,7 @@ data {
   matrix[N-Ntrain,n] phitestU;
   matrix[N-Ntrain,n] phitestV;
   vector[Ntrain] ytrain;
-  vector[N-Ntrain] ytest;
   real<lower=0> sigma;
-  real<lower=0> ytrainStd;
 }
 parameters {
   matrix[n,r] U;
@@ -39,12 +37,8 @@ generated quantities {
   vector[N-Ntrain] testpred;
   matrix[N-Ntrain,r] psitestU;
   matrix[N-Ntrain,r] psitestV;
-  real trainRMSE;
-  real testRMSE;
   psitestU <- phitestU*U;
   psitestV <- phitestV*V;
   for (i in 1:(N-Ntrain))
 	testpred[i] <- psitestU[i]*w*psitestV[i]';
-  trainRMSE <- ytrainStd*sqrt((ytrain-trainpred)'*(ytrain-trainpred)/Ntrain);
-  testRMSE <- ytrainStd*sqrt((ytest-testpred)'*(ytest-testpred)/(N-Ntrain));
 }

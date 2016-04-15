@@ -834,7 +834,45 @@ m=4800,-l=-345.4282
 m=4900,-l=-377.5256 
 m=5000,-l=-431.3101
 =======
-PPfull (9568 data its):
+PPfull (9568 data pts):
 nll=-2239.2172; logdet/2=-15816; innerprod/2=4784.0; (N*log(2*pi)/2=8792.4)
 length_scale=[1.3978,0.0028,2.8966,7.5565];
 sigma_RBF2=0.8333; signal_var=0.0195;
+======
+California housing data:
+sigma=0.3696
+sigma_RBF=0.9497
+l=c(0.0136,0.0216)
+
+Baseline for zero prediction:
+trainRMSE= 0.5673038 
+testRMSE= 0.5709319
+
+GP:
+trainRMSE=0.1826
+testRMSE=0.2892
+
+full_theta: (50 warmup,50 samples,4 chains)
+n=100,
+trainRMSE= 0.5164376 
+testRMSE= 0.5180214 
+n=200,
+trainRMSE= 0.4695515 
+testRMSE= 0.4817693 
+n=400,
+trainRMSE= 0.4094386 
+testRMSE= 0.4223266 
+n=800,
+trainRMSE= 0.3469243 
+testRMSE= 0.3861008 
+n=1600,
+trainRMSE= 0.255386
+testRMSE= 0.3431046
+
+tensor: (50 warmup,50 samples,4 chains)
+n=100,r=5
+trainRMSE= 0.2474202
+testRMSE= 0.2920136
+
+
+

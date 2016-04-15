@@ -1,8 +1,16 @@
-f = read.csv("Folds5x2_pp.csv")
+data = read.table("/homes/hkim/TensorGP/src/california/cadata.txt", col.names=  c( "MedHouseVal", "MedInc", "HouseAge", "AveRooms", "AveBedrms",
+                                               "Population", "AveOccup", "long", "lat"))
+data$MedHouseVal = log(data$MedHouseVal)
+f=data.frame(data$long,data$lat,data$MedHouseVal)
 
 N=nrow(f)
 D=ncol(f)-1
-Ntrain=5000
+Ntrain=10320
+
+library(R.matlab)
+perm = readMat("/homes/hkim/TensorGP/src/california/permutation.mat")
+perm=c(perm[[1]])
+f=f[perm,]
 for(i in 1:ncol(f)) {
   m = mean(f[1:Ntrain,i])
   s = sd(f[1:Ntrain,i])
@@ -13,12 +21,14 @@ y=f[,D+1]
 ytrain=y[1:Ntrain]
 ytest=y[(Ntrain+1):N]
 
-l1=1.4332 #length_scale of dim1
-l2=1.4332 #length_scale of dim2
-sigma=0.2299
-sigma_RBF=1
+sigma=0.3696
+sigma_RBF=0.9497
+l1=0.0136
+l2=0.0216
 
 n=100
+r=5
+
 Z1=rnorm(n,0,1)/l1
 Z2=rnorm(n,0,1)/l2
 b1=2*pi*runif(n)
@@ -35,16 +45,28 @@ phitrainU=phiU[1:Ntrain,]
 phitrainV=phiV[1:Ntrain,]
 phitestU=phiU[(Ntrain+1):N,]
 phitestV=phiV[(Ntrain+1):N,]
-r=5
+
 data=list(N=N,Ntrain=Ntrain,n=n,r=r,phitrainU=phitrainU,phitrainV=phitrainV,
           phitestU=phitestU,phitestV=phitestV,ytrain=ytrain,ytest=ytest,
-          sigma=sigma,ytrainStd=as.numeric(s))
+          sigma=sigma)
 library(ggplot2)
 library(rstan)
 options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
 model = stan_model("tensor2d.stan")
-fit = sampling(model, data=data, iter=100, chains=4)
+sink("Routput.txt",append=TRUE)
+cat("n=",n,"\n")
+fit = sampling(model, data=data, iter=600, chains=4)
 
 out = extract(fit)
-print(fit,"trainRMSE")
-print(fit,"testRMSE")
+print(fit,"U")
+print(fit,"V")
+print(fit,"w")
+trainpred=colMeans(out$trainpred)
+testpred=colMeans(out$testpred)
+trainRMSE=sqrt(mean((ytrain-trainpred)^2))*s
+testRMSE=sqrt(mean((ytest-testpred)^2))*s
+cat("n=",n,"; r=",r,"\n")
+cat("trainRMSE=",trainRMSE,"\n")
+cat("testRMSE=",testRMSE,"\n")
