@@ -1,18 +1,19 @@
 data {
   int<lower=1> N;
   int<lower=1> Ntrain;
-  int<lower=1> n;
+  int<lower=1> n1;
+  int<lower=1> n2;
   int<lower=1> r;
-  matrix[Ntrain,n] phitrainU;
-  matrix[Ntrain,n] phitrainV;
-  matrix[N-Ntrain,n] phitestU;
-  matrix[N-Ntrain,n] phitestV;
+  matrix[Ntrain,n1] phitrainU;
+  matrix[Ntrain,n2] phitrainV;
+  matrix[N-Ntrain,n1] phitestU;
+  matrix[N-Ntrain,n2] phitestV;
   vector[Ntrain] ytrain;
   real<lower=0> sigma;
 }
 parameters {
-  matrix[n,r] U;
-  matrix[n,r] V;
+  matrix[n1,r] U;
+  matrix[n2,r] V;
   matrix[r,r] w;
 }
 transformed parameters{
@@ -25,9 +26,9 @@ transformed parameters{
 	trainpred[i] <- psitrainU[i]*w*psitrainV[i]';
 }
 model {
-  for (i in 1:n)
+  for (i in 1:n1)
 	  U[i] ~ normal(0,sqrt(1.0/r));
-  for (i in 1:n)
+  for (i in 1:n2)
 	  V[i] ~ normal(0,sqrt(1.0/r));
   for (i in 1:r)  
 	  w[i] ~ normal(0,1);

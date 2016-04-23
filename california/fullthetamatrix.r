@@ -28,8 +28,7 @@ sigma_RBF=0.9497
 l1=0.0136
 l2=0.0216
 
-n=100
-r=5
+n=5
 
 Z1=rnorm(n,0,1)/l1
 Z2=rnorm(n,0,1)/l2
@@ -48,21 +47,19 @@ phitrainV=phiV[1:Ntrain,]
 phitestU=phiU[(Ntrain+1):N,]
 phitestV=phiV[(Ntrain+1):N,]
 
-data=list(N=N,Ntrain=Ntrain,n=n,r=r,phitrainU=phitrainU,phitrainV=phitrainV,
-          phitestU=phitestU,phitestV=phitestV,ytrain=ytrain,ytest=ytest,
+data=list(N=N,Ntrain=Ntrain,n=n,phitrainU=phitrainU,phitrainV=phitrainV,
+          phitestU=phitestU,phitestV=phitestV,ytrain=ytrain,
           sigma=sigma)
-options(mc.cores = parallel::detectCores())
+options(mc.cores = 4)
 rstan_options(auto_write = TRUE)
 
-model = stan_model("tensor2d.stan")
+model = stan_model("fullthetamatrix.stan")
 sink("Routput_tensor.txt",append=TRUE)
-cat("n=",n,"; r=",r,"\n")
-fit = sampling(model, data=data, iter=600, chains=4)
+cat("n=",n,"\n")
+fit = sampling(model, data=data, iter=10, chains=1)
 
 out = extract(fit)
-print(fit,"U")
-print(fit,"V")
-print(fit,"w")
+print(fit,"theta")
 trainpred=colMeans(out$trainpred)
 testpred=colMeans(out$testpred)
 trainRMSE=sqrt(mean((ytrain-trainpred)^2))*s
