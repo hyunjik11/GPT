@@ -25,7 +25,7 @@ transformed parameters{
   psiU <- phiU*U;
   psiV <- phiV*V;
   for (i in 1:Ntrain)
-	  trainpred[i] <- psiU[indtrainU[i]]*w*psiV[indtrainV[i]]';
+	  trainpred[i] <- psiU[indtrainU[i],:]*w*psiV[indtrainV[i],:]';
 }
 model {
   for (i in 1:n1)
@@ -39,6 +39,6 @@ model {
 generated quantities {
   vector[N-Ntrain] testpred;
   for (i in 1:(N-Ntrain))
-	testpred[i] <- psiU[indtestU[i]]*w*psiV[indtestV[i]]';
+	testpred[i] <- psiU[indtestU[i],:]*w*psiV[indtestV[i],:]';
 }
 

@@ -1,7 +1,7 @@
 data = read.table("california/cadata.txt", col.names=  c( "MedHouseVal", "MedInc", "HouseAge", "AveRooms", "AveBedrms",
-                                               "Population", "AveOccup", "long", "lat"))
+                                               "Population", "AveOccup", "lat", "long"))
 data$MedHouseVal = log(data$MedHouseVal)
-f=data.frame(data$long,data$lat,data$MedHouseVal)
+f=data.frame(data$lat,data$long,data$MedHouseVal)
 
 N=nrow(f)
 D=ncol(f)-1
@@ -25,8 +25,10 @@ ytest=y[(Ntrain+1):N]
 
 sigma=0.3696
 sigma_RBF=0.9497
-l1=0.0136
-l2=0.0216
+l1=0.0136 #lat
+l2=0.0216 #long
+
+
 
 n=5
 r=2

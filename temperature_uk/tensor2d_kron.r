@@ -1,40 +1,55 @@
 library(ggplot2)
 library(rstan)
-load('temp.rda')
+load('temp_final.RData')
+library(h5); file=h5file("temp_eigenfeatures.h5"); phiU=t(file["phiU"][]); phiV=t(file["phiV"][]);
+s=4.4960
 r=10
-s=4.4817
 data=list(N=N,Ntrain=Ntrain,n1=n1,n2=n2,r=r,phiU=phiU,phiV=phiV,
-          indtrainU=indtrainU,indtrainV=indtrainV,indtestU=indtestU,indtestV=indtestU,
+          indtrainU=indtrainU,indtrainV=indtrainV,indtestU=indtestU,indtestV=indtestV,
           ytrain=ytrain,ytest=ytest,sigma=sigma)
 
 rstan_options(auto_write = TRUE)
 options(mc.cores = 4)
 model = stan_model("tensor2d_kron.stan")
-
+#sink("tensor2d_10r.txt",append=TRUE)
+numiter=200
+warmup=100
 ptm=proc.time()
-sink("tensor2d_10r.txt",append=TRUE)
-cat("r=",r,"\n")
-fit = sampling(model, data=data, iter=600, warmup=500,chains=4)
-time_elapsed=proc.time()-ptm
-
+fit = sampling(model, data=data, iter=numiter, chains=4,warmup=warmup)
 #opt = optimizing(model,data=data)
 #fit = vb(model,data=data)
+time_elapsed=proc.time()-ptm
+print(time_elapsed)
+
+
 
 out = extract(fit)
-print(fit,"U")
-print(fit,"V")
-print(fit,"w")
 
+trainRMSE=rep(0,numiter-warmup)
+testRMSE=rep(0,numiter-warmup)
+for (i in 1:(numiter-warmup)){
+  id=(4*(i-1)+1):(4*i)
+  yfittrain=colMeans(out$trainpred[id,])
+  yfittest=colMeans(out$testpred[id,])
+  trainRMSE[i]=sqrt(mean((ytrain-yfittrain)^2))*s
+  testRMSE[i]=sqrt(mean((ytest-yfittest)^2))*s
+}
+cat("r=",r,"\n")
+print("trainRMSE=")
+print(trainRMSE)
+print("testRMSE=")
+print(testRMSE)
+rhat=summary(fit)$summary[,"Rhat"];neff=summary(fit)$summary[,"n_eff"];
+cat("rhat=",mean(rhat),"+/-",sd(rhat),";n_eff=",mean(neff),"+/-",sd(neff),"\n")
 trainpred=colMeans(out$trainpred)
 testpred=colMeans(out$testpred)
-trainRMSE=sqrt(mean((ytrain-trainpred)^2))*s
-testRMSE=sqrt(mean((ytest-testpred)^2))*s
-cat("trainRMSE=",trainRMSE,"\n")
-cat("testRMSE=",testRMSE,"\n")
-print(time_elapsed)
-sink()
+cat("final trainRMSE=",sqrt(mean((ytrain-trainpred)^2))*s,"\n")
+cat("final testRMSE=",sqrt(mean((ytest-testpred)^2))*s,"\n")
 
-###Code used to generate variables in temp.rda###
+
+#sink()
+
+
 # library(R.matlab)
 # df = readMat("/homes/hkim/TensorGP/src/uk_temp/temp.mat")
 # attach(df)

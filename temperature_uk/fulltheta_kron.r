@@ -1,0 +1,55 @@
+library(ggplot2)
+library(rstan)
+load('temp_final.RData')
+#library(h5); file=h5file("temp_eigenfeatures.h5"); phiU=t(file["phiU"][]); phiV=t(file["phiV"][]);
+s=4.4960
+data=list(N=N,Ntrain=Ntrain,n1=n1,n2=n2,phiU=phiU,phiV=phiV,
+          indtrainU=indtrainU,indtrainV=indtrainV,indtestU=indtestU,indtestV=indtestV,
+          ytrain=ytrain,ytest=ytest,sigma=sigma)
+
+rstan_options(auto_write = TRUE)
+options(mc.cores = 4)
+model = stan_model("fulltheta_kron.stan")
+
+numiter=120
+warmup=20
+ptm=proc.time()
+fit = sampling(model, data=data, iter=numiter, chains=4,warmup=warmup)
+time_elapsed=proc.time()-ptm
+print(time_elapsed)
+
+#opt = optimizing(model,data=data)
+#fit = vb(model,data=data)
+
+out = extract(fit)
+
+trainRMSE=rep(0,numiter-warmup)
+testRMSE=rep(0,numiter-warmup)
+for (i in 1:(numiter-warmup)){
+  id=(4*(i-1)+1):(4*i)
+  yfittrain=colMeans(out$trainpred[id,])
+  yfittest=colMeans(out$testpred[id,])
+  trainRMSE[i]=sqrt(mean((ytrain-yfittrain)^2))*s
+  testRMSE[i]=sqrt(mean((ytest-yfittest)^2))*s
+}
+
+print("trainRMSE=")
+print(trainRMSE)
+print("testRMSE=")
+print(testRMSE)
+rhat=summary(fit)$summary[,"Rhat"];neff=summary(fit)$summary[,"n_eff"];
+cat("rhat=",mean(rhat),"+/-",sd(rhat),";n_eff=",mean(neff),"+/-",sd(neff),"\n")
+trainpred=colMeans(out$trainpred)
+testpred=colMeans(out$testpred)
+cat("final trainRMSE=",sqrt(mean((ytrain-trainpred)^2))*s,"\n")
+cat("final testRMSE=",sqrt(mean((ytest-testpred)^2))*s,"\n")
+# ###using opt
+# id = seq(1,120,4)
+# opt = optimizing(model,data=data)
+# par=opt$par
+# trainpred=par[(n1*n2+1):(n1*n2+length(ytrain))]
+# testpred=par[(n1*n2+length(ytrain)+1):(n1*n2+length(ytrain)+length(ytest))]
+# trainRMSE=sqrt(mean((ytrain-trainpred)^2))*s
+# testRMSE=sqrt(mean((ytest-testpred)^2))*s
+# cat("trainRMSE=",trainRMSE,"\n")
+# cat("testRMSE=",testRMSE,"\n")

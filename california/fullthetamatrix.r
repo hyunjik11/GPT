@@ -28,7 +28,7 @@ sigma_RBF=0.9497
 l1=0.0136
 l2=0.0216
 
-n=5
+n=200
 
 Z1=rnorm(n,0,1)/l1
 Z2=rnorm(n,0,1)/l2
@@ -54,16 +54,18 @@ options(mc.cores = 4)
 rstan_options(auto_write = TRUE)
 
 model = stan_model("fullthetamatrix.stan")
-sink("Routput_tensor.txt",append=TRUE)
+#sink("Routput_tensor.txt",append=TRUE)
 cat("n=",n,"\n")
-fit = sampling(model, data=data, iter=10, chains=1)
+fit = sampling(model, data=data, iter=350, chains=4,warmup=50)
 
 out = extract(fit)
-print(fit,"theta")
+#print(fit,"theta")
+rhat=summary(fit)$summary[,"Rhat"];neff=summary(fit)$summary[,"n_eff"];
+cat("rhat=",mean(rhat),"+/-",sd(rhat),";n_eff=",mean(neff),"+/-",sd(neff),"\n")
 trainpred=colMeans(out$trainpred)
 testpred=colMeans(out$testpred)
 trainRMSE=sqrt(mean((ytrain-trainpred)^2))*s
 testRMSE=sqrt(mean((ytest-testpred)^2))*s
 cat("trainRMSE=",trainRMSE,"\n")
 cat("testRMSE=",testRMSE,"\n")
-sink()
+#sink()
