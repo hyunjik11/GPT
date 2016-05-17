@@ -1,3 +1,5 @@
+load('cali_plot.mat')
+
 figure();
 % subplot(1,4,1);
 % n_values=[1,2,3,4,5,6];
@@ -22,7 +24,7 @@ plot(n_values,tensor5train);
 plot(n_values,tensor10train);
 
 ylim([0.15 0.5]);
-legend('gp','full-theta','tensor,r=2','tensor,r=5','tensor,r=10');
+legend('gp','full-rank','TGP, r=2','TGP, r=5','TGP, r=10');
 set(gca,'XTick',[1 2 3 4]);
 set(gca,'XTickLabel',[25 50 100 200]);
 xlabel('n')
@@ -52,7 +54,7 @@ plot(n_values,tensor2test);
 plot(n_values,tensor5test);
 plot(n_values,tensor10test);
 ylim([0.15 0.5]);
-legend('gp','full-theta','tensor,r=2','tensor,r=5','tensor,r=10');
+legend('gp','full-rank','TGP, r=2','TGP, r=5','TGP, r=10');
 set(gca,'XTick',[1 2 3 4]);
 set(gca,'XTickLabel',[25 50 100 200]);
 xlabel('n')
